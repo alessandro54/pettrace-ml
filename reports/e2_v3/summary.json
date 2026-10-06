@@ -312,14 +312,19 @@
   "pairs_same": 543,
   "pairs_diff": 3498,
   "same_range": [
-    0.66818,
-    0.96654
+    0.6681831479072571,
+    0.9665380716323853
   ],
   "diff_range": [
-    0.54052,
-    0.95183
+    0.5405162572860718,
+    0.9518349170684814
   ],
   "dataset": "pettrace-reid@v3",
   "commit": "354763693e9105eb953c559620037dd98995326b",
-  "model_version": "clip-vit-b32-crop@v1"
+  "protocol": "zero-shot",
+  "model_version": "clip-vit-b32-crop@v1",
+  "model_sha256": {
+    "detector.onnx": "da8f9b9ebea5157cdcefa7bea9fd782249ebdf119f917c07d64e5b41942b9c9d",
+    "encoder.onnx": "4773e649274ca8774c4a63d45f0438fe598ee7ba67e65def97537aa0eca9a576"
+  }
 }
