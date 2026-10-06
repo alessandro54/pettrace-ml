@@ -128,9 +128,45 @@ def similarity_matrix(ev, label: str = ""):
     return fig
 
 
+def confusion(ev, label: str = ""):
+    """Top-1 confusion per species: row = queried animal, column = animal ranked first (the
+    diagonal is a hit). Cells show the number of queries, colour the share of the row."""
+    import matplotlib.pyplot as plt
+
+    rows, (animals, species_of) = _rows(ev), _animals(ev)
+    groups = [sp for sp in ("cat", "dog") if sp in species_of.values()]
+    fig, axes = plt.subplots(1, len(groups), figsize=(4.9 * len(groups), 4.4), squeeze=False,
+                             gridspec_kw={"wspace": 0.35})
+    im = None
+    for k, (ax, sp) in enumerate(zip(axes[0], groups)):
+        names = [a for a in animals if species_of[a] == sp]
+        pos = {a: i for i, a in enumerate(names)}
+        C = np.zeros((len(names), len(names)), dtype=int)
+        for r in rows:
+            if r["species"] == sp:
+                C[pos[r["animal"]], pos[r["animal"] if r["rank"] == 1 else r["rival"]]] += 1
+        share = C / np.maximum(C.sum(axis=1, keepdims=True), 1)
+        im = ax.imshow(share, cmap="Blues", vmin=0, vmax=1)
+        ax.set_xticks(range(len(names)), names, rotation=45, ha="right", fontsize=9)
+        ax.set_yticks(range(len(names)), names, fontsize=9)
+        for i in range(len(names)):
+            for j in range(len(names)):
+                if C[i, j]:
+                    ax.text(j, i, str(C[i, j]), ha="center", va="center", fontsize=9,
+                            color="white" if share[i, j] > 0.5 else "black", fontweight="bold" if i == j else None)
+        ax.set_xlabel("primer lugar del ranking")
+        if k == 0:
+            ax.set_ylabel("animal consultado")
+        ax.set_title(f"{SPECIES_ES[sp].capitalize()} (aciertos {np.trace(C)}/{C.sum()})", fontsize=11)
+    fig.colorbar(im, ax=axes[0].tolist(), fraction=0.025, label="proporción de la fila")
+    fig.suptitle(f"Confusión top-1 por especie{' — ' + label if label else ''}", fontsize=11)
+    return fig
+
+
 def all_figures(ev, label: str) -> dict:
-    return {"rank1_por_animal": rank1_per_animal(ev, label), "distribucion_scores": score_distribution(ev, label),
-            "cmc": cmc(ev, label), "matriz_similitud": similarity_matrix(ev)}
+    return {"confusion": confusion(ev, label), "rank1_por_animal": rank1_per_animal(ev, label),
+            "distribucion_scores": score_distribution(ev, label), "cmc": cmc(ev, label),
+            "matriz_similitud": similarity_matrix(ev)}
 
 
 def save(ev, model, outdir: str, label: str | None = None) -> dict:
