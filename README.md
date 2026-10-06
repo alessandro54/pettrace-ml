@@ -42,10 +42,12 @@ within noise (confidence intervals: [TODO.md](TODO.md)). Per-animal tables and f
 
 | | Notebook (canonical record) | MLflow run (`pettrace-reid-eval`) | Code commit |
 |---|---|---|---|
-| E1 | [`e1_clip_zero_shot.ipynb`](notebooks/e1_clip_zero_shot.ipynb) | [`8098d8c4`](https://mlflow.chumpitaz.dev/#/experiments/3/runs/8098d8c49c0448fe93282565a2202af6) | `a9b9644` |
-| E2 | [`e2_yolo_crop_zero_shot.ipynb`](notebooks/e2_yolo_crop_zero_shot.ipynb) | [`3853faca`](https://mlflow.chumpitaz.dev/#/experiments/3/runs/3853facaa89540738f62c2fde77c14a8) | `adec75c` |
+| E1 | [`e1_clip_zero_shot.ipynb`](notebooks/e1_clip_zero_shot.ipynb) | [`af8a88b1`](https://mlflow.chumpitaz.dev/#/experiments/3/runs/af8a88b1e2a6434c9eeb31b62c9010e4) | `f80d1d6` |
+| E2 | [`e2_yolo_crop_zero_shot.ipynb`](notebooks/e2_yolo_crop_zero_shot.ipynb) | [`e0d3e49a`](https://mlflow.chumpitaz.dev/#/experiments/3/runs/e0d3e49aec554a4588efa3bce99955e1) | `c9dd2b9` |
 
-Each notebook shows the data, the model identity, the evaluation, tables, figures and conclusions,
+Each notebook shows the data, how the model was built, the whole evaluation computed step by step
+(preprocessing, embeddings, similarities, ranking, metric formulas, checked against the library),
+tables, figures with how to read them, and conclusions,
 and is attached (executed) to its run together with the figures.
 
 ## What identifies a result
@@ -70,7 +72,7 @@ Needs Docker, read access to the private dataset (Hugging Face token) and an MLf
 
 ```bash
 git clone https://github.com/alessandro54/pettrace-ml && cd pettrace-ml
-git checkout <commit from the run's git_sha tag>   # a9b9644 (E1), adec75c (E2)
+git checkout <commit from the run's git_sha tag>   # f80d1d6 (E1), c9dd2b9 (E2)
 cp .env.example .env            # MLflow user/password + HF_TOKEN
 make image                      # Linux, Python 3.11, versions from uv.lock
 
