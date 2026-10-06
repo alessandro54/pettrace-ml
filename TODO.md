@@ -2,8 +2,8 @@
 
 ## Now (OE2/OE3 evidence)
 
-- [ ] Re-run E1 and E2 on `pettrace-reid@v3` (pseudonymous codes, same photos as `v2`); publish
-      `reports/e1_v3`, `reports/e2_v3` and attach them to the runs (`make evaluate`, `make report`).
+- [x] Re-run E1 and E2 on `pettrace-reid@v3` (pseudonymous codes); reports attached to runs
+      `75b146de` (E1) and `7341d6e4` (E2).
 - [ ] **Confidence intervals**: bootstrap over animals (and queries) for Rank-1, mAP and EER; report
       `73.4 % [a–b]` everywhere. With 128 queries the E1/E2 gap is within noise.
 - [ ] **Model cards** per registered version (purpose, data, metrics with CIs, limits, licences:

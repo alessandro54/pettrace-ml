@@ -21,7 +21,7 @@ reports. The app itself (iOS, Android, Go core, vision service) lives in a separ
 | E4 | E3 + LoRA fine-tuning (r = 8, α = 16, q/v) | LoRA on `train` | design |
 | E5 | E4 + re-ranking with the sighting's text description | weight on `val` | design |
 
-### Results on `pettrace-reid@v2` (zero-shot)
+### Results on `pettrace-reid@v3` (zero-shot)
 
 14 animals (7 cats, 7 dogs), 128 photos. Every photo is a query against the other photos of the
 same species (leave-one-out); each animal scores with its best photo. Chance Rank-1 = 1/7 = 14.3 %.
@@ -35,9 +35,15 @@ The EER threshold is chosen on the same pairs (optimistic).
 | EER (threshold) | 39.2 % (0.794) | 35.0 % (0.812) |
 
 Cropping separates same-animal from different-animal scores better (lower EER, higher mAP) and
-helps dogs, but hurts look-alike cats (in one tabby look-alike pair, one cat is taken for the
-other in 6 of 10 queries): part of E1's hits came from the photo's background. Per-animal tables
-and figures: `reports/` (regenerated on `v3`, see [TODO.md](TODO.md)).
+helps dogs, but hurts look-alike cats (`cat-01` is taken for `cat-02`, same tabby pattern, in 6 of
+10 queries): part of E1's hits came from the photo's background. With 128 queries the Rank-1 gap is
+within noise (confidence intervals: [TODO.md](TODO.md)). Per-animal tables and figures:
+[`reports/e1_v3`](reports/e1_v3), [`reports/e2_v3`](reports/e2_v3).
+
+| | MLflow run (`pettrace-reid-eval`) | Code commit |
+|---|---|---|
+| E1 | [`75b146de`](https://mlflow.chumpitaz.dev/#/experiments/3/runs/75b146de3188426aad3ce873b7a4d386) | `444dd93` |
+| E2 | [`7341d6e4`](https://mlflow.chumpitaz.dev/#/experiments/3/runs/7341d6e405ec41cba735af4f429be2d8) | `444dd93` |
 
 ## What identifies a result
 
@@ -45,7 +51,7 @@ Registry version numbers and run IDs are local to one MLflow server; these are n
 
 | | Identity |
 |---|---|
-| Dataset | Hugging Face `alessandro54/pettrace-reid`, tag `v2`, commit `73b47b9e686bbb65759ea3b5fa6ca30d8d457541` |
+| Dataset | Hugging Face `alessandro54/pettrace-reid`, tag `v3`, commit `354763693e9105eb953c559620037dd98995326b` |
 | E1 model | `clip-vit-b32@v1`: `encoder.onnx` sha256 `4773e649274ca8774c4a63d45f0438fe598ee7ba67e65def97537aa0eca9a576`, golden fingerprint `5e40c7774bd7ad51` |
 | E2 model | `clip-vit-b32-crop@v1`: same encoder + `detector.onnx` sha256 `da8f9b9ebea5157cdcefa7bea9fd782249ebdf119f917c07d64e5b41942b9c9d` |
 | Code | the commit of this repository recorded on each run (`git_sha` tag) |
@@ -65,13 +71,13 @@ git checkout <commit from the run's git_sha tag>
 cp .env.example .env            # MLflow user/password + HF_TOKEN
 make image                      # Linux, Python 3.11, versions from uv.lock
 
-make evaluate DATASET=v2 MODEL=models:/pettrace-embedder/1 PROTOCOL=zero-shot   # E1
-make evaluate DATASET=v2 MODEL=models:/pettrace-embedder/2 PROTOCOL=zero-shot   # E2
-make report DATASET=v2 MODEL=models:/pettrace-embedder/2 NAME=e2_v2 RUN=<run id> # figures → run
+make evaluate DATASET=v3 MODEL=models:/pettrace-embedder/1 PROTOCOL=zero-shot   # E1
+make evaluate DATASET=v3 MODEL=models:/pettrace-embedder/2 PROTOCOL=zero-shot   # E2
+make report DATASET=v3 MODEL=models:/pettrace-embedder/2 NAME=e2_v3 RUN=<run id> # figures → run
 ```
 
 Evaluating writes a run, so a read-only user can reproduce the numbers without logging:
-`docker run --rm --env-file .env -v $PWD:/repo pettrace-ml scripts/evaluate.py --dataset v2 --model models:/pettrace-embedder/2 --protocol zero-shot --no-mlflow`.
+`docker run --rm --env-file .env -v $PWD:/repo pettrace-ml scripts/evaluate.py --dataset v3 --model models:/pettrace-embedder/2 --protocol zero-shot --no-mlflow`.
 
 The models are downloaded from MLflow and checked by hash. To rebuild them from scratch instead:
 `make image-export && make register-v1` re-exports E1 from the pinned Hugging Face revision and
@@ -97,9 +103,9 @@ service at startup and by `make verify-model`) fails if they diverge.
 
 - **Photos are not in this repository.** `pettrace-reid` is a private dataset: owners gave consent
   for a private research dataset; EXIF/GPS is stripped. Reports contain scores and file names only.
-- **Animals are pseudonymous.** Published dataset versions (from `v3`) and everything here use
-  codes (`cat-01`, `dog-03`); pets' names never leave the curation tool, because names plus photos
-  identify the owners.
+- **Animals are pseudonymous.** The dataset and everything here use codes (`cat-01`, `dog-03`);
+  pets' names never leave the curation tool, because names plus photos identify the owners.
+  `v3` is the only dataset version (earlier ones used names and were removed).
 - Code: MIT ([LICENSE](LICENSE)).
 - YOLOv8 weights (E2 detector) are AGPL-3.0 (Ultralytics); they are not distributed here.
 - CLIP ViT-B/32: OpenAI, MIT.
