@@ -3,7 +3,7 @@
 ## Now (OE2/OE3 evidence)
 
 - [x] E1 and E2 on `pettrace-reid@v3`: one notebook per experiment, executed and attached to runs
-      `7f0ec253` (E1) and `f4dbc2a1` (E2).
+      `8098d8c4` (E1) and `3853faca` (E2).
 - [ ] E3–E5 notebooks (`notebooks/README.md`): training inside the notebook, Colab GPU setup cell
       (install this repo at the pinned commit, MLflow/HF secrets from Colab).
 - [ ] **Confidence intervals**: bootstrap over animals (and queries) for Rank-1, mAP and EER; report

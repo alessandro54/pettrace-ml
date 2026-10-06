@@ -42,8 +42,8 @@ within noise (confidence intervals: [TODO.md](TODO.md)). Per-animal tables and f
 
 | | Notebook (canonical record) | MLflow run (`pettrace-reid-eval`) | Code commit |
 |---|---|---|---|
-| E1 | [`e1_clip_zero_shot.ipynb`](notebooks/e1_clip_zero_shot.ipynb) | [`7f0ec253`](https://mlflow.chumpitaz.dev/#/experiments/3/runs/7f0ec2535997458ab8f1b2c4b7cc5487) | `398c0d5` |
-| E2 | [`e2_yolo_crop_zero_shot.ipynb`](notebooks/e2_yolo_crop_zero_shot.ipynb) | [`f4dbc2a1`](https://mlflow.chumpitaz.dev/#/experiments/3/runs/f4dbc2a1189446edbb4b15f570d271de) | `c0712ff` |
+| E1 | [`e1_clip_zero_shot.ipynb`](notebooks/e1_clip_zero_shot.ipynb) | [`8098d8c4`](https://mlflow.chumpitaz.dev/#/experiments/3/runs/8098d8c49c0448fe93282565a2202af6) | `a9b9644` |
+| E2 | [`e2_yolo_crop_zero_shot.ipynb`](notebooks/e2_yolo_crop_zero_shot.ipynb) | [`3853faca`](https://mlflow.chumpitaz.dev/#/experiments/3/runs/3853facaa89540738f62c2fde77c14a8) | `adec75c` |
 
 Each notebook shows the data, the model identity, the evaluation, tables, figures and conclusions,
 and is attached (executed) to its run together with the figures.
@@ -70,7 +70,7 @@ Needs Docker, read access to the private dataset (Hugging Face token) and an MLf
 
 ```bash
 git clone https://github.com/alessandro54/pettrace-ml && cd pettrace-ml
-git checkout <commit from the run's git_sha tag>   # 398c0d5 (E1), c0712ff (E2)
+git checkout <commit from the run's git_sha tag>   # a9b9644 (E1), adec75c (E2)
 cp .env.example .env            # MLflow user/password + HF_TOKEN
 make image                      # Linux, Python 3.11, versions from uv.lock
 
