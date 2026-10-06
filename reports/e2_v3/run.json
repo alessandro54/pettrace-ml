@@ -1,8 +1,8 @@
 {
-  "run_id": "3853facaa89540738f62c2fde77c14a8",
+  "run_id": "e0d3e49aec554a4588efa3bce99955e1",
   "experiment": "E2",
   "dataset": "pettrace-reid@v3",
   "dataset_commit": "354763693e9105eb953c559620037dd98995326b",
   "model": "models:/pettrace-embedder/2",
-  "git_sha": "adec75c064b045d9453f151254efb2b984a9fb95"
+  "git_sha": "c9dd2b98dd412169c0c701a76e1e276e1e486bc2"
 }
