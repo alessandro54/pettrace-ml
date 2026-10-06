@@ -88,10 +88,11 @@ is not guaranteed to be byte-identical, so the validated file is the one inside 
 ## Layout
 
 ```
-reid/        harness: data (pinned dataset versions), metrics (Rank-k, mAP, EER), pipeline (ONNX
-             runner), golden (fingerprint), clip_reference (PyTorch parity reference)
-scripts/     evaluate, report_figures, register_v1, register_e2, verify_model, mlflow_smoke
-notebooks/   training notebooks only (E3+, Colab): pinned dataset version in, MLflow run + model out
+reid/        harness: data (pinned dataset versions), metrics (Rank-k, mAP, EER), evaluation
+             (protocol, model identity, MLflow run), figures, pipeline (ONNX runner), golden
+             (fingerprint), clip_reference (PyTorch parity reference)
+scripts/     evaluate, register_v1, register_e2, verify_model, attach_notebook, mlflow_smoke
+notebooks/   one notebook per experiment (E1–E5): data, model, training, evaluation, results, MLflow run
 reports/     published scores, figures and summaries per model × dataset version
 ```
 

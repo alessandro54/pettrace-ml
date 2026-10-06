@@ -18,6 +18,8 @@ dependencies = [
 
 [dependency-groups]
 figures = ["matplotlib>=3.9,<4"]
+# Execute the experiment notebooks (make notebook).
+notebooks = ["nbconvert>=7.16,<8", "ipykernel>=6.29,<7", "nbformat>=5.10,<6"]
 # Model export / registration only (register_v1.py, reid.clip_reference). Not needed to evaluate.
 export = [
     "torch==2.5.1",

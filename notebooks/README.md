@@ -1,12 +1,27 @@
-# Notebooks
+# Notebooks: one per experiment
 
-Only notebooks that **train or produce a model** live here (E3+ on Colab GPU). Each one:
+Each experiment E1–E5 has exactly one notebook, `eK_<name>.ipynb`, which is its canonical record.
+Every notebook follows the same sections:
 
-1. reads a pinned dataset version, `snapshot_download("alessandro54/pettrace-reid", repo_type="dataset", revision="vN")`;
-2. logs its run to MLflow (`https://mlflow.chumpitaz.dev`, `MLFLOW_*` from Colab secrets) with the
-   dataset version, seeds and the commit of this repo;
-3. registers the result as a `pettrace-embedder` version (`@candidate`), evaluated with
-   `scripts/evaluate.py` like every other version.
+1. **Datos**: the pinned `pettrace-reid` version (commit, fingerprint, counts; never photos: the
+   dataset is private and animals are pseudonymous).
+2. **Modelo**: the registered version, its sha256 and the golden-fingerprint check.
+3. **Entrenamiento**: the training itself when the experiment has one (E3–E5, Colab GPU; seeds,
+   P×K sampler, registration as `@candidate`); "no aplica" for the zero-shot E1/E2.
+4. **Evaluación**: `reid.evaluation` with the thesis protocol.
+5. **Resultados**: tables and figures (`reid.figures`), compared with the previous experiments.
+6. **Registro en MLflow**: one run in `pettrace-reid-eval` with code commit, dataset commit and model
+   hashes; figures under `report/` and the executed notebook under `notebook/`.
+7. **Conclusiones**.
 
-Exploratory notebooks are not kept (the first E1/E2 explorations are in this repo's history).
-Commit notebooks with outputs stripped and never with photos: the dataset is private.
+| | Notebook | Status |
+|---|---|---|
+| E1 | [`e1_clip_zero_shot.ipynb`](e1_clip_zero_shot.ipynb) | done |
+| E2 | [`e2_yolo_crop_zero_shot.ipynb`](e2_yolo_crop_zero_shot.ipynb) | done |
+| E3 | `e3_mlp_head_triplet.ipynb` | needs a dataset with `train`/`val` |
+| E4 | `e4_lora.ipynb` | after E3 |
+| E5 | `e5_text_rerank.ipynb` | after E4 |
+
+Run: `make notebook NB=notebooks/e1_clip_zero_shot.ipynb` (pinned image; commit first so the run
+records a clean `git_sha`), then commit the notebook **with its outputs** and `reports/`.
+Exploratory notebooks are not kept.
