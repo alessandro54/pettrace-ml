@@ -40,10 +40,13 @@ helps dogs, but hurts look-alike cats (`cat-01` is taken for `cat-02`, same tabb
 within noise (confidence intervals: [TODO.md](TODO.md)). Per-animal tables and figures:
 [`reports/e1_v3`](reports/e1_v3), [`reports/e2_v3`](reports/e2_v3).
 
-| | MLflow run (`pettrace-reid-eval`) | Code commit |
-|---|---|---|
-| E1 | [`75b146de`](https://mlflow.chumpitaz.dev/#/experiments/3/runs/75b146de3188426aad3ce873b7a4d386) | `444dd93` |
-| E2 | [`7341d6e4`](https://mlflow.chumpitaz.dev/#/experiments/3/runs/7341d6e405ec41cba735af4f429be2d8) | `444dd93` |
+| | Notebook (canonical record) | MLflow run (`pettrace-reid-eval`) | Code commit |
+|---|---|---|---|
+| E1 | [`e1_clip_zero_shot.ipynb`](notebooks/e1_clip_zero_shot.ipynb) | [`7f0ec253`](https://mlflow.chumpitaz.dev/#/experiments/3/runs/7f0ec2535997458ab8f1b2c4b7cc5487) | `398c0d5` |
+| E2 | [`e2_yolo_crop_zero_shot.ipynb`](notebooks/e2_yolo_crop_zero_shot.ipynb) | [`f4dbc2a1`](https://mlflow.chumpitaz.dev/#/experiments/3/runs/f4dbc2a1189446edbb4b15f570d271de) | `c0712ff` |
+
+Each notebook shows the data, the model identity, the evaluation, tables, figures and conclusions,
+and is attached (executed) to its run together with the figures.
 
 ## What identifies a result
 
@@ -67,13 +70,13 @@ Needs Docker, read access to the private dataset (Hugging Face token) and an MLf
 
 ```bash
 git clone https://github.com/alessandro54/pettrace-ml && cd pettrace-ml
-git checkout <commit from the run's git_sha tag>
+git checkout <commit from the run's git_sha tag>   # 398c0d5 (E1), c0712ff (E2)
 cp .env.example .env            # MLflow user/password + HF_TOKEN
 make image                      # Linux, Python 3.11, versions from uv.lock
 
-make evaluate DATASET=v3 MODEL=models:/pettrace-embedder/1 PROTOCOL=zero-shot   # E1
-make evaluate DATASET=v3 MODEL=models:/pettrace-embedder/2 PROTOCOL=zero-shot   # E2
-make report DATASET=v3 MODEL=models:/pettrace-embedder/2 NAME=e2_v3 RUN=<run id> # figures → run
+make notebook NB=notebooks/e1_clip_zero_shot.ipynb        # E1: executes, logs a run, attaches itself
+make notebook NB=notebooks/e2_yolo_crop_zero_shot.ipynb    # E2 (reads E1's report for the comparison)
+make evaluate DATASET=v3 MODEL=models:/pettrace-embedder/2 PROTOCOL=zero-shot REPORT=reports/e2_v3  # CLI
 ```
 
 Evaluating writes a run, so a read-only user can reproduce the numbers without logging:

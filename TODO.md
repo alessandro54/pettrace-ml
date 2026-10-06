@@ -2,8 +2,10 @@
 
 ## Now (OE2/OE3 evidence)
 
-- [x] Re-run E1 and E2 on `pettrace-reid@v3` (pseudonymous codes); reports attached to runs
-      `75b146de` (E1) and `7341d6e4` (E2).
+- [x] E1 and E2 on `pettrace-reid@v3`: one notebook per experiment, executed and attached to runs
+      `7f0ec253` (E1) and `f4dbc2a1` (E2).
+- [ ] E3–E5 notebooks (`notebooks/README.md`): training inside the notebook, Colab GPU setup cell
+      (install this repo at the pinned commit, MLflow/HF secrets from Colab).
 - [ ] **Confidence intervals**: bootstrap over animals (and queries) for Rank-1, mAP and EER; report
       `73.4 % [a–b]` everywhere. With 128 queries the E1/E2 gap is within noise.
 - [ ] **Model cards** per registered version (purpose, data, metrics with CIs, limits, licences:
