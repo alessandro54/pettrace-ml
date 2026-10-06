@@ -15,7 +15,11 @@
 
 ## OE3 (experiments E3–E5)
 
-- [ ] Grow the dataset (target ≥ 50 animals) so `train`/`val` exist (test is filled first).
+- [ ] **Training data**: E3–E4 train on public pet re-ID datasets (check licences); `pettrace-reid`
+      stays an independent test set. Keep growing it (test first, then `val`).
+- [ ] **Sighting-style photos** (outside the home, far, from behind) and an owner-photo vs
+      street-photo protocol: removes the background advantage E2 exposed in E1.
+- [ ] **Rank-k vs gallery size** (7, 50, 200 candidates, public distractors): the city-scale view.
 - [ ] E3: frozen CLIP + MLP head, triplet loss, P×K sampler; training notebook (Colab GPU) per
       [notebooks/README.md](notebooks/README.md); seeds fixed and logged.
 - [ ] E4: LoRA (r = 8, α = 16, q/v), merged into the ONNX encoder.
