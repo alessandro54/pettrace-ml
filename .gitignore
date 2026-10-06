@@ -1,0 +1,16 @@
+.env
+.env.*
+!.env.example
+.DS_Store
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+# Model files: registered in MLflow (sha256 tagged), never committed
+artifacts/
+*.pt
+*.onnx
+# Dataset copies: pettrace-reid is private on Hugging Face (owners' consent covers a private dataset)
+datasets/raw/
+datasets/build/
