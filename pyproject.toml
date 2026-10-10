@@ -8,10 +8,10 @@ requires-python = ">=3.11,<3.12"
 dependencies = [
     # Same versions the PetTrace vision service serves with (apps/vision/pyproject.toml).
     "numpy>=1.26,<3",
-    "pillow==11.0.0",
+    "pillow==12.3.0",
     "pyyaml>=6,<7",
-    "onnxruntime==1.20.1",
-    "mlflow-skinny==3.16.1",
+    "onnxruntime==1.31.0",
+    "mlflow-skinny==3.17.0",
     "huggingface-hub>=0.26,<1",
     "requests>=2.32,<3",
 ]

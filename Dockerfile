@@ -1,5 +1,5 @@
-# The exact environment the published results were produced in (Linux, Python 3.11, versions from
-# uv.lock). The code is mounted at /repo at run time, so a run always uses the checked-out commit.
+# The pinned evaluation environment (Linux, Python 3.11, versions from uv.lock); the published
+# results reproduce in it (reports/README.md). The code is mounted at /repo at run time, so a run always uses the checked-out commit.
 FROM ghcr.io/astral-sh/uv:0.5.11-python3.11-bookworm-slim
 ENV UV_PROJECT_ENVIRONMENT=/venv UV_LINK_MODE=copy UV_COMPILE_BYTECODE=1
 WORKDIR /repo
