@@ -39,6 +39,6 @@
       next dataset version.
 - [ ] **Trained-model promotion across registries**: copy validated artifacts keeping source run,
       `git_sha`, dataset hash and sha256 (GPU training is not bit-exact).
-- [ ] MLflow from the interim VPS to the AWS target (ECS + RDS): `pg_dump` of schema `mlflow`,
+- [ ] MLflow from the interim host to the AWS target (ECS + RDS): `pg_dump` of schema `mlflow`,
       artifacts stay in R2, point the domain.
 - [ ] Repo hygiene: pre-commit (ruff, nbstripout), Dependabot, pinned image digest.

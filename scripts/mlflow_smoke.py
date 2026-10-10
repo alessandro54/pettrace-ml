@@ -23,7 +23,7 @@ MODEL = "pettrace-smoke-model"
 
 
 def main() -> None:
-    uri = os.environ.get("MLFLOW_TRACKING_URI", "https://mlflow.chumpitaz.dev")
+    uri = os.environ.get("MLFLOW_TRACKING_URI", "https://ml.pettrace.app")
     mlflow.set_tracking_uri(uri)
     mlflow.set_experiment(EXPERIMENT)
     client = MlflowClient()

@@ -42,8 +42,8 @@ within noise (confidence intervals: [TODO.md](TODO.md)). Per-animal tables and f
 
 | | Notebook (canonical record) | MLflow run (`pettrace-reid-eval`) | Code commit |
 |---|---|---|---|
-| E1 | [`e1_clip_zero_shot.ipynb`](notebooks/e1_clip_zero_shot.ipynb) | [`af8a88b1`](https://mlflow.chumpitaz.dev/#/experiments/3/runs/af8a88b1e2a6434c9eeb31b62c9010e4) | `f80d1d6` |
-| E2 | [`e2_yolo_crop_zero_shot.ipynb`](notebooks/e2_yolo_crop_zero_shot.ipynb) | [`e0d3e49a`](https://mlflow.chumpitaz.dev/#/experiments/3/runs/e0d3e49aec554a4588efa3bce99955e1) | `c9dd2b9` |
+| E1 | [`e1_clip_zero_shot.ipynb`](notebooks/e1_clip_zero_shot.ipynb) | [`af8a88b1`](https://ml.pettrace.app/#/experiments/3/runs/af8a88b1e2a6434c9eeb31b62c9010e4) | `f80d1d6` |
+| E2 | [`e2_yolo_crop_zero_shot.ipynb`](notebooks/e2_yolo_crop_zero_shot.ipynb) | [`e0d3e49a`](https://ml.pettrace.app/#/experiments/3/runs/e0d3e49aec554a4588efa3bce99955e1) | `c9dd2b9` |
 
 Each notebook shows the data, how the model was built, the whole evaluation computed step by step
 (preprocessing, embeddings, similarities, ranking, metric formulas, checked against the library),
@@ -61,7 +61,7 @@ Registry version numbers and run IDs are local to one MLflow server; these are n
 | E2 model | `clip-vit-b32-crop@v1`: same encoder + `detector.onnx` sha256 `da8f9b9ebea5157cdcefa7bea9fd782249ebdf119f917c07d64e5b41942b9c9d` |
 | Code | the commit of this repository recorded on each run (`git_sha` tag) |
 
-Every evaluation run in MLflow (`https://mlflow.chumpitaz.dev`, experiment `pettrace-reid-eval`)
+Every evaluation run in MLflow (`https://ml.pettrace.app`, experiment `pettrace-reid-eval`)
 records the dataset commit and fingerprint, the resolved model version, the sha256 of every ONNX
 file it evaluated, the code commit, the ONNX Runtime version and the CPU.
 
