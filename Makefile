@@ -1,4 +1,4 @@
-.PHONY: image image-export evaluate notebook register-v1 register-e2 verify-model mlflow-smoke test test-e3 lint
+.PHONY: image image-export evaluate notebook register-v1 register-e2 verify-model mlflow-smoke test test-e3 lint manifest
 
 IMAGE ?= pettrace-ml
 # Every MLflow run records the commit it came from; GIT_DIRTY=true marks uncommitted code.
@@ -44,3 +44,7 @@ test-e3:
 
 lint:
 	uv run --group dev ruff check .
+
+# Refresh the Git-tracked run index; MLflow reads only, local .env supplied by Docker.
+manifest:
+	$(DOCKER) $(IMAGE) tools/sync_experiments.py

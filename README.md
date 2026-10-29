@@ -3,8 +3,7 @@
 Re-identification experiments for **PetTrace**, a mobile app that helps find lost pets in Lima
 (UPC thesis). Given a photo of a sighted animal, the system ranks the lost-pet reports of the same
 species by visual similarity; the owner confirms. This repository holds everything needed to
-measure that ranking: the evaluation harness, model registration, notebooks and the published
-reports. The app itself (iOS, Android, Go core, vision service) lives in a separate repository.
+measure that ranking: the evaluation harness, model registration, notebooks and links to the experiment results recorded in MLflow. The app itself (iOS, Android, Go core, vision service) lives in a separate repository.
 
 > **Resumen (ES).** Experimentos de re-identificación de mascotas de la tesis PetTrace (UPC):
 > arnés de evaluación, registro de modelos, notebooks y resultados. Cada resultado es
@@ -38,7 +37,8 @@ Cropping separates same-animal from different-animal scores better (lower EER, h
 helps dogs, but hurts look-alike cats (`cat-01` is taken for `cat-02`, same tabby pattern, in 6 of
 10 queries): part of E1's hits came from the photo's background. With 128 queries the Rank-1 gap is
 within noise (confidence intervals: [TODO.md](TODO.md)). Per-animal tables and figures:
-[`reports/e1_v3`](reports/e1_v3), [`reports/e2_v3`](reports/e2_v3).
+[E1 v3 in MLflow](https://ml.pettrace.app/#/experiments/3/runs/af8a88b1e2a6434c9eeb31b62c9010e4),
+[E2 v3 in MLflow](https://ml.pettrace.app/#/experiments/3/runs/e0d3e49aec554a4588efa3bce99955e1).
 
 | | Notebook (canonical record) | MLflow run (`pettrace-reid-eval`) | Code commit |
 |---|---|---|---|
@@ -49,7 +49,7 @@ Each notebook is an independently executable experiment report. It installs the 
 package, declares its own configuration, loads its own data/models, and presents the method,
 tables, figures, interpretation and limitations. E2 and E3 compute their baseline comparisons
 within the same run; neither requires reports from an earlier notebook. Publication to production
-MLflow is explicit and disabled by default.
+MLflow is explicitly controlled in each notebook.
 
 For development, install from the checkout with `uv sync --group dev --extra training`.
 For a remote kernel, notebooks use the installed package. Until the first wheel release exists,
@@ -65,6 +65,23 @@ The distribution is named `pettrace-ml`; its Python import package is `pettrace`
 from pettrace import data, metrics
 from pettrace.evaluation import evaluate
 ```
+
+## Experiment results
+
+El índice versionado [`experiments.yaml`](experiments.yaml) reúne las ejecuciones publicadas de
+E1–E5: dataset, modelo, estado, commit, métricas principales y enlace a MLflow. Las métricas del
+índice son una instantánea; los resultados completos y sus artefactos siguen en MLflow.
+Después de publicar nuevas ejecuciones, actualiza el índice con `make manifest` y versiona solo
+el manifiesto. El comando consulta MLflow en modo lectura y no descarga reportes ni crea runs.
+
+
+MLflow is the source of truth for metrics, figures, analysis, conclusions, provenance and executed
+notebooks. The completed [E1 v4 run](https://ml.pettrace.app/#/experiments/3/runs/8601747ecd384d948d429b3b490449c9)
+is recorded separately from the historical v3 runs above. Server read access is required.
+
+Local `reports/` directories are working output only and are Git-ignored. Keep unpublished or
+failed-upload outputs until publication succeeds; results can be downloaded from MLflow later.
+Do not commit generated reports or create a second versioned results archive in this repository.
 
 ## What identifies a result
 
@@ -116,7 +133,8 @@ notebooks/   independently executable experiment reports (E1–E5)
 tests/       package correctness checks; not experimental results or runtime code
 tools/       optional registration, verification and notebook-attachment commands
 docs/        execution notes and experiment protocols
-reports/     historical and newly generated metrics, figures and summaries
+experiments.yaml  small Git-tracked index of MLflow runs
+reports/     ignored working output, generated when needed; published results live in MLflow
 ```
 
 `pettrace/pipeline.py`, `pettrace/golden.py` and `pettrace/clip_reference.py` mirror the vision service's
