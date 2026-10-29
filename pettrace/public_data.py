@@ -48,7 +48,9 @@ def discover(root, source, species):
     return rows, skipped
 
 
-def audit_and_split(rows, output, seed=42, near_mae=2.0, near_hash_distance=2):
+def audit_and_split(rows, output, seed=42, near_mae=2.0, near_hash_distance=2, minimum_photos=2):
+    if minimum_photos < 2:
+        raise ValueError("Identity curation requires at least 2 distinct photos")
     output = Path(output)
     output.mkdir(parents=True, exist_ok=True)
     rows = sorted(rows, key=lambda r: (r["animal"], r["path"]))
@@ -95,7 +97,7 @@ def audit_and_split(rows, output, seed=42, near_mae=2.0, near_hash_distance=2):
         previews[row["animal"]].append((row, dhash, ratio, thumb))
         retained.append(row)
     counts = Counter(r["animal"] for r in retained)
-    retained = [r for r in retained if counts[r["animal"]] >= 2]
+    retained = [r for r in retained if counts[r["animal"]] >= minimum_photos]
     assigned = {}
     for source in sorted({r["source"] for r in retained}):
         identities = sorted({r["animal"] for r in retained if r["source"] == source})
@@ -124,6 +126,8 @@ def audit_and_split(rows, output, seed=42, near_mae=2.0, near_hash_distance=2):
         writer.writerows(retained)
     summary = {"seed": seed, "raw_photos": len(rows), "retained_photos": len(retained),
                "removed_duplicates": removed, "corrupt": corrupt,
+               "minimum_photos": minimum_photos,
+               "insufficient_photo_identities_excluded": sorted(a for a, n in counts.items() if n < minimum_photos),
                "single_image_identities_excluded": sorted(a for a, n in counts.items() if n < 2),
                "note": "Conservative duplicate filtering does not establish multi-session diversity.",
                "counts": {f"{sp}.{split}": {"photos": sum(r["species"] == sp and r["split"] == split for r in retained),

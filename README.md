@@ -1,14 +1,18 @@
 # pettrace-ml
 
-Re-identification experiments for **PetTrace**, a mobile app that helps find lost pets in Lima
-(UPC thesis). Given a photo of a sighted animal, the system ranks the lost-pet reports of the same
-species by visual similarity; the owner confirms. This repository holds everything needed to
-measure that ranking: the evaluation harness, model registration, notebooks and links to the experiment results recorded in MLflow. The app itself (iOS, Android, Go core, vision service) lives in a separate repository.
+Investigación sobre **re-identificación visual de mascotas** para PetTrace, desarrollada en el
+marco de una tesis de la UPC. Ante una fotografía de un avistamiento, el sistema ordena candidatos
+de la misma especie por similitud visual; la confirmación de identidad corresponde a la persona.
+La pregunta es cómo recuperar **al mismo individuo**, no cómo clasificar su raza.
 
-> **Resumen (ES).** Experimentos de re-identificación de mascotas de la tesis PetTrace (UPC):
-> arnés de evaluación, registro de modelos, notebooks y resultados. Cada resultado es
-> reproducible con los comandos de abajo y está trazado en MLflow al commit, al modelo (sha256)
-> y a la versión del dataset.
+Este repositorio presenta el recorrido experimental, las decisiones metodológicas y la evidencia
+obtenida. E1 establece una línea base con CLIP; E2 estudia el recorte mediante detección; E3 plantea
+una proyección métrica entrenable. Lo implementado y lo ejecutado se distinguen de las etapas
+propuestas. Los [cuadernos de investigación](notebooks/README.md) integran explicación, cálculo,
+resultados y límites; MLflow conserva la evidencia completa.
+
+El paquete de evaluación, registro de modelos y herramientas permite reproducir los análisis.
+La aplicación (iOS, Android, core en Go y servicio de visión) se mantiene en otro repositorio.
 
 ## Experiments
 
@@ -20,7 +24,33 @@ measure that ranking: the evaluation harness, model registration, notebooks and 
 | E4 | E3 + LoRA fine-tuning (r = 8, α = 16, q/v) | LoRA on `train` | design |
 | E5 | E4 + re-ranking with the sighting's text description | weight on `val` | design |
 
-### Results on `pettrace-reid@v3` (zero-shot)
+### Evidencia actual: comparación E1/E2 en `pettrace-reid@v4`
+
+Las ejecuciones registradas comparten el commit de dataset
+`8b12db0dce41040a821f9792bea5b352342263ce`. E2 recalcula E1 sobre las mismas consultas y galerías
+para estudiar el recorte con el encoder constante.
+
+| Indicador | E1 | E2 |
+|---|---:|---:|
+| Rank-1 | 65.90 % | 67.87 % |
+| Rank-5 | 94.10 % | 92.13 % |
+| mAP | 0.3751 | 0.3960 |
+| EER descriptiva | 36.23 % | 33.83 % |
+
+En esta muestra, el recorte mejora Rank-1, mAP y EER, mientras Rank-5 disminuye. El contraste es
+descriptivo: no demuestra significancia estadística ni qué señales causan la recuperación.
+La separación leave-one-out no distingue sesiones de captura, y la EER no usa calibración
+independiente. Los detalles y diagnósticos están en [E1 v4](https://ml.pettrace.app/#/experiments/3/runs/8601747ecd384d948d429b3b490449c9)
+y [E2 v4](https://ml.pettrace.app/#/experiments/3/runs/9117658f1945404ca9d1058257bf97f0), localizables
+también desde [`experiments.yaml`](experiments.yaml).
+
+E3 prepara un piloto revisado de Dogs of the World y LCW y compara contra las líneas base
+sobre el mismo commit de v4. Descargas completas, publicación y registro están desactivados
+por defecto. El entrenamiento real y sus métricas siguen pendientes; el uso previo de v4
+lo convierte en un benchmark exploratorio, no en una prueba final nunca observada.
+
+### Antecedente: resultados en `pettrace-reid@v3` (zero-shot)
+
 
 14 animals (7 cats, 7 dogs), 128 photos. Every photo is a query against the other photos of the
 same species (leave-one-out); each animal scores with its best photo. Chance Rank-1 = 1/7 = 14.3 %.
@@ -33,10 +63,11 @@ The EER threshold is chosen on the same pairs (optimistic).
 | mAP | 0.509 | 0.527 |
 | EER (threshold) | 39.2 % (0.794) | 35.0 % (0.812) |
 
-Cropping separates same-animal from different-animal scores better (lower EER, higher mAP) and
-helps dogs, but hurts look-alike cats (`cat-01` is taken for `cat-02`, same tabby pattern, in 6 of
-10 queries): part of E1's hits came from the photo's background. With 128 queries the Rank-1 gap is
-within noise (confidence intervals: [TODO.md](TODO.md)). Per-animal tables and figures:
+En v3, el recorte se asocia con menor EER y mayor mAP, ayuda a perros y reduce el Rank-1 de gatos.
+La confusión entre `cat-01` y `cat-02`, de patrón atigrado similar, aparece en 6 de 10 consultas de
+`cat-01`. Es una observación descriptiva: no aísla una causa atribuible al fondo o al pelaje.
+El tamaño de muestra y la dependencia entre fotos limitan la interpretación del delta global.
+Per-animal tables and figures:
 [E1 v3 in MLflow](https://ml.pettrace.app/#/experiments/3/runs/af8a88b1e2a6434c9eeb31b62c9010e4),
 [E2 v3 in MLflow](https://ml.pettrace.app/#/experiments/3/runs/e0d3e49aec554a4588efa3bce99955e1).
 
@@ -83,7 +114,7 @@ Local `reports/` directories are working output only and are Git-ignored. Keep u
 failed-upload outputs until publication succeeds; results can be downloaded from MLflow later.
 Do not commit generated reports or create a second versioned results archive in this repository.
 
-## What identifies a result
+## Identidad de los artefactos históricos de v3
 
 Registry version numbers and run IDs are local to one MLflow server; these are not:
 
@@ -147,7 +178,7 @@ service at startup and by `make verify-model`) fails if they diverge.
   for a private research dataset; EXIF/GPS is stripped. Reports contain scores and file names only.
 - **Animals are pseudonymous.** The dataset and everything here use codes (`cat-01`, `dog-03`);
   pets' names never leave the curation tool, because names plus photos identify the owners.
-  `v3` is the only dataset version (earlier ones used names and were removed).
+  Published v3 and v4 snapshots have distinct commits; historical name-based versions were removed.
 - Code: MIT ([LICENSE](LICENSE)).
 - YOLOv8 weights (E2 detector) are AGPL-3.0 (Ultralytics); they are not distributed here.
 - CLIP ViT-B/32: OpenAI, MIT.

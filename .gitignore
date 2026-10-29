@@ -17,3 +17,6 @@ datasets/build/
 
 # Experiment results live in MLflow; local report outputs are not versioned.
 reports/
+
+# Public source archives, identity reviews and frozen feature caches for E3
+datasets/public/

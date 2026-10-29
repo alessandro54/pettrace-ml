@@ -1,57 +1,42 @@
-# E3 · Frozen CLIP + triplet-trained MLP
+# E3 · Proyección métrica de identidades públicas a PetTrace v4
 
-E3 adds a 512 → 256 → 512 MLP, ReLU and L2 normalization to the frozen E2 detector-crop encoder.
-Training uses same-species P×K batches and batch-hard triplet loss. Frozen embeddings are cached;
-only the head is optimized. There is no image augmentation in this first implementation.
+La pregunta de E3 es si una MLP 512→256→512 sobre E2 congelado mejora la recuperación de individuos locales. Solo la cabeza se entrena con Batch-Hard Triplet Loss; la validación pública macro por especie selecciona el checkpoint. No hay augmentación de imagen en este piloto.
 
-## Run independently
+## Fuentes y límite de adquisición
 
-Open `notebooks/e3_mlp_head_triplet.ipynb`, select a GPU kernel, and run from the top. Dependencies
-and the `pettrace-ml` package are installed in visible cells. The package source must be published
-before a remote source install can use it; a release wheel can be selected using
-`PETTRACE_PACKAGE_SOURCE`. No checkout or previous E1/E2 reports are required beside the notebook.
+El notebook propone Dogs of the World v1 para perros y LCW v1 para gatos. El importador de perros lee `metadata/*.json`, `identities[0].identity` y el `path` explícito; descarta entradas con varias identidades. LCW usa `CatFullDataset/<ID>/<imagen>`. Un individuo no se deduce de su raza ni del nombre de su foto.
 
-Provide HF and production MLflow credentials through Secrets, environment variables, or hidden
-prompts. Public downloads can require additional Kaggle access. MPDD is pinned by URL/SHA-256;
-Cat Individuals resolves and records its dataset version and archive hash. Downloading that
-public data needs substantial disk space. If automatic download is unavailable, pass extracted
-folders with `prepare(DATA_ROOT, cat_root=..., mpdd_root=...)` in the data cell.
+`ALLOW_DATA_DOWNLOAD = False` evita descargar por defecto archivos completos cuyo volumen declarado conjunto ronda 96 GB. Se pueden preparar extracciones bajo `E3_DATA_ROOT/dogs-world` y `E3_DATA_ROOT/lcw`, o indicar `E3_DOGS_WORLD_ROOT` y `E3_LCW_ROOT`. La descarga explícita usa una versión fijada, registra SHA-256 y licencia declarada y extrae con el helper seguro. No es una descarga remota por subconjunto: el piloto se selecciona tras la extracción.
 
-## Training and evaluation boundaries
+Una extracción proporcionada manualmente se registra como tal: su versión de archivo no queda autenticada por un hash del ZIP. La API de Kaggle puede requerir `KAGGLE_USERNAME` y `KAGGLE_KEY` en el entorno; nunca se incluyen claves en el notebook.
 
-`pettrace.acquisition` downloads and safely extracts the public sources, then calls the shared
-identity discovery, duplicate audit and split logic in `pettrace.public_data`. Splits are by
-identity. Training receives only `train` and `val` rows; the original public test rows are kept
-out of checkpoint selection. Validation macro-species mAP selects the head checkpoint.
+## Revisión antes de entrenamiento
 
-The notebook exports a fused ONNX artifact and verifies it against the serving pipeline and
-golden set. It evaluates the private pinned PetTrace snapshot (currently v3) using the shared
-zero-shot protocol, and recomputes E1/E2 comparisons on that same snapshot. Its displayed EER
-is descriptive: fitting and reporting use the same private pairs. It does not establish an
-independently validated production threshold or report public held-out test metrics.
+El piloto selecciona como máximo 300 identidades por especie y 10 fotos por identidad con semilla 42. Se generan hojas de contacto por individuo y `review.csv`, donde cada foto requiere `keep` o `drop`. El notebook no aprueba fotos automáticamente. La selección queda vinculada a path, individuo, fuente, especie y hash; una selección o imagen distinta requiere nueva revisión.
 
-The optional `pettrace.experiments` programmatic runner additionally calibrates thresholds on
-public validation data, evaluates public/local held-out tests, checks cross-source duplicates,
-and verifies real-image serving parity. That extended runner and its outputs are distinct from
-the notebook's current private zero-shot report.
+Hay que comprobar objetivo inequívoco, identidad consistente, cuerpo útil y variedad observable. LCW contiene también fotos con varios gatos; la caja mayor de un detector no valida el individuo objetivo. La diversidad de fondos no demuestra sesiones diferentes y no se inventan fechas.
 
-## Publication and saved evidence
+Después de revisar se eliminan duplicados y casi duplicados. Se requieren cuatro fotos distintas retenidas por identidad antes de dividir train/val/test por individuo. El entrenamiento requiere al menos ocho identidades por especie y la validación al menos dos. El test público no entra al optimizador ni a la selección; este notebook no publica métricas de ese test.
 
-`LOG_TO_MLFLOW` defaults to false. Enable it to publish the evaluation/report to the existing
-production experiment. `REGISTER_E3` is a separate opt-in for registering the exported model;
-it does not promote a serving alias. Baseline figures, training history and model artifacts
-are saved inside this experiment's own report directory.
+## Modelo, entrenamiento y comparación
 
-Save the executed notebook in VS Code and preserve unpublished reports before ending the remote
-runtime. Synthetic tests establish implementation checks, not real E3 training results. The
-first real training run remains pending.
+Se verifican hashes del encoder/detector de E2 y su golden set. Se cachean embeddings con identidad del modelo, datos y splits. PyTorch entrena en CUDA con P=8, K=4, margen 0.2, AdamW lr=1e-3, weight decay=1e-4, hasta 30 épocas y paciencia 7; se alternan lotes de gatos y perros. Las curvas y el checkpoint seleccionado quedan en el reporte.
 
-## Sources
+La referencia privada es `pettrace-reid@v4`, commit `8b12db0dce41040a821f9792bea5b352342263ce`. Su etiqueta se verifica y la descarga se fija al commit. Ninguna mascota privada participa del entrenamiento o selección. Se comprueba solapamiento por hashes exactos con los datos públicos; esto no detecta todas las copias transformadas.
 
-- MPDD: https://data.mendeley.com/datasets/v5j6m8dzhv/1
-- Cat Individual Images: https://www.kaggle.com/datasets/timost1234/cat-individuals
-- Reference reader: https://pypi.org/project/wildlife-datasets/1.0.9/
+El grafo ONNX fusionado se valida y E1/E2 se recalculan sobre la misma muestra y las mismas consultas/galerías. El protocolo local es zero-shot sobre todas las fotos elegibles de v4, sin restringir al split test. La EER es descriptiva sobre los mismos pares y no valida un umbral de producción. v4 ya se observó durante E1/E2 y es un benchmark exploratorio; no debe describirse como test final intacto.
 
-The original harness came from `pettrace-ml`, base commit
-`81472d9ae9dfd9773582ff4301682c963d73036b`. The installed package version and source hash identify
-subsequent changes. Check each downloaded dataset's license before use or redistribution.
+## Evidencia y publicación
+
+Cada corrida crea un directorio nuevo bajo `reports/e3_v4/<fecha-id>`. Contiene fuentes, revisión, manifiesto, auditoría, configuración de entrenamiento, huellas, historia/checkpoint, curvas, artefactos ONNX, líneas base, métricas, comparación, hallazgos y `runtime.json`. Hojas de contacto quedan en el directorio local del piloto y no se adjuntan al reporte.
+
+`LOG_TO_MLFLOW = False` y `REGISTER_E3 = False` son valores literales en la configuración. El entorno no los activa implícitamente. Las credenciales MLflow siguen siendo necesarias para leer los modelos existentes. Solo cambiar explícitamente `LOG_TO_MLFLOW` permite publicar; registrar requiere también `REGISTER_E3`. No se promueve ningún alias.
+
+El notebook requiere el paquete actualizado instalado; una sesión de Colab no puede importar cambios sin publicar del equipo local. Las pruebas sintéticas verifican el wiring y los límites de datos, no constituyen entrenamiento real ni resultados de E3. La primera corrida real sigue pendiente de los datos revisados y el runtime GPU. Una wheel local `pettrace_ml-0.1.0-py3-none-any.whl` subida a `/content` se detecta en la celda de instalación; `PETTRACE_PACKAGE_SOURCE` puede seleccionar otra fuente explícitamente.
+
+## Fuentes primarias
+
+- Dogs of the World: https://www.kaggle.com/datasets/lextoumbourou/dogs-world
+- LCW: https://www.kaggle.com/datasets/dseidli/lcwlabeled-cats-in-the-wild
+
+MPDD y Cat Individual Images siguen disponibles en el importador histórico `pettrace.acquisition.prepare`, pero no son las fuentes activas de este piloto. El runner extendido `pettrace.experiments` conserva un protocolo distinto; sus pruebas/calibración públicas no se atribuyen a este notebook.
