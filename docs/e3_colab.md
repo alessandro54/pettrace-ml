@@ -6,9 +6,15 @@ La pregunta de E3 es si una MLP 512→256→512 sobre E2 congelado mejora la rec
 
 El notebook propone Dogs of the World v1 para perros y LCW v1 para gatos. El importador de perros lee `metadata/*.json`, `identities[0].identity` y el `path` explícito; descarta entradas con varias identidades. LCW usa `CatFullDataset/<ID>/<imagen>`. Un individuo no se deduce de su raza ni del nombre de su foto.
 
-`ALLOW_DATA_DOWNLOAD = False` evita descargar por defecto archivos completos cuyo volumen declarado conjunto ronda 96 GB. Se pueden preparar extracciones bajo `E3_DATA_ROOT/dogs-world` y `E3_DATA_ROOT/lcw`, o indicar `E3_DOGS_WORLD_ROOT` y `E3_LCW_ROOT`. La descarga explícita usa una versión fijada, registra SHA-256 y licencia declarada y extrae con el helper seguro. No es una descarga remota por subconjunto: el piloto se selecciona tras la extracción.
+`ALLOW_DATA_DOWNLOAD = False` evita los archivos completos de unos 96 GB declarados. `ALLOW_PILOT_DOWNLOAD = True` adquiere automáticamente un piloto por rangos HTTP: índices ZIP, un prefijo acotado de metadatos de perros y únicamente las fotos seleccionadas. El servidor debe responder 206 con el rango exacto; de lo contrario la adquisición se detiene sin descargar todo el archivo.
 
-Una extracción proporcionada manualmente se registra como tal: su versión de archivo no queda autenticada por un hash del ZIP. La API de Kaggle puede requerir `KAGGLE_USERNAME` y `KAGGLE_KEY` en el entorno; nunca se incluyen claves en el notebook.
+La selección fija 300 identidades por especie y hasta 10 fotos por individuo, y un presupuesto máximo de 3 GiB de red por fuente, incluidos índices y metadatos. Dogs World examina un prefijo de 100.000 JSON según su orden en el archivo; muestrea con semilla dentro de ese prefijo. No equivale a muestreo uniforme sobre toda la fuente. LCW selecciona carpetas elegibles a partir del índice.
+
+El recibo registra configuración, versión, huella del índice ZIP, IDs elegidos, metadatos examinados, bytes de red y hashes de los archivos seleccionados. No registra una huella del archivo completo ni URLs firmadas temporales. Los rangos requieren caché de bloques para metadatos y prelectura por foto para evitar descargar bloques grandes por cada imagen dispersa. Las fotos se verifican por CRC del ZIP durante adquisición y por SHA-256 al reutilizar el piloto. También se verifican los JSON de identidad.
+
+La misma configuración permite reanudar una interrupción y reutilizar una adquisición completa verificada. Para cambiar tamaño/semilla se usa otra raíz de datos. Pueden proporcionarse extracciones manuales con `E3_DOGS_WORLD_ROOT` y `E3_LCW_ROOT`. Desactivar la adquisición parcial permite usar el camino histórico de archivos completos, que requiere activar explícitamente `ALLOW_DATA_DOWNLOAD`.
+
+Los accesos Kaggle opcionales siguen en el entorno; ninguna clave ni URL firmada entra al recibo. Las fuentes públicas inspeccionadas respondieron a solicitudes anónimas. El notebook instala el código publicado en GitHub o la fuente explícita `PETTRACE_PACKAGE_SOURCE`; los wheels viejos en `/content` no se seleccionan automáticamente.
 
 ## Revisión antes de entrenamiento
 
@@ -32,7 +38,7 @@ Cada corrida crea un directorio nuevo bajo `reports/e3_v4/<fecha-id>`. Contiene 
 
 `LOG_TO_MLFLOW = False` y `REGISTER_E3 = False` son valores literales en la configuración. El entorno no los activa implícitamente. Las credenciales MLflow siguen siendo necesarias para leer los modelos existentes. Solo cambiar explícitamente `LOG_TO_MLFLOW` permite publicar; registrar requiere también `REGISTER_E3`. No se promueve ningún alias.
 
-El notebook requiere el paquete actualizado instalado; una sesión de Colab no puede importar cambios sin publicar del equipo local. Las pruebas sintéticas verifican el wiring y los límites de datos, no constituyen entrenamiento real ni resultados de E3. La primera corrida real sigue pendiente de los datos revisados y el runtime GPU. Una wheel local `pettrace_ml-0.1.0-py3-none-any.whl` subida a `/content` se detecta en la celda de instalación; `PETTRACE_PACKAGE_SOURCE` puede seleccionar otra fuente explícitamente.
+El notebook requiere el paquete actualizado instalado; una sesión de Colab no puede importar cambios sin publicar del equipo local. Las pruebas sintéticas verifican el wiring y los límites de datos, no constituyen entrenamiento real ni resultados de E3. La primera corrida real sigue pendiente de los datos revisados y el runtime GPU. `PETTRACE_PACKAGE_SOURCE` puede seleccionar explícitamente una wheel actual si se utiliza ese mecanismo.
 
 ## Fuentes primarias
 

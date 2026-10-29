@@ -38,8 +38,8 @@ fotografías, no sesiones de captura; la EER se estima y reporta sobre los mismo
 
 E3 configura ahora el mismo commit de v4 y recalcula E1/E2 para la comparación. El piloto
 propuesto utiliza Dogs of the World (perros) y LCW (gatos), con revisión explícita de fotos,
-auditoría de duplicados y particiones por identidad. Descarga de archivos completos, publicación
-en MLflow y registro del modelo están desactivados por defecto. El entrenamiento real sigue
+auditoría de duplicados y particiones por identidad. La adquisición parcial del piloto está activa; archivos completos, publicación
+en MLflow y registro del modelo permanecen desactivados por defecto. El entrenamiento real sigue
 pendiente; v4 es un benchmark local exploratorio ya observado, no un test final intacto.
 Las ejecuciones [E1 v3](https://ml.pettrace.app/#/experiments/3/runs/af8a88b1e2a6434c9eeb31b62c9010e4)
 y [E2 v3](https://ml.pettrace.app/#/experiments/3/runs/e0d3e49aec554a4588efa3bce99955e1) permanecen
