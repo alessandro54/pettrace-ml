@@ -3,7 +3,7 @@
 Needs only the MLflow client (`pip install mlflow-skinny`) and the standard env vars:
     MLFLOW_TRACKING_URI, MLFLOW_TRACKING_USERNAME, MLFLOW_TRACKING_PASSWORD
 
-Run locally:  python scripts/mlflow_smoke.py
+Run locally:  python tools/mlflow_smoke.py
 In Colab:     run this file as a cell after setting the MLFLOW_* variables
 It logs one run to experiment `pettrace-smoke`, uploads an artifact, registers it as a version of
 `pettrace-smoke-model`, points the `candidate` alias at it, then reads everything back.

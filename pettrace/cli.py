@@ -1,19 +1,19 @@
 """Evaluate a `pettrace-embedder` version on a `pettrace-reid` version (thesis protocol).
 
     make evaluate DATASET=v3 MODEL=models:/pettrace-embedder/1 PROTOCOL=zero-shot [REPORT=reports/e1_v3]
-    python scripts/evaluate.py --model /path/to/model/dir --dataset /path/to/dataset/dir --no-mlflow
+    python -m pettrace.cli --model /path/to/model/dir --dataset /path/to/dataset/dir --no-mlflow
 
-The protocol, model identity and MLflow logging live in reid.evaluation (shared with the experiment
+The protocol, model identity and MLflow logging live in pettrace.evaluation (shared with the experiment
 notebooks, which are the canonical record of each experiment). --report also writes the figures
-and tables (reid.figures) and attaches them to the run.
+and tables (pettrace.figures) and attaches them to the run.
 """
 
 import argparse
 import os
 import sys
 
-from reid import data
-from reid.evaluation import evaluate, load_model, log_run, report
+from pettrace import data
+from pettrace.evaluation import evaluate, load_model, log_run, report
 
 
 def main() -> int:
@@ -35,7 +35,7 @@ def main() -> int:
     ev = evaluate(ds, model.pipeline, zero_shot=args.protocol == "zero-shot")
     print(report(ev.result))
     if args.report:
-        from reid.figures import save
+        from pettrace.figures import save
 
         save(ev, model, args.report)
         print(f"report → {args.report}")

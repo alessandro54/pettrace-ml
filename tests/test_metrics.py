@@ -2,7 +2,7 @@
 
 import numpy as np
 
-from reid import metrics
+from pettrace import metrics
 
 
 def unit(v):

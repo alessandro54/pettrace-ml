@@ -17,7 +17,7 @@ reports. The app itself (iOS, Android, Go core, vision service) lives in a separ
 |---|---|---|---|
 | E1 | full image → CLIP ViT-B/32 → 512-d, L2 | none (zero-shot) | registered, in production |
 | E2 | YOLOv8n detects the animal → crop (10 % margin) → same CLIP | none (zero-shot) | registered, candidate |
-| E3 | E2 + frozen CLIP + MLP head, triplet loss | head on `train` | design |
+| E3 | E2 + frozen CLIP + MLP head, triplet loss | public identity train/val | implemented; first Colab run pending ([guide](docs/e3_colab.md)) |
 | E4 | E3 + LoRA fine-tuning (r = 8, α = 16, q/v) | LoRA on `train` | design |
 | E5 | E4 + re-ranking with the sighting's text description | weight on `val` | design |
 
@@ -45,10 +45,26 @@ within noise (confidence intervals: [TODO.md](TODO.md)). Per-animal tables and f
 | E1 | [`e1_clip_zero_shot.ipynb`](notebooks/e1_clip_zero_shot.ipynb) | [`af8a88b1`](https://ml.pettrace.app/#/experiments/3/runs/af8a88b1e2a6434c9eeb31b62c9010e4) | `f80d1d6` |
 | E2 | [`e2_yolo_crop_zero_shot.ipynb`](notebooks/e2_yolo_crop_zero_shot.ipynb) | [`e0d3e49a`](https://ml.pettrace.app/#/experiments/3/runs/e0d3e49aec554a4588efa3bce99955e1) | `c9dd2b9` |
 
-Each notebook shows the data, how the model was built, the whole evaluation computed step by step
-(preprocessing, embeddings, similarities, ranking, metric formulas, checked against the library),
-tables, figures with how to read them, and conclusions,
-and is attached (executed) to its run together with the figures.
+Each notebook is an independently executable experiment report. It installs the `pettrace-ml`
+package, declares its own configuration, loads its own data/models, and presents the method,
+tables, figures, interpretation and limitations. E2 and E3 compute their baseline comparisons
+within the same run; neither requires reports from an earlier notebook. Publication to production
+MLflow is explicit and disabled by default.
+
+For development, install from the checkout with `uv sync --group dev --extra training`.
+For a remote kernel, notebooks use the installed package. Until the first wheel release exists,
+`PETTRACE_PACKAGE_SOURCE` defaults to a pip source install from the public repository's `main`.
+Publish the code first; local edits are not available to Colab. A release wheel URL can be used
+instead without changing the experiment cells. Dependencies remain visible in each notebook.
+Package metadata permits Python 3.11–3.13. Verification here uses Python 3.11; a real Colab
+3.13 run remains to be checked. The Docker environment is fixed by `uv.lock`.
+
+The distribution is named `pettrace-ml`; its Python import package is `pettrace`:
+
+```python
+from pettrace import data, metrics
+from pettrace.evaluation import evaluate
+```
 
 ## What identifies a result
 
@@ -76,32 +92,34 @@ git checkout <commit from the run's git_sha tag>   # f80d1d6 (E1), c9dd2b9 (E2)
 cp .env.example .env            # MLflow user/password + HF_TOKEN
 make image                      # Linux, Python 3.11, versions from uv.lock
 
-make notebook NB=notebooks/e1_clip_zero_shot.ipynb        # E1: executes, logs a run, attaches itself
-make notebook NB=notebooks/e2_yolo_crop_zero_shot.ipynb    # E2 (reads E1's report for the comparison)
+make notebook NB=notebooks/e1_clip_zero_shot.ipynb        # E1: executes; enable E1_LOG_TO_MLFLOW=true to publish
+make notebook NB=notebooks/e2_yolo_crop_zero_shot.ipynb    # E2, including its own E1 baseline
 make evaluate DATASET=v3 MODEL=models:/pettrace-embedder/2 PROTOCOL=zero-shot REPORT=reports/e2_v3  # CLI
 ```
 
 Evaluating writes a run, so a read-only user can reproduce the numbers without logging:
-`docker run --rm --env-file .env -v $PWD:/repo pettrace-ml scripts/evaluate.py --dataset v3 --model models:/pettrace-embedder/2 --protocol zero-shot --no-mlflow`.
+`docker run --rm --env-file .env -v $PWD:/repo pettrace-ml -m pettrace.cli --dataset v3 --model models:/pettrace-embedder/2 --protocol zero-shot --no-mlflow`.
+
+The optional evaluation CLI is `pettrace-evaluate` (or `python -m pettrace.cli`).
 
 The models are downloaded from MLflow and checked by hash. To rebuild them from scratch instead:
 `make image-export && make register-v1` re-exports E1 from the pinned Hugging Face revision and
 must give the same sha256; E2's detector is the COCO-pretrained `yolov8n.pt` exported with
-Ultralytics 8.3.253 (command in [`scripts/register_e2.py`](scripts/register_e2.py)); a re-export
+Ultralytics 8.3.253 (command in [`tools/register_e2.py`](tools/register_e2.py)); a re-export
 is not guaranteed to be byte-identical, so the validated file is the one inside version 2.
 
 ## Layout
 
 ```
-reid/        harness: data (pinned dataset versions), metrics (Rank-k, mAP, EER), evaluation
-             (protocol, model identity, MLflow run), figures, pipeline (ONNX runner), golden
-             (fingerprint), clip_reference (PyTorch parity reference)
-scripts/     evaluate, register_v1, register_e2, verify_model, attach_notebook, mlflow_smoke
-notebooks/   one notebook per experiment (E1–E5): data, model, training, evaluation, results, MLflow run
-reports/     published scores, figures and summaries per model × dataset version
+pettrace/    reusable loading, inference, training, evaluation, figures and tracking
+notebooks/   independently executable experiment reports (E1–E5)
+tests/       package correctness checks; not experimental results or runtime code
+tools/       optional registration, verification and notebook-attachment commands
+docs/        execution notes and experiment protocols
+reports/     historical and newly generated metrics, figures and summaries
 ```
 
-`reid/pipeline.py`, `reid/golden.py` and `reid/clip_reference.py` mirror the vision service's
+`pettrace/pipeline.py`, `pettrace/golden.py` and `pettrace/clip_reference.py` mirror the vision service's
 modules in the app repository; the golden fingerprint on every registered version (checked by the
 service at startup and by `make verify-model`) fails if they diverge.
 

@@ -42,6 +42,7 @@ def _mean_similarity(ev) -> dict:
 
 def summary(ev, model=None) -> dict:
     rows, (animals, _) = _rows(ev), _animals(ev)
+    gallery_animals = sorted({p.animal for p in ev.photos})
     test = ev.result["test"]
     return {
         "global": test["global"],
@@ -50,7 +51,7 @@ def summary(ev, model=None) -> dict:
                            "queries": sum(r["animal"] == a for r in rows),
                            "median_margin": float(np.median([r["own_best"] - r["rival_best"] for r in rows if r["animal"] == a])),
                            "rivals": {x: sum(1 for r in rows if r["animal"] == a and r["rank"] > 1 and r["rival"] == x)
-                                      for x in animals if x != a}}
+                                      for x in gallery_animals if x != a}}
                        for a in animals},
         "eer": ev.result["val"]["eer"], "threshold": ev.result["val"]["threshold"],
         "pairs_same": len(ev.same), "pairs_diff": len(ev.diff),
@@ -71,7 +72,8 @@ def rank1_per_animal(ev, label: str):
     hits = [np.mean([r["rank"] == 1 for r in rows if r["animal"] == a]) * 100 for a in animals]
     bars = ax.bar(animals, hits, color=[COLORS[species_of[a]] for a in animals])
     ax.bar_label(bars, fmt="%.0f%%", fontsize=8)
-    ax.axhline(100 / max(r["gallery_animals"] for r in rows), ls="--", color="#6B7280", label="azar")
+    chance = [np.mean([100 / r["gallery_animals"] for r in rows if r["animal"] == a]) for a in animals]
+    ax.plot(range(len(animals)), chance, marker="_", ls="none", color="#6B7280", label="azar por galería")
     for sp in sorted(set(species_of.values())):
         ax.bar(0, 0, color=COLORS[sp], label=SPECIES_ES[sp])
     ax.set_ylim(0, 115)
@@ -151,13 +153,14 @@ def confusion(ev, label: str = ""):
     diagonal is a hit). Cells show the number of queries, colour the share of the row."""
     import matplotlib.pyplot as plt
 
-    rows, (animals, species_of) = _rows(ev), _animals(ev)
+    rows, (_, species_of) = _rows(ev), _animals(ev)
     groups = [sp for sp in ("cat", "dog") if sp in species_of.values()]
     fig, axes = plt.subplots(1, len(groups), figsize=(4.9 * len(groups), 4.4), squeeze=False,
                              gridspec_kw={"wspace": 0.35})
     im = None
     for k, (ax, sp) in enumerate(zip(axes[0], groups)):
-        names = [a for a in animals if species_of[a] == sp]
+        # Singleton animals cannot be queries, but remain valid gallery rivals.
+        names = sorted({p.animal for p in ev.photos if p.species == sp})
         pos = {a: i for i, a in enumerate(names)}
         C = np.zeros((len(names), len(names)), dtype=int)
         for r in rows:

@@ -1,11 +1,11 @@
-# Mirror of apps/vision/src/vision/ml/golden.py in the PetTrace app repo; see reid/pipeline.py.
+# Mirror of apps/vision/src/vision/ml/golden.py in the PetTrace app repo; see pettrace/pipeline.py.
 
 """Golden fingerprint: fixed inputs whose embeddings identify a model version.
 
 Every registered `pettrace-embedder` version stores `golden.npy` = the embeddings of
 `golden_images()` produced by that version. Anyone can recompute them from the downloaded artifacts
 and compare, independent of library versions or ONNX byte layout. Used by the vision service at
-startup (self-test), `ml/scripts/register_v1.py` and `ml/scripts/verify_model.py` — keep one copy.
+startup (self-test), `tools/register_v1.py` and `tools/verify_model.py` — keep one copy.
 
 The images are generated, not stored, so the set is reproducible from this file alone. Changing
 this generator changes every fingerprint: bump GOLDEN_SET_VERSION if you ever must.

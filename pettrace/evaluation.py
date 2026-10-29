@@ -1,5 +1,5 @@
 """The thesis evaluation protocol on a pinned `pettrace-reid` version, shared by the experiment
-notebooks (notebooks/eK_*.ipynb) and the CLI (scripts/evaluate.py).
+notebooks (notebooks/eK_*.ipynb) and the CLI (python -m pettrace.cli).
 
     model = load_model("models:/pettrace-embedder/1")        # download + identity + golden check
     ev = evaluate(data.load("v3"), model.pipeline, zero_shot=True)
@@ -25,9 +25,9 @@ from dataclasses import dataclass
 import numpy as np
 from PIL import Image, ImageOps
 
-from reid import data, metrics
-from reid.golden import compare, fingerprint, golden_images
-from reid.pipeline import Pipeline
+from pettrace import data, metrics
+from pettrace.golden import compare, fingerprint, golden_images
+from pettrace.pipeline import Pipeline
 
 EXPERIMENT = "pettrace-reid-eval"
 
@@ -167,19 +167,23 @@ def report(result: dict) -> str:
 
 
 def log_run(ev: Evaluation, model: Model, experiment: str = "", artifacts: str | None = None,
-            run_name: str | None = None, params: dict | None = None) -> str:
+            run_name: str | None = None, params: dict | None = None,
+            tracking_experiment_id: str | None = None, run_id: str | None = None) -> str:
     """One MLflow run in `pettrace-reid-eval` that traces every number to the exact data (Hub
     commit + fingerprint), model (registry version + sha256 of each ONNX file + golden check) and
-    code (GIT_SHA/GIT_DIRTY). `artifacts` = a directory of figures/tables attached under report/."""
+    code (GIT_SHA/GIT_DIRTY). `artifacts` = a directory of figures/tables attached under report/.
+    Pass an existing tracking_experiment_id to avoid creating an experiment, and run_id to resume.
+    """
     import mlflow
     import onnxruntime
     from mlflow.data.http_dataset_source import HTTPDatasetSource
     from mlflow.data.meta_dataset import MetaDataset
 
     ds = ev.dataset
-    mlflow.set_experiment(EXPERIMENT)
+    if tracking_experiment_id is None:
+        mlflow.set_experiment(EXPERIMENT)
     name = run_name or f"{experiment + ' · ' if experiment else ''}{model.model_version or 'model'} on {ds.name}"
-    with mlflow.start_run(run_name=name) as run:
+    with mlflow.start_run(run_name=name, experiment_id=tracking_experiment_id, run_id=run_id) as run:
         mlflow.log_input(MetaDataset(HTTPDatasetSource(ds.url), name=ds.name, digest=ds.fingerprint), context="evaluation")
         mlflow.log_params({
             "model.uri": model.uri, "model.model_version": model.model_version,

@@ -1,8 +1,8 @@
 """Verify a downloaded `pettrace-embedder` version reproduces its golden fingerprint.
 
-    python scripts/verify_model.py                                  # @production
-    python scripts/verify_model.py models:/pettrace-embedder/1
-    python scripts/verify_model.py /path/to/downloaded/model/dir    # offline copy
+    python tools/verify_model.py                                  # @production
+    python tools/verify_model.py models:/pettrace-embedder/1
+    python tools/verify_model.py /path/to/downloaded/model/dir    # offline copy
 
 Recomputes the embeddings of the generated golden set with the version's own pipeline.yaml + ONNX
 and compares them with the stored golden.npy. Exit 0 = same model behaviour, 1 = different.
@@ -16,8 +16,8 @@ import sys
 
 import numpy as np
 
-from reid.golden import compare, fingerprint, golden_images
-from reid.pipeline import Pipeline
+from pettrace.golden import compare, fingerprint, golden_images
+from pettrace.pipeline import Pipeline
 
 
 def main() -> int:

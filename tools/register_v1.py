@@ -4,13 +4,13 @@ v1 = experiment E1: full image → CLIP ViT-B/32 image tower → visual projecti
 Deterministic and idempotent, so the same command reproduces v1 in any environment:
 
     MLFLOW_TRACKING_URI=<env> MLFLOW_TRACKING_USERNAME=… MLFLOW_TRACKING_PASSWORD=… \
-        python scripts/register_v1.py
+        python tools/register_v1.py
 
 Steps:
   1. load CLIP at a pinned Hugging Face revision (the one vision serves today)
   2. export image tower + projection + L2 norm to ONNX (preprocessing stays outside the graph and
      is described exactly in pipeline.yaml)
-  3. parity vs the production function reid.clip_reference.get_embedding, twice: ONNX fed by the HF
+  3. parity vs the production function pettrace.clip_reference.get_embedding, twice: ONNX fed by the HF
      processor, and the self-contained runner (pipeline.yaml preprocessing + ONNX, pipeline.py)
   4. golden fingerprint: embeddings of the generated golden set (golden.py) → golden.npy
   5. CPU latency of the ONNX encoder
@@ -45,8 +45,8 @@ from mlflow import MlflowClient
 from PIL import Image
 from transformers import CLIPModel, CLIPProcessor
 
-from reid.golden import GOLDEN_SET_VERSION, compare, fingerprint, golden_images
-from reid.pipeline import Pipeline
+from pettrace.golden import GOLDEN_SET_VERSION, compare, fingerprint, golden_images
+from pettrace.pipeline import Pipeline
 
 MODEL_NAME = "pettrace-embedder"
 EXPERIMENT = "pettrace-embedder"
@@ -60,7 +60,7 @@ PARITY_MIN_COSINE = 0.9999
 
 
 class Encoder(torch.nn.Module):
-    """Image tower + projection + L2 norm = reid.clip_reference.get_embedding after preprocessing."""
+    """Image tower + projection + L2 norm = pettrace.clip_reference.get_embedding after preprocessing."""
 
     def __init__(self, clip: CLIPModel):
         super().__init__()
@@ -128,7 +128,7 @@ def main() -> None:
         size_mb = os.path.getsize(onnx_path) / 1e6
 
         # Parity against the production code path (same function vision serves).
-        from reid.clip_reference import get_embedding
+        from pettrace.clip_reference import get_embedding
 
         sess = ort.InferenceSession(onnx_path, providers=["CPUExecutionProvider"])
         cosines, max_abs = [], 0.0
@@ -209,8 +209,8 @@ def main() -> None:
                         "golden_set": GOLDEN_SET_VERSION,
                         "fingerprint": golden_fp,
                         "images": len(golden),
-                        "generator": "ml/scripts/golden.py",
-                        "runner": "ml/scripts/pipeline.py",
+                        "generator": "pettrace/golden.py",
+                        "runner": "pettrace/pipeline.py",
                         "tolerance": {"cosine_min": 0.9999, "max_abs_diff": 1e-3},
                     },
                     indent=2,
@@ -289,7 +289,7 @@ def main() -> None:
     print(f"registered {MODEL_NAME} v{mv.version} @{ALIAS}")
     print(f"  model_version {MODEL_VERSION} · sha256 {sha256[:12]}… · {size_mb:.0f} MB")
     print(
-        f"  parity min cosine {parity:.6f} (max |Δ| {max_abs:.2e}) vs reid.clip_reference.get_embedding"
+        f"  parity min cosine {parity:.6f} (max |Δ| {max_abs:.2e}) vs pettrace.clip_reference.get_embedding"
     )
     print(f"  self-contained runner parity {runner_parity:.6f} · golden fingerprint {golden_fp}")
     print(f"  ONNX CPU latency p50 {p50:.0f} ms · p95 {p95:.0f} ms")
