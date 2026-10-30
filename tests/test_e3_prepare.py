@@ -176,3 +176,60 @@ def test_detector_acquisition_reads_only_pinned_detector_and_spec_and_checks_cac
         acquire_detector("models:/pettrace-embedder/2", tmp_path / "models", expected_sha256=expected)
     with pytest.raises(ValueError, match="pinned"):
         acquire_detector("models:/pettrace-embedder@production", tmp_path / "models", expected_sha256=expected)
+
+
+def test_detector_401_is_recoverable_but_permission_errors_are_preserved(tmp_path, monkeypatch):
+    import mlflow
+    from mlflow.exceptions import MlflowException
+    from mlflow.protos.databricks_pb2 import UNAUTHENTICATED, PERMISSION_DENIED
+    from pettrace.e3_prepare import DetectorAuthenticationError, acquire_detector
+
+    monkeypatch.setattr(mlflow, "set_tracking_uri", lambda value: None)
+    monkeypatch.setattr(mlflow, "set_registry_uri", lambda value: None)
+    monkeypatch.setattr(mlflow, "get_registry_uri", lambda: "https://ml.pettrace.app")
+
+    def reject(*args, **kwargs):
+        raise MlflowException("fixture rejection", error_code=UNAUTHENTICATED)
+
+    monkeypatch.setattr(mlflow, "MlflowClient", lambda: SimpleNamespace(get_model_version=reject))
+    with pytest.raises(DetectorAuthenticationError, match="401") as exc:
+        acquire_detector("models:/pettrace-embedder/2", tmp_path / "models")
+    assert "force=True" in str(exc.value)
+    assert exc.value._render_traceback_() == [str(exc.value)]
+
+    def forbidden(*args, **kwargs):
+        raise MlflowException("permission denied", error_code=PERMISSION_DENIED)
+
+    monkeypatch.setattr(mlflow, "MlflowClient", lambda: SimpleNamespace(get_model_version=forbidden))
+    with pytest.raises(MlflowException) as permission:
+        acquire_detector("models:/pettrace-embedder/2", tmp_path / "models")
+    assert permission.value.get_http_status_code() == 403
+
+
+def test_notebook_force_refresh_ignores_stale_environment_and_colab_secrets(monkeypatch):
+    import getpass
+    import sys
+
+    notebook = json.loads((Path(__file__).parents[1] / "datasets/prepare_training.ipynb").read_text())
+    source = "".join(next(c for c in notebook["cells"] if c["id"] == "training-data-access")["source"])
+    requests = []
+    answers = iter(["new-fixture-user", "new-fixture-password"])
+    monkeypatch.setenv("MLFLOW_TRACKING_USERNAME", "old-fixture-user")
+    monkeypatch.setenv("MLFLOW_TRACKING_PASSWORD", "old-fixture-password")
+    monkeypatch.setenv("HF_TOKEN", "unrelated-fixture-token")
+    monkeypatch.setitem(sys.modules, "google.colab", SimpleNamespace(userdata=SimpleNamespace(
+        get=lambda name: pytest.fail("Forced refresh must bypass stored Colab Secrets"))))
+
+    def prompt(label):
+        requests.append(label)
+        return next(answers)
+
+    monkeypatch.setattr(getpass, "getpass", prompt)
+    namespace = {}
+    exec(compile(source, "credential-access", "exec"), namespace)
+    namespace["configure_access"](names=("MLFLOW_TRACKING_USERNAME", "MLFLOW_TRACKING_PASSWORD"), force=True)
+    import os
+    assert os.environ["MLFLOW_TRACKING_USERNAME"] == "new-fixture-user"
+    assert os.environ["MLFLOW_TRACKING_PASSWORD"] == "new-fixture-password"
+    assert os.environ["HF_TOKEN"] == "unrelated-fixture-token"
+    assert requests == ["MLFLOW_TRACKING_USERNAME: ", "MLFLOW_TRACKING_PASSWORD: "]

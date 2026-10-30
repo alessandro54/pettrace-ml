@@ -109,9 +109,17 @@ def acquire_candidates(config):
     return selected, {"sources": sources, "skipped_paths": skipped, "candidate_files": len(rows)}
 
 
+class DetectorAuthenticationError(ValueError):
+    """A recoverable client-authentication error; never includes entered credentials."""
+
+    def _render_traceback_(self):
+        return [str(self)]
+
+
 def acquire_detector(uri, cache, *, expected_sha256=DETECTOR_SHA256):
     """Read only detector + spec from a pinned MLflow version; no encoder, HF data or publication."""
     import mlflow
+    from mlflow.exceptions import MlflowException
     from pettrace.tracking import PRODUCTION_URI
 
     if not uri.startswith("models:/") or not uri.rsplit("/", 1)[-1].isdigit():
@@ -130,7 +138,16 @@ def acquire_detector(uri, cache, *, expected_sha256=DETECTOR_SHA256):
             raise ValueError("Cached detector artifacts changed")
         return destination
     name, version = uri[len("models:/"):].rsplit("/", 1)
-    source = mlflow.MlflowClient().get_model_version(name, version).source
+    try:
+        source = mlflow.MlflowClient().get_model_version(name, version).source
+    except MlflowException as exc:
+        if exc.get_http_status_code() == 401:
+            raise DetectorAuthenticationError(
+                "MLflow rechazó las credenciales (401). Actualiza MLFLOW_TRACKING_USERNAME y "
+                "MLFLOW_TRACKING_PASSWORD en esta sesión con configure_access(force=True), "
+                "o verifica el usuario del servidor. La descarga de fotos se conserva."
+            ) from None
+        raise
     with tempfile.TemporaryDirectory(prefix=".detector-", dir=cache) as folder:
         folder = Path(folder)
         for filename in ("detector.onnx", "pipeline.yaml"):
