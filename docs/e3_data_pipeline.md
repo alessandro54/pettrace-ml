@@ -13,13 +13,25 @@ flowchart LR
   G --> H[Entrenamiento E3]
 ```
 
-## Ejecución en Colab
+## Preparación fuera de notebooks
 
-1. Ejecutar [e3_prepare_data.ipynb](../notebooks/e3_prepare_data.ipynb). Usa el piloto de 300 perros y 300 gatos, hasta 10 fotos por individuo y semilla 42. Reutiliza la adquisición y las decisiones existentes bajo `E3_DATA_ROOT`.
-2. Revisar el resumen de exclusiones y la muestra visual por especie. No exige marcar cada fotografía.
-3. Ejecutar [e3_mlp_head_triplet.ipynb](../notebooks/e3_mlp_head_triplet.ipynb). Encuentra `prepared/latest.json` en la misma raíz o utiliza `E3_PREPARED_DATASET` para fijar una versión concreta.
+Los notebooks están reservados para los experimentos. La adquisición, YOLO, limpieza y particiones se ejecutan como un comando previo. El piloto mantiene 300 perros y 300 gatos como máximo, hasta 10 fotos por individuo y semilla 42; reutiliza los archivos y decisiones existentes bajo la raíz indicada con `--data-root`.
 
-El primer notebook requiere únicamente el detector ONNX de E2 y su especificación. Con `E3_DETECTOR_DIR` se utilizan archivos locales; en otro caso se descargan solo `detector.onnx` y `pipeline.yaml` del modelo `models:/pettrace-embedder/2`. Se verifica la huella fijada del detector. Los accesos MLflow son de lectura, mediante entorno, Secrets o campos ocultos; no se solicita HF_TOKEN. El encoder y el benchmark privado se cargan en la etapa de entrenamiento/evaluación.
+Con la imagen del proyecto ya construida (`make image`), el comando usa el runner Docker existente y los accesos de `.env`:
+
+```sh
+make prepare-e3
+```
+
+`PREPARE_ARGS` permite pasar opciones adicionales, por ejemplo `make prepare-e3 PREPARE_ARGS="--detector-dir artifacts/e2"`.
+
+La preparación requiere únicamente el detector ONNX de E2 y su especificación. `--detector-dir` utiliza archivos locales; en otro caso se descargan solo `detector.onnx` y `pipeline.yaml` del modelo `models:/pettrace-embedder/2`. Se verifica la huella fijada del detector. Los accesos MLflow son de lectura y se proporcionan mediante el entorno; no se solicita HF_TOKEN. El encoder y el benchmark privado se cargan durante el experimento.
+
+## Uso en Colab
+
+Se prepara el dataset desde un terminal y se coloca la carpeta completa de la versión en el runtime de entrenamiento, conservando `images/` y los manifiestos. Si el comando se ejecuta en ese mismo entorno, no es necesario transferir la carpeta. No se ejecuta preparación dentro de un notebook.
+
+Después se abre [e3_mlp_head_triplet.ipynb](../notebooks/e3_mlp_head_triplet.ipynb) y se fija `E3_PREPARED_DATASET` a esa carpeta. Con la estructura por defecto, el notebook encuentra `datasets/public/e3-body/prepared/latest.json`. El experimento verifica el dataset y registra su fingerprint antes de entrenar.
 
 ## Comando independiente
 

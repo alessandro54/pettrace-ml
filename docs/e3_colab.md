@@ -4,7 +4,7 @@ La pregunta de E3 es si una MLP 512→256→512 sobre E2 congelado mejora la rec
 
 ## Separación de datos y entrenamiento
 
-Primero se ejecuta `notebooks/e3_prepare_data.ipynb` o `pettrace-prepare-e3`. El pipeline produce una versión con imágenes propias, manifiesto, exclusiones, auditoría y hashes. Después `e3_mlp_head_triplet.ipynb` consume esa versión mediante `load_prepared`; no vuelve a adquirir ni filtrar las fuentes. El contrato completo está en [Pipeline de datos](e3_data_pipeline.md).
+La preparación se ejecuta fuera de los notebooks con `make prepare-e3` o `pettrace-prepare-e3`. El pipeline produce una versión con imágenes propias, manifiesto, exclusiones, auditoría y hashes. Después `e3_mlp_head_triplet.ipynb` consume esa versión mediante `load_prepared`; no vuelve a adquirir ni filtrar las fuentes. El contrato completo está en [Pipeline de datos](e3_data_pipeline.md).
 
 ## Fuentes y límite de adquisición
 

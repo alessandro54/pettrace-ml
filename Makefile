@@ -1,4 +1,4 @@
-.PHONY: image image-export evaluate notebook register-v1 register-e2 verify-model mlflow-smoke test test-e3 lint manifest
+.PHONY: image image-export evaluate notebook register-v1 register-e2 verify-model mlflow-smoke test test-e3 lint manifest prepare-e3
 
 IMAGE ?= pettrace-ml
 # Every MLflow run records the commit it came from; GIT_DIRTY=true marks uncommitted code.
@@ -14,6 +14,12 @@ image-export:
 # make evaluate DATASET=v3 MODEL=models:/pettrace-embedder/1 PROTOCOL=zero-shot [REPORT=reports/e1_v3]
 evaluate:
 	$(DOCKER) $(IMAGE) -m pettrace.cli --dataset $(DATASET) --model $(or $(MODEL),models:/pettrace-embedder@production) $(if $(PROTOCOL),--protocol $(PROTOCOL)) $(if $(REPORT),--report $(REPORT))
+
+# Prepare public E3 data outside notebooks, using .env through the existing Docker runner.
+# make prepare-e3 [PREPARE_ARGS="--detector-dir artifacts/e2"]
+PREPARE_ARGS ?=
+prepare-e3:
+	$(DOCKER) $(IMAGE) -m pettrace.e3_prepare --allow-download $(PREPARE_ARGS)
 
 # Execute an experiment notebook in the pinned image and save it with its outputs (the canonical
 # record of the experiment): make notebook NB=notebooks/e1_clip_zero_shot.ipynb

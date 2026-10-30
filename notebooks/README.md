@@ -16,7 +16,6 @@ convenciones del paquete.
 |---|---|---|
 | E1 · Línea base | ¿Qué capacidad de recuperación ofrece CLIP sin ajuste específico? | [Notebook](e1_clip_zero_shot.ipynb) · [ejecución v4](https://ml.pettrace.app/#/experiments/3/runs/8601747ecd384d948d429b3b490449c9) |
 | E2 · Localización | ¿Cómo cambia la recuperación al recortar la mascota con YOLO y conservar el mismo CLIP? | [Notebook](e2_yolo_crop_zero_shot.ipynb) · [ejecución v4](https://ml.pettrace.app/#/experiments/3/runs/9117658f1945404ca9d1058257bf97f0) |
-| Preparación E3 | ¿Qué identidades públicas quedan después del control de calidad? | [Pipeline de datos](e3_prepare_data.ipynb) · dataset versionado, filtros y exclusiones |
 | E3 · Aprendizaje métrico | ¿Una proyección MLP entrenada con identidades públicas transfiere a las mascotas de PetTrace? | [Notebook](e3_mlp_head_triplet.ipynb) · implementación disponible; entrenamiento real pendiente |
 | E4 · Adaptación del encoder | ¿Qué aporta adaptar el backbone mediante LoRA? | Etapa propuesta, sin notebook ni resultados registrados en este índice |
 | E5 · Información textual | ¿Puede la descripción de un avistamiento mejorar el orden de candidatos visuales? | Etapa propuesta, sin notebook ni resultados registrados en este índice |
@@ -50,7 +49,7 @@ como antecedentes sobre otra muestra.
 
 Los cuadernos siguen el recorrido: pregunta e hipótesis → muestra → modelo → entrenamiento cuando
 corresponde → evaluación → resultados → discusión → trazabilidad. Las tablas y figuras se generan
-con la implementación reutilizable del paquete `pettrace`; E1/E2 se ejecutan de forma independiente. E3 requiere un dataset previamente preparado, mediante el notebook de datos o el CLI, y reutiliza su versión verificable. E1/E2 conservan salidas de ejecuciones reales; E3 describe un protocolo
+con la implementación reutilizable del paquete `pettrace`; E1/E2 se ejecutan de forma independiente. E3 requiere un dataset previamente preparado, mediante el comando de preparación, y reutiliza su versión verificable. E1/E2 conservan salidas de ejecuciones reales; E3 describe un protocolo
 implementado y separa expresamente lo pendiente.
 
 Las fotografías privadas no se incorporan a la exposición de resultados. El análisis usa códigos
@@ -91,4 +90,4 @@ se mantienen fuera de Git.
 
 Detalles operativos: [E1 en Colab](../docs/e1_colab.md) y [protocolo E3](../docs/e3_colab.md).
 
-Preparación independiente: [contrato del pipeline de datos E3](../docs/e3_data_pipeline.md).
+Los notebooks están dedicados a los experimentos. La preparación se ejecuta fuera de ellos con `make prepare-e3` o `pettrace-prepare-e3`; véase el [contrato del pipeline de datos E3](../docs/e3_data_pipeline.md).
