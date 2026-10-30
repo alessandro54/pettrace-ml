@@ -153,7 +153,8 @@ def write_review(rows, path):
     return path
 
 
-def curate_review(path, output, *, seed=42, minimum_photos=4, review_policy="strict", excluded_animals=None):
+def curate_review(path, output, *, seed=42, minimum_photos=4, review_policy="strict", excluded_animals=None,
+                  excluded_paths=None):
     """Strict review or explicit exploratory use of unverified publisher identity labels."""
     with Path(path).open(newline="") as stream:
         reviewed = list(csv.DictReader(stream))
@@ -164,6 +165,7 @@ def curate_review(path, output, *, seed=42, minimum_photos=4, review_policy="str
     if review_policy == "strict" and any(row["decision"] == "" for row in reviewed):
         raise ValueError("Complete review.csv: every photo requires keep or drop before training")
     excluded_animals = dict(excluded_animals or {})
+    excluded_paths = dict(excluded_paths or {})
     rows = []
     for row in reviewed:
         if sha256(row["path"]) != row["sha256"]:
@@ -172,7 +174,7 @@ def curate_review(path, output, *, seed=42, minimum_photos=4, review_policy="str
             raise ValueError("Invalid source/species in review")
         if not row["animal"].startswith(f"{row['source']}:{row['species']}:"):
             raise ValueError("Invalid namespaced individual ID in review")
-        if row["decision"] != "drop" and row["animal"] not in excluded_animals:
+        if row["decision"] != "drop" and row["animal"] not in excluded_animals and row["path"] not in excluded_paths:
             rows.append({k: row[k] for k in REVIEW_FIELDS[:4]} | {"original_test": False})
     # In exploratory mode, quarantine entire conflicting IDs instead of guessing a label.
     conflicting = {}
@@ -192,6 +194,8 @@ def curate_review(path, output, *, seed=42, minimum_photos=4, review_policy="str
     audit["review_decisions"] = dict(Counter(row["decision"] for row in reviewed))
     audit["review_policy"] = review_policy
     audit["excluded_animals"] = excluded_animals
+    audit["excluded_paths"] = excluded_paths
+    audit["excluded_path_photos"] = sum(row["path"] in excluded_paths for row in reviewed)
     audit["excluded_animal_photos"] = sum(row["animal"] in excluded_animals for row in reviewed)
     audit["conflicting_hashes"] = conflicting
     audit["conflicting_identities_quarantined"] = sorted({row["animal"] for items in conflicting.values() for row in items})

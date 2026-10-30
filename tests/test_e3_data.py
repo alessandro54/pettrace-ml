@@ -168,3 +168,16 @@ def test_exploratory_keeps_integrity_checks_and_strict_review_default(tmp_path):
     Path(rows[0]["path"]).write_bytes(b"changed after selection")
     with pytest.raises(ValueError, match="changed after review"):
         curate_review(path, tmp_path / "changed", review_policy="exploratory")
+
+
+def test_detector_exclusions_precede_minimum_photo_counts_and_split_assignment(tmp_path):
+    rows = make_rows(tmp_path / "source")
+    path = write_review(rows, tmp_path / "review.csv")
+    excluded = next(row for row in rows if row["animal"] == "dogs-world:dog:0")
+    original = path.read_bytes()
+    retained, audit = curate_review(path, tmp_path / "curated", review_policy="exploratory",
+                                    excluded_paths={excluded["path"]: "multiple_animals"})
+    assert audit["excluded_path_photos"] == 1
+    assert excluded["animal"] in audit["insufficient_photo_identities_excluded"]
+    assert all(row["animal"] != excluded["animal"] for row in retained)
+    assert path.read_bytes() == original
