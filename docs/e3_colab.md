@@ -18,7 +18,7 @@ Los accesos Kaggle opcionales siguen en el entorno; ninguna clave ni URL firmada
 
 ## Revisión antes de entrenamiento
 
-El piloto selecciona como máximo 300 identidades por especie y 10 fotos por identidad con semilla 42. Se generan hojas de contacto por individuo y `review.csv`, donde cada foto requiere `keep` o `drop`. El notebook no aprueba fotos automáticamente. La selección queda vinculada a path, individuo, fuente, especie y hash; una selección o imagen distinta requiere nueva revisión.
+El piloto selecciona como máximo 300 identidades por especie y 10 fotos por identidad con semilla 42. Se generan hojas de contacto por individuo y `review.csv`, donde cada foto requiere `keep` o `drop`. El notebook no aprueba fotos automáticamente. Un archivo que no puede decodificarse se muestra con un recuadro de error; `image-readability.json` registra su ruta y el error. La generación continúa con las demás fotos, sin cambiar decisiones: esos archivos deben marcarse `drop` en la revisión. La selección queda vinculada a path, individuo, fuente, especie y hash; una selección o imagen distinta requiere nueva revisión.
 
 Hay que comprobar objetivo inequívoco, identidad consistente, cuerpo útil y variedad observable. LCW contiene también fotos con varios gatos; la caja mayor de un detector no valida el individuo objetivo. La diversidad de fondos no demuestra sesiones diferentes y no se inventan fechas.
 
