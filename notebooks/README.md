@@ -1,93 +1,66 @@
-# Cuadernos de investigación · PetTrace
+# Experimentos de investigación · PetTrace
 
-Estos notebooks presentan la investigación sobre re-identificación visual de mascotas realizada
-para PetTrace. El objetivo es recuperar **la identidad de un animal**, entre otros individuos de
-su especie, a partir de una fotografía. La raza no es la etiqueta de recuperación.
+Los tres cuadernos documentan una secuencia de investigación de tesis sobre recuperación visual de identidades individuales de perros y gatos. Cada condición modifica un componente del pipeline y conserva el mismo benchmark privado de evaluación. La raza no es la etiqueta del problema.
 
-Cada cuaderno articula una pregunta, una intervención experimental y la evidencia necesaria para
-evaluarla. La secuencia permite recorrer las decisiones del proyecto: partir de una representación
-preentrenada, estudiar la localización del animal y plantear adaptaciones aprendidas. Las secciones
-Markdown están escritas en español; identificadores y herramientas compartidas siguen las
-convenciones del paquete.
+| Experimento | Intervención | Parámetros ajustados | Comparación |
+|---|---|---|---|
+| [E1](e1_clip_zero_shot.ipynb) | CLIP ViT-B/32 sin localización previa | Ninguno | Referencia descriptiva y azar uniforme entre identidades |
+| [E2](e2_yolo_crop_zero_shot.ipynb) | Recorte YOLOv8n antes del mismo CLIP | Ninguno | E1 recalculado con las mismas consultas y galerías |
+| [E3](e3_mlp_head_triplet.ipynb) | MLP 512→256→512 sobre E2 congelado | Solo la MLP | E1 y E2 recalculados con las mismas consultas y galerías |
 
-## Recorrido experimental
+E4 (adaptación del encoder) y E5 (información textual) son líneas futuras. No se presentan como experimentos ejecutados ni se les atribuyen resultados.
 
-| Etapa | Pregunta de investigación | Cuaderno y evidencia |
-|---|---|---|
-| E1 · Línea base | ¿Qué capacidad de recuperación ofrece CLIP sin ajuste específico? | [Notebook](e1_clip_zero_shot.ipynb) · [ejecución v4](https://ml.pettrace.app/#/experiments/3/runs/8601747ecd384d948d429b3b490449c9) |
-| E2 · Localización | ¿Cómo cambia la recuperación al recortar la mascota con YOLO y conservar el mismo CLIP? | [Notebook](e2_yolo_crop_zero_shot.ipynb) · [ejecución v4](https://ml.pettrace.app/#/experiments/3/runs/9117658f1945404ca9d1058257bf97f0) |
-| E3 · Aprendizaje métrico | ¿Una proyección MLP entrenada con identidades públicas transfiere a las mascotas de PetTrace? | [Notebook](e3_mlp_head_triplet.ipynb) · implementación disponible; entrenamiento real pendiente |
-| E4 · Adaptación del encoder | ¿Qué aporta adaptar el backbone mediante LoRA? | Etapa propuesta, sin notebook ni resultados registrados en este índice |
-| E5 · Información textual | ¿Puede la descripción de un avistamiento mejorar el orden de candidatos visuales? | Etapa propuesta, sin notebook ni resultados registrados en este índice |
+## Tres fases de la investigación
 
-E1 y E2 en v4 comparten el snapshot y el encoder. E2 recalcula su propia línea base y verifica
-consultas y galerías antes del contraste. Sus tablas pareadas, auditoría del detector y diagnósticos
-por identidad e iluminación permiten examinar beneficios y pérdidas más allá del promedio.
+1. **Preparación y preprocesamiento de datos.** `datasets/prepare_training.ipynb` realiza adquisición, filtros, deduplicación y splits. Los experimentos cargan y verifican los snapshots preparados; no repiten su limpieza. PetTrace v4 procede de su flujo privado de curación/exportación.
+2. **Representación y entrenamiento.** Se verifica el modelo y se calculan representaciones. E1/E2 mantienen todos los pesos congelados. E3 entrena la MLP y selecciona su checkpoint únicamente con validación pública; muestra curvas de pérdida y validación.
+3. **Evaluación y análisis de resultados.** Cada condición se evalúa por separado en el test público de v1 y PetTrace v4. Incluye tablas por especie, Rank-1/Rank-2/mAP, CMC, matrices de confusión, diagnósticos por identidad, discusión, referencias y publicación obligatoria en MLflow.
 
-| Indicador registrado en v4 | E1 | E2 |
-|---|---:|---:|
-| Rank-1 | 65.90 % | 67.87 % |
-| Rank-5 | 94.10 % | 92.13 % |
-| mAP | 0.3751 | 0.3960 |
-| EER descriptiva | 36.23 % | 33.83 % |
+Las fuentes externas se citan junto al método utilizado, además de la lista de referencias: CLIP (Radford et al., 2021), YOLOv8 (Ultralytics), batch-hard triplet (Hermans et al., 2017), contexto de CMC/mAP (Zheng et al., 2015) y errores biométricos (Fiumara/NIST, 2022). Las reglas de galería, muestreo, filtros e hiperparámetros se identifican como decisiones propias. [references.bib](../docs/references.bib) conserva las entradas para la tesis. Los resultados y gráficos calculados por el proyecto no se atribuyen a estos trabajos.
 
-Los valores son una síntesis del [índice versionado](../experiments.yaml); MLflow conserva los
-artefactos completos. E2 mejora tres de estos indicadores, mientras Rank-5 disminuye. El contraste
-es descriptivo y no prueba significancia ni dependencia causal del fondo. Leave-one-out separa
-fotografías, no sesiones de captura; la EER se estima y reporta sobre los mismos pares.
+## Muestra y protocolo comparables
 
-E3 configura ahora el mismo commit de v4 y recalcula E1/E2 para la comparación. El piloto
-propuesto utiliza Dogs of the World (perros) y LCW (gatos), con filtrado técnico y YOLO exploratorio antes de los splits, más una muestra visual reproducible,
-auditoría de duplicados y particiones por identidad. La preparación independiente reutiliza la adquisición parcial del piloto y genera un dataset portable. El notebook de entrenamiento consume esa versión; archivos completos, publicación
-en MLflow y registro del modelo permanecen desactivados por defecto. El entrenamiento real sigue
-pendiente; v4 es un benchmark local exploratorio ya observado, no un test final intacto.
-Las ejecuciones [E1 v3](https://ml.pettrace.app/#/experiments/3/runs/af8a88b1e2a6434c9eeb31b62c9010e4)
-y [E2 v3](https://ml.pettrace.app/#/experiments/3/runs/e0d3e49aec554a4588efa3bce99955e1) permanecen
-como antecedentes sobre otra muestra.
+El benchmark es `pettrace-reid@v4`, commit `8b12db0dce41040a821f9792bea5b352342263ce`: 305 fotos de 31 mascotas. La descarga se fija a ese commit después de comprobar la etiqueta. E1/E2 no entrenan con estas fotos. E3 entrena con identidades públicas y selecciona el checkpoint únicamente mediante validación pública; v4 es una referencia exploratoria ya observada.
 
-## Estructura de la evidencia
+La recuperación es de galería cerrada y de la misma especie anotada, con evaluación leave-one-out por fotografía. Rank-k utiliza el máximo score por identidad; AP/mAP ordena fotografías. `zero-shot` es la etiqueta técnica del protocolo compartido, no clasificación mediante prompts de texto. No existe separación garantizada entre sesiones. La EER se ajusta y reporta sobre los mismos pares y es descriptiva.
 
-Los cuadernos siguen el recorrido: pregunta e hipótesis → muestra → modelo → entrenamiento cuando
-corresponde → evaluación → resultados → discusión → trazabilidad. Las tablas y figuras se generan
-con la implementación reutilizable del paquete `pettrace`; E1/E2 se ejecutan de forma independiente. E3 requiere un dataset previamente preparado, mediante el pipeline de datos compartido, y reutiliza su versión verificable. E1/E2 conservan salidas de ejecuciones reales; E3 describe un protocolo
-implementado y separa expresamente lo pendiente.
+## Comparación pública y privada en las nuevas ejecuciones
 
-Las fotografías privadas no se incorporan a la exposición de resultados. El análisis usa códigos
-seudónimos y registra el commit del dataset, hashes de modelos, configuración y procedencia del
-código. Los artefactos locales de `reports/` son salidas de trabajo fuera de Git. MLflow es el
-registro completo; `experiments.yaml` permite localizar las ejecuciones desde el repositorio.
+La muestra pública de evaluación es el test ya publicado de `pettrace-training@v1`: **277 fotos, 60 identidades** (34 gatos y 26 perros). Es el 15,2 % de las fotos preparadas y el 14,9 % de sus identidades; no se cambia v1 para forzar un 20 %. Los datos proceden de Dogs of the World y LCW, ambos distribuidos en Kaggle. Train/val no se incorporan a la galería pública de evaluación.
 
-## Reproducción de los análisis
+E1, E2 y E3 usan exactamente este mismo test y el mismo snapshot PetTrace v4. Se producen `public_test/` y los reportes privados del directorio principal, `benchmark-comparison.json` y `benchmark-comparison.png`. Se publica un run MLflow por dominio con su input de dataset; `publication.json` enlaza `run_id` privado y `public_run_id` público. La diferencia entre dominios no es una estimación causal: cambian la galería y las condiciones de captura. Las salidas históricas no incluyen aún esa comparación.
 
-Las primeras celdas contienen instalación y configuración, como procedimiento reproducible,
-separado del argumento científico. Un kernel local utiliza `uv sync --group dev --extra training`;
-un kernel remoto instala `pettrace-ml` si no está presente. `PETTRACE_PACKAGE_SOURCE` permite fijar
-una fuente o wheel publicada. El código local sin publicar no está disponible en Colab y no hay
-bundles de código codificados dentro de los notebooks.
+## Evidencia histórica de referencia
 
-`HF_TOKEN`, `MLFLOW_TRACKING_URI`, `MLFLOW_TRACKING_USERNAME` y `MLFLOW_TRACKING_PASSWORD` se
-proporcionan mediante entorno, Colab Secrets o campos ocultos. El endpoint de registro es
-`https://ml.pettrace.app`; el experimento debe existir. Las configuraciones guardadas de E1 y E2
-activan la publicación; E3 la mantiene desactivada por defecto. E1/E2 permiten configurar
-`LOG_TO_MLFLOW` o sus variables `E1_LOG_TO_MLFLOW` / `E2_LOG_TO_MLFLOW`. En E3,
-`LOG_TO_MLFLOW = False` es literal: solo una edición explícita habilita la publicación.
-El registro opcional del modelo E3 es otra configuración y no promueve un alias de servicio.
+| Indicador global | E1 | E2 | E3 |
+|---|---:|---:|---:|
+| Rank-1 | 65,90 % | 67,87 % | 72,79 % |
+| Rank-5 | 94,10 % | 92,13 % | 96,39 % |
+| mAP | 0,3751 | 0,3960 | 0,5682 |
+| EER descriptiva | 36,23 % | 33,83 % | 16,76 % |
 
-El mecanismo compartido reutiliza runs coincidentes o reanuda subidas interrumpidas. La publicación
-de un mismo resultado no debe ejecutarse desde varios kernels simultáneamente. Los reportes se
-escriben bajo `reports/eN_<dataset>`; `PETTRACE_OUTPUT_DIR` permite otra ubicación.
+E1: [run publicado](https://ml.pettrace.app/#/experiments/3/runs/8601747ecd384d948d429b3b490449c9). E2: [run publicado](https://ml.pettrace.app/#/experiments/3/runs/9117658f1945404ca9d1058257bf97f0). E3: corrida `20261030T153523Z-e258882a`, conservada en las salidas del notebook; su última salida de publicación guardada indica que no se publicó en ese momento. Una configuración actualizada no acredita una publicación retrospectiva. El recibo `publication.json` de la sesión confirma su estado real.
 
-`make notebook NB=notebooks/e1_clip_zero_shot.ipynb` reproduce y guarda un cuaderno en Docker.
-`tools/attach_notebook.py` permite adjuntarlo con un recibo de publicación que evita asociarlo a un
-run antiguo. En VS Code, el notebook ejecutado se guarda desde el equipo local: el kernel remoto
-no puede leer el archivo abierto en el Mac. Los reportes sin publicar y el notebook ejecutado se
-conservan antes de cerrar un runtime temporal.
+E3 seleccionó la época 3 (mAP macro de validación pública 0,6603) y se detuvo en la época 10. Entrenó con 1.276 fotos de 282 identidades; validó con 273 fotos de 60 identidades. En esa corrida histórica, las 277 fotos de 60 identidades del test público no se evaluaron. Las nuevas reproducciones las evaluarán después de fijar el checkpoint, separadas de PetTrace. Las fuentes son Dogs of the World v1 y LCW v1, combinadas y limpiadas en `pettrace-training@v1`.
 
-Después de una publicación, `make manifest` actualiza localmente el índice de ejecuciones mediante
-una consulta de lectura a MLflow. El índice incluye también runs fallidos o en curso etiquetados
-E1–E5; por ello, su estado debe leerse junto con las métricas. El manifiesto se versiona, los reportes
-se mantienen fuera de Git.
+La métrica `dataset.train_pct = 0,1837 %` expresa cobertura de las 694.594 entradas de imagen originales, antes de limpieza. No es el split de entrenamiento ni el porcentaje de individuos elegibles. Versiones y hashes del denominador están en [source_capacity_v1.json](../datasets/source_capacity_v1.json).
 
-Detalles operativos: [E1 en Colab](../docs/e1_colab.md) y [protocolo E3](../docs/e3_colab.md).
+Los resultados describen una muestra pequeña y una sola semilla de E3. No se reportan significancia, intervalos de confianza ni generalización entre sesiones; tampoco equivalen a precisión en una búsqueda abierta de mascotas perdidas.
 
-Los notebooks de esta carpeta están dedicados a los experimentos. El [notebook compartido de datos](../datasets/prepare_training.ipynb) vive en `datasets/` y produce las versiones de `pettrace-training`; también está disponible como CLI. Véase el [contrato del pipeline](../docs/e3_data_pipeline.md).
+## Conservación y reproducción
+
+Las primeras celdas instalan el paquete publicado y obtienen los accesos del entorno, Colab Secrets o campos ocultos. Una `.env` local no se transfiere automáticamente a Colab. Las dependencias efectivas y la identidad del código quedan en `runtime.json`; `PETTRACE_PACKAGE_SOURCE` permite indicar una fuente versionada.
+
+Cada nueva corrida crea `reports/eN_v4/<fecha-id>`. Conserva `experiment-design.json`, `summary.json`, `scores.json`, `analysis.json`, `findings.md`, figuras y procedencia. E3 añade manifiesto/auditoría, configuración, historia/checkpoint, curvas, cobertura y modelo ONNX. Las salidas históricas del notebook se preservan al editar el método: las celdas nuevas o modificadas deben ejecutarse para producir evidencia actualizada.
+
+Todos los experimentos deben publicar resultados en `https://ml.pettrace.app`; `LOG_TO_MLFLOW=True` es obligatorio. Un fallo conserva evidencia local para reintentar y no constituye una corrida completamente publicada. El registro de versión de modelo se controla por separado y no promueve aliases de servicio. La política también figura en [AGENTS.md](../AGENTS.md). La publicación de la nueva comparación requiere completar ambos dominios; el registro del modelo se basa en el run privado y conserva su configuración explícita.
+
+`make notebook NB=notebooks/e1_clip_zero_shot.ipynb` ejecuta un notebook en Docker. `tools/attach_notebook.py` adjunta el notebook ejecutado usando su recibo; desde VS Code debe guardarse primero en el equipo local. `make manifest` actualiza el índice `experiments.yaml` mediante lectura de MLflow, después de una publicación real. El índice puede incluir runs fallidos o incompletos y debe interpretarse junto a su estado y artefactos.
+
+Las fotos privadas no se incorporan a la presentación de resultados; se emplean códigos de identidad. Los reportes permanecen fuera de Git. Las ejecuciones históricas v3 describen otra muestra y no deben mezclarse con esta comparación.
+
+## Paquete para relanzar en Colab
+
+Las nuevas celdas requieren `pettrace.research` y las métricas Rank-2 actualizadas. Un kernel con la versión anterior debe instalar el wheel construido con estos cambios antes de ejecutar **Run All** (o instalar el código después de publicarlo en GitHub). No basta con abrir el notebook actualizado si el paquete remoto sigue siendo antiguo.
+
+Después de subir el wheel al runtime, instalarlo con `%pip install --force-reinstall --no-deps /content/pettrace_ml-0.1.0-py3-none-any.whl`, reiniciar el kernel y ejecutar el notebook completo. E1/E2 no entrenan; E3 requiere GPU T4 y entrena su MLP en la fase 2. No se reejecutó ni se publicaron nuevas métricas al editar los cuadernos.

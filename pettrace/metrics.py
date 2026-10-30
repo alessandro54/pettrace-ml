@@ -4,7 +4,7 @@ Retrieval, per split: every photo is a query; the gallery is the other photos of
 species** (the app filters by species), leave-one-out. A query whose animal has no other photo is
 skipped (it cannot be found), and so is a species with a single animal (nothing to confuse it
 with: Rank-1 would be 100 % by construction).
-- Rank-k (by animal, like MatchPets): each animal scores its best photo; hit if the query's animal
+- Rank-k (by animal; study-specific max-score aggregation): each animal scores its best photo; hit if the query's animal
   is among the top k animals.
 - mAP (by photo): average precision of the query's own photos in the ranked gallery.
 Verification: the match threshold is fixed at the EER on `val` pairs, then FAR/FRR are measured on
@@ -13,7 +13,7 @@ Verification: the match threshold is fixed at the EER on `val` pairs, then FAR/F
 
 import numpy as np
 
-KS = (1, 5, 10)
+KS = (1, 2, 5, 10)
 
 
 def retrieval(E: np.ndarray, animals: list[str], species: list[str], ks=KS) -> dict:

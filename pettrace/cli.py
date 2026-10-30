@@ -1,7 +1,7 @@
 """Evaluate a `pettrace-embedder` version on a `pettrace-reid` version (thesis protocol).
 
     make evaluate DATASET=v3 MODEL=models:/pettrace-embedder/1 PROTOCOL=zero-shot [REPORT=reports/e1_v3]
-    python -m pettrace.cli --model /path/to/model/dir --dataset /path/to/dataset/dir --no-mlflow
+    python -m pettrace.cli --model /path/to/model/dir --dataset /path/to/dataset/dir
 
 The protocol, model identity and MLflow logging live in pettrace.evaluation (shared with the experiment
 notebooks, which are the canonical record of each experiment). --report also writes the figures
@@ -25,7 +25,6 @@ def main() -> int:
                     help="zero-shot: every photo is a query (pretrained models only); EER on the same pairs")
     ap.add_argument("--report", help="directory for summary.json, scores.json and figures")
     ap.add_argument("--experiment", default="", help="E1…E5, tagged on the run")
-    ap.add_argument("--no-mlflow", action="store_true", help="compute only (read-only MLflow users)")
     args = ap.parse_args()
 
     ds = data.from_dir(args.dataset) if os.path.isdir(args.dataset) else data.load(args.dataset, args.repo)
@@ -39,9 +38,8 @@ def main() -> int:
 
         save(ev, model, args.report)
         print(f"report → {args.report}")
-    if not args.no_mlflow:
-        run_id = log_run(ev, model, experiment=args.experiment, artifacts=args.report)
-        print(f"run {run_id}")
+    run_id = log_run(ev, model, experiment=args.experiment, artifacts=args.report)
+    print(f"run {run_id}")
     return 0
 
 

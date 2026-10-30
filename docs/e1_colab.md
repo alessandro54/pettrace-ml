@@ -11,8 +11,7 @@
    prompts. A local `.env` on your Mac is not automatically visible to the Colab kernel.
 4. Run the experiment cells in order. The published HF `v4` tag and the fixed registered E1
    artifact must be available. E1 uses CPU inference and does not train a model.
-5. Review the generated results, analysis and conclusions. The final section publishes only
-   when `LOG_TO_MLFLOW` is enabled. Save the executed notebook from VS Code.
+5. Review the generated results, analysis and conclusions. The final section always publishes to MLflow. Save the executed notebook from VS Code.
 
 No package source files, local root path or report from another experiment are required beside
 the notebook. The implementation lives in the installed `pettrace` package. Package version,

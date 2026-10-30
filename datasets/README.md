@@ -57,3 +57,9 @@ prepared, provenance = load_local_training("datasets/build/pettrace-training/v1.
 E3 acepta `E3_PREPARED_DATASET` para una versión local. Para HF utiliza `HF_TRAINING_DATASET_REPO`, `HF_TRAINING_DATASET_VERSION`, `HF_TRAINING_DATASET_REVISION` y, opcionalmente, `HF_TRAINING_DATASET_FINGERPRINT`. El loader resuelve la referencia una vez, descarga por commit y valida todos los hashes antes de entrenar. La procedencia se conserva en el reporte del experimento.
 
 El pipeline también permanece disponible como CLI (`pettrace-prepare-e3` o `make prepare-e3`). El [contrato de snapshots y filtros](../docs/e3_data_pipeline.md) describe sus artefactos y límites.
+
+## Fase 1 y evaluación reservada
+
+Esta carpeta implementa la fase 1 del estudio: preparación y preprocesamiento. Las fuentes externas se citan en el notebook y en [references.bib](../docs/references.bib); filtros, muestreo y particiones son decisiones de esta investigación.
+
+La versión v1 ya publicada conserva 282 identidades de train, 60 de validación y 60 de test. E1/E2/E3 comparan el mismo **test reservado de 277 fotos** con PetTrace v4, manteniendo galerías separadas. No se modifica la versión para denominarlo 20 %: representa el 15,2 % de las fotos preparadas. Una vez observado, ese test no se presenta como una prueba nunca consultada ni se usa para seleccionar checkpoints.

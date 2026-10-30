@@ -44,10 +44,7 @@ independiente. Los detalles y diagnósticos están en [E1 v4](https://ml.pettrac
 y [E2 v4](https://ml.pettrace.app/#/experiments/3/runs/9117658f1945404ca9d1058257bf97f0), localizables
 también desde [`experiments.yaml`](experiments.yaml).
 
-E3 prepara un piloto revisado de Dogs of the World y LCW y compara contra las líneas base
-sobre el mismo commit de v4. Descargas completas, publicación y registro están desactivados
-por defecto. El entrenamiento real y sus métricas siguen pendientes; el uso previo de v4
-lo convierte en un benchmark exploratorio, no en una prueba final nunca observada.
+E3 consume `pettrace-training@v1`, preparado de forma independiente con Dogs of the World y LCW. La corrida conservada obtuvo 72,79 % de Rank-1 y 0,5682 de mAP sobre el mismo commit de v4, frente a 67,87 % y 0,3960 de E2. La última salida guardada indica que su publicación todavía estaba desactivada; la política actual exige publicar todos los experimentos. v4 sigue siendo un benchmark exploratorio ya observado. El [índice de notebooks](notebooks/README.md) separa evidencia, método y límites de interpretación.
 
 ### Antecedente: resultados en `pettrace-reid@v3` (zero-shot)
 
@@ -140,13 +137,13 @@ git checkout <commit from the run's git_sha tag>   # f80d1d6 (E1), c9dd2b9 (E2)
 cp .env.example .env            # MLflow user/password + HF_TOKEN
 make image                      # Linux, Python 3.11, versions from uv.lock
 
-make notebook NB=notebooks/e1_clip_zero_shot.ipynb        # E1: executes; enable E1_LOG_TO_MLFLOW=true to publish
+make notebook NB=notebooks/e1_clip_zero_shot.ipynb        # E1: executes and publishes to MLflow
 make notebook NB=notebooks/e2_yolo_crop_zero_shot.ipynb    # E2, including its own E1 baseline
 make evaluate DATASET=v3 MODEL=models:/pettrace-embedder/2 PROTOCOL=zero-shot REPORT=reports/e2_v3  # CLI
 ```
 
-Evaluating writes a run, so a read-only user can reproduce the numbers without logging:
-`docker run --rm --env-file .env -v $PWD:/repo pettrace-ml -m pettrace.cli --dataset v3 --model models:/pettrace-embedder/2 --protocol zero-shot --no-mlflow`.
+Every experiment run must publish its results to MLflow and requires a tracking account with write access.
+The CLI always logs its evaluation; `--no-mlflow` is no longer supported.
 
 The optional evaluation CLI is `pettrace-evaluate` (or `python -m pettrace.cli`).
 

@@ -26,6 +26,8 @@ def evaluate_embeddings(features, rows, threshold):
 def run(manifest, base_uri, dataset_version, output, config=None, log_mlflow=True, require_gpu=True):
     import mlflow
 
+    if not log_mlflow:
+        raise ValueError("MLflow publication is mandatory for every experiment run")
     config = config or Config()
     if require_gpu and not torch.cuda.is_available():
         raise RuntimeError("Select a GPU runtime in Colab before running E3")
@@ -178,6 +180,5 @@ if __name__ == "__main__":
     parser.add_argument("--base", default="models:/pettrace-embedder/2")
     parser.add_argument("--dataset", default="v3")
     parser.add_argument("--output", default="reports/e3_first_run")
-    parser.add_argument("--no-mlflow", action="store_true")
     args = parser.parse_args()
-    run(args.manifest, args.base, args.dataset, args.output, log_mlflow=not args.no_mlflow)
+    run(args.manifest, args.base, args.dataset, args.output, log_mlflow=True)
