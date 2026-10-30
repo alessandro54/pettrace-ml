@@ -84,3 +84,18 @@ def test_widget_displays_bad_files_without_approval_saves_and_resumes(tmp_path):
     assert "lcw:cat:2" in resumed.children[0].value
     assert all(w.value == "" for w in descendants(resumed) if isinstance(w, widgets.Dropdown))
     assert [r["decision"] for r in read_rows(path)] == ["keep", "drop", "", ""]
+
+
+def test_prompt_review_rejects_incomplete_answers_and_resumes_saved_progress(tmp_path, monkeypatch):
+    from pettrace.e3_review import review_with_prompts
+
+    rows, path = fixture_review(tmp_path)
+    monkeypatch.setattr("IPython.display.display", lambda value: None)
+    monkeypatch.setattr("IPython.display.clear_output", lambda **kwargs: None)
+    answers = iter(["k", "k d", "q"])
+    monkeypatch.setattr("builtins.input", lambda _: next(answers))
+    assert review_with_prompts(path) == {"total": 4, "keep": 1, "drop": 1, "pending": 2}
+    assert [row["decision"] for row in read_rows(path)] == ["keep", "drop", "", ""]
+    answers = iter(["d k"])
+    assert review_with_prompts(path) == {"total": 4, "keep": 2, "drop": 2, "pending": 0}
+    assert [row["decision"] for row in read_rows(path)] == ["keep", "drop", "drop", "keep"]

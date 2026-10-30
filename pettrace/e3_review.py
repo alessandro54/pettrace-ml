@@ -8,7 +8,7 @@ import tempfile
 from collections import Counter, defaultdict
 from pathlib import Path
 
-from PIL import Image, ImageOps
+from PIL import Image, ImageDraw, ImageOps
 
 from pettrace.e3_data import REVIEW_FIELDS
 from pettrace.public_data import sha256
@@ -86,6 +86,63 @@ def save_decisions(path, updates, *, expected_sha256):
         if temporary is not None:
             temporary.unlink(missing_ok=True)
     return sha256(path)
+
+
+def review_with_prompts(path):
+    """Review using standard notebook images/stdin when widget rendering is unavailable."""
+    from IPython.display import clear_output, display
+
+    path = Path(path)
+    rows = _read(path)
+    digest = sha256(path)
+    groups = defaultdict(list)
+    for row in rows:
+        groups[row["animal"]].append(row)
+    choices = {"k": "keep", "keep": "keep", "d": "drop", "drop": "drop"}
+    for number, (animal, photos) in enumerate(groups.items(), 1):
+        if all(row["decision"] in {"keep", "drop"} for row in photos):
+            continue
+        clear_output(wait=True)
+        print(f"{number}/{len(groups)} · {animal}")
+        print("Revisar identidad, objetivo inequívoco, cuerpo, calidad y variedad. Mínimo 4 fotos distintas tras curación.")
+        columns, width, height = 4, 300, 320
+        sheet = Image.new("RGB", (columns * width, ((len(photos) + columns - 1) // columns) * height), "white")
+        draw = ImageDraw.Draw(sheet)
+        for index, row in enumerate(photos):
+            x, y = index % columns * width, index // columns * height
+            try:
+                with Image.open(row["path"]) as image:
+                    thumb = ImageOps.contain(ImageOps.exif_transpose(image).convert("RGB"), (290, 280))
+                sheet.paste(thumb, (x, y))
+            except (OSError, ValueError, Image.DecompressionBombError):
+                draw.rectangle((x, y, x + 290, y + 280), fill="#ffe5e5")
+                draw.text((x + 8, y + 120), "ILEGIBLE: marcar d", fill="#8b0000")
+            draw.text((x + 4, y + 282), f"{index + 1}. {Path(row['path']).name[:32]}", fill="black")
+            draw.text((x + 4, y + 299), f"Actual: {row['decision'] or 'pendiente'}", fill="black")
+        display(sheet)
+        print("Una decisión por foto, en orden: k=conservar, d=descartar. Ejemplo: k d k k.")
+        print("q: salir conservando lo ya guardado. s: posponer esta identidad sin modificarla.")
+        while True:
+            response = input(f"Decisiones para {len(photos)} fotos: ").strip().lower()
+            if response == "q":
+                print("Revisión pausada. Las decisiones anteriores están guardadas en review.csv.")
+                return review_status(path)
+            if response == "s":
+                break
+            tokens = response.split()
+            if len(tokens) != len(photos) or any(token not in choices for token in tokens):
+                print(f"Se requieren {len(photos)} decisiones k/d separadas por espacios, o q/s.")
+                continue
+            updates = {row["path"]: {"decision": choices[token], "note": row["note"]}
+                       for row, token in zip(photos, tokens)}
+            digest = save_decisions(path, updates, expected_sha256=digest)
+            for row in photos:
+                row.update(updates[row["path"]])
+            print("Guardado en review.csv.")
+            break
+    status = review_status(path)
+    print(f"Revisión guardada: {status['total'] - status['pending']}/{status['total']}; pendientes: {status['pending']}.")
+    return status
 
 
 def photo_reviewer(path):
