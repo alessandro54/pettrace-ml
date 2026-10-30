@@ -17,7 +17,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-notebooks = ["matplotlib>=3.9,<4", "ipython>=8,<10"]
+notebooks = ["matplotlib>=3.9,<4", "ipython>=8,<10", "ipywidgets>=8.1,<9"]
 training = ["torch>=2.5,<3", "onnx>=1.17,<2", "pandas>=2.2.3,<4"]
 
 [project.scripts]
