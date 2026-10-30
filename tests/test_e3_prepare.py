@@ -93,7 +93,7 @@ def test_pipeline_creates_portable_snapshot_reuses_it_and_preserves_pending_deci
     report = tmp_path / "training-report"
     report.mkdir()
     namespace = {"load_prepared": load_prepared, "PREPARED_DATASET_ROOT": dataset.root,
-                 "REPORT": report, "json": json, "shutil": shutil, "sha256": sha256}
+                 "REPORT": report, "json": json, "shutil": shutil, "sha256": sha256, "TRAINING_DATASET_REPO": ""}
     exec(compile("".join(cell["source"]), "training-input", "exec"), namespace)
     assert namespace["manifest_rows"] == dataset.rows
     assert json.loads((report / "data-preparation.json").read_text())["prepared_dataset_fingerprint"] == dataset.fingerprint

@@ -49,7 +49,7 @@ como antecedentes sobre otra muestra.
 
 Los cuadernos siguen el recorrido: pregunta e hipótesis → muestra → modelo → entrenamiento cuando
 corresponde → evaluación → resultados → discusión → trazabilidad. Las tablas y figuras se generan
-con la implementación reutilizable del paquete `pettrace`; E1/E2 se ejecutan de forma independiente. E3 requiere un dataset previamente preparado, mediante el comando de preparación, y reutiliza su versión verificable. E1/E2 conservan salidas de ejecuciones reales; E3 describe un protocolo
+con la implementación reutilizable del paquete `pettrace`; E1/E2 se ejecutan de forma independiente. E3 requiere un dataset previamente preparado, mediante el pipeline de datos compartido, y reutiliza su versión verificable. E1/E2 conservan salidas de ejecuciones reales; E3 describe un protocolo
 implementado y separa expresamente lo pendiente.
 
 Las fotografías privadas no se incorporan a la exposición de resultados. El análisis usa códigos
@@ -90,4 +90,4 @@ se mantienen fuera de Git.
 
 Detalles operativos: [E1 en Colab](../docs/e1_colab.md) y [protocolo E3](../docs/e3_colab.md).
 
-Los notebooks están dedicados a los experimentos. La preparación se ejecuta fuera de ellos con `make prepare-e3` o `pettrace-prepare-e3`; véase el [contrato del pipeline de datos E3](../docs/e3_data_pipeline.md).
+Los notebooks de esta carpeta están dedicados a los experimentos. El [notebook compartido de datos](../datasets/prepare_training.ipynb) vive en `datasets/` y produce las versiones de `pettrace-training`; también está disponible como CLI. Véase el [contrato del pipeline](../docs/e3_data_pipeline.md).

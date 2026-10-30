@@ -181,7 +181,7 @@ def load_prepared(path):
     """Load only a completed snapshot, checking every artifact/image and split before training."""
     path = Path(path).resolve()
     if not path.exists():
-        raise FileNotFoundError("Prepared dataset missing: run pettrace-prepare-e3 or make prepare-e3 first")
+        raise FileNotFoundError("Prepared dataset missing: run datasets/prepare_training.ipynb or pettrace-prepare-e3 first")
     expected = None
     if path.is_file() and path.name == "latest.json":
         pointer = json.loads(path.read_text())

@@ -13,9 +13,13 @@ flowchart LR
   G --> H[Entrenamiento E3]
 ```
 
-## Preparación fuera de notebooks
+## Notebook de datos compartido
 
-Los notebooks están reservados para los experimentos. La adquisición, YOLO, limpieza y particiones se ejecutan como un comando previo. El piloto mantiene 300 perros y 300 gatos como máximo, hasta 10 fotos por individuo y semilla 42; reutiliza los archivos y decisiones existentes bajo la raíz indicada con `--data-root`.
+El pipeline de preparación se presenta en [datasets/prepare_training.ipynb](../datasets/prepare_training.ipynb), separado de los notebooks experimentales. Produce `pettrace-training`, una base de entrenamiento con versiones locales como `v1` y publicación privada opcional en HF. El benchmark `pettrace-reid@v4` permanece independiente. Véase [datasets/README.md](../datasets/README.md) para la organización y el consumo de versiones.
+
+El piloto mantiene hasta 300 perros y 300 gatos, diez fotos por individuo y semilla 42; reutiliza las fuentes ya descargadas bajo `public/e3-body`. Los snapshots compartidos se guardan en `datasets/build/pettrace-training` y pueden reutilizarse en otros experimentos. `PUBLISH_TO_HF = False` deja todos los datos locales hasta activar explícitamente la publicación.
+
+## Alternativa por comando
 
 Con la imagen del proyecto ya construida (`make image`), el comando usa el runner Docker existente y los accesos de `.env`:
 
@@ -29,9 +33,9 @@ La preparación requiere únicamente el detector ONNX de E2 y su especificación
 
 ## Uso en Colab
 
-Se prepara el dataset desde un terminal y se coloca la carpeta completa de la versión en el runtime de entrenamiento, conservando `images/` y los manifiestos. Si el comando se ejecuta en ese mismo entorno, no es necesario transferir la carpeta. No se ejecuta preparación dentro de un notebook.
+Se prepara el dataset desde un terminal y se coloca la carpeta completa de la versión en el runtime de entrenamiento, conservando `images/` y los manifiestos. Si el comando se ejecuta en ese mismo entorno, no es necesario transferir la carpeta. La preparación se ejecuta en el notebook de datos o por CLI; los notebooks experimentales consumen el resultado.
 
-Después se abre [e3_mlp_head_triplet.ipynb](../notebooks/e3_mlp_head_triplet.ipynb) y se fija `E3_PREPARED_DATASET` a esa carpeta. Con la estructura por defecto, el notebook encuentra `datasets/public/e3-body/prepared/latest.json`. El experimento verifica el dataset y registra su fingerprint antes de entrenar.
+Después se abre [e3_mlp_head_triplet.ipynb](../notebooks/e3_mlp_head_triplet.ipynb) y se fija `E3_PREPARED_DATASET` a esa carpeta. El experimento encuentra la versión compartida `datasets/build/pettrace-training/v1.json`, conserva compatibilidad con `datasets/public/e3-body/prepared/latest.json` y permite cargar una versión HF por commit. El experimento verifica el dataset y registra su fingerprint antes de entrenar.
 
 ## Comando independiente
 
@@ -55,7 +59,7 @@ Sin `--allow-download`, el comando requiere extracciones manuales o pilotos comp
 
 ## Contrato de salida
 
-Cada versión se guarda en `DATA_ROOT/prepared/<fingerprint>/` y contiene:
+Cada snapshot se guarda en `OUTPUT_ROOT/<fingerprint>/` y contiene los archivos siguientes. El notebook compartido usa `datasets/build/pettrace-training` como `OUTPUT_ROOT`; el CLI conserva `DATA_ROOT/prepared` como valor por defecto.
 
 - `images/`: copias de las imágenes retenidas, independientes de las fuentes originales.
 - `manifest.csv`: rutas relativas, fuente, especie, individuo, split y SHA-256.

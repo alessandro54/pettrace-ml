@@ -182,3 +182,7 @@ service at startup and by `make verify-model`) fails if they diverge.
 - Code: MIT ([LICENSE](LICENSE)).
 - YOLOv8 weights (E2 detector) are AGPL-3.0 (Ultralytics); they are not distributed here.
 - CLIP ViT-B/32: OpenAI, MIT.
+
+### Dataset de entrenamiento compartido
+
+El pipeline [datasets/prepare_training.ipynb](datasets/prepare_training.ipynb) prepara Dogs of the World y LCW con filtros YOLO, deduplicación, exclusiones y splits por identidad. Genera `pettrace-training` con versiones locales como `v1`, reutilizables en E3 y otros experimentos. La publicación privada en Hugging Face es opcional y está desactivada por defecto; `pettrace-reid@v4` permanece como benchmark separado. Véase [datasets/README.md](datasets/README.md).
