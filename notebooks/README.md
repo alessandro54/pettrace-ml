@@ -37,7 +37,7 @@ es descriptivo y no prueba significancia ni dependencia causal del fondo. Leave-
 fotografías, no sesiones de captura; la EER se estima y reporta sobre los mismos pares.
 
 E3 configura ahora el mismo commit de v4 y recalcula E1/E2 para la comparación. El piloto
-propuesto utiliza Dogs of the World (perros) y LCW (gatos), con revisión explícita de fotos,
+propuesto utiliza Dogs of the World (perros) y LCW (gatos), con filtrado técnico exploratorio y una muestra visual reproducible,
 auditoría de duplicados y particiones por identidad. La adquisición parcial del piloto está activa; archivos completos, publicación
 en MLflow y registro del modelo permanecen desactivados por defecto. El entrenamiento real sigue
 pendiente; v4 es un benchmark local exploratorio ya observado, no un test final intacto.

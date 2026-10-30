@@ -153,12 +153,17 @@ def write_review(rows, path):
     return path
 
 
-def curate_review(path, output, *, seed=42, minimum_photos=4):
-    """Only explicit keep/drop decisions can reach splitting and feature extraction."""
+def curate_review(path, output, *, seed=42, minimum_photos=4, review_policy="strict", excluded_animals=None):
+    """Strict review or explicit exploratory use of unverified publisher identity labels."""
     with Path(path).open(newline="") as stream:
         reviewed = list(csv.DictReader(stream))
-    if not reviewed or any(row.get("decision") not in {"keep", "drop"} for row in reviewed):
+    if review_policy not in {"strict", "exploratory"}:
+        raise ValueError("review_policy must be strict or exploratory")
+    if not reviewed or any(row.get("decision") not in {"", "keep", "drop"} for row in reviewed):
+        raise ValueError("Invalid or empty review.csv; decisions must be blank, keep or drop")
+    if review_policy == "strict" and any(row["decision"] == "" for row in reviewed):
         raise ValueError("Complete review.csv: every photo requires keep or drop before training")
+    excluded_animals = dict(excluded_animals or {})
     rows = []
     for row in reviewed:
         if sha256(row["path"]) != row["sha256"]:
@@ -167,13 +172,33 @@ def curate_review(path, output, *, seed=42, minimum_photos=4):
             raise ValueError("Invalid source/species in review")
         if not row["animal"].startswith(f"{row['source']}:{row['species']}:"):
             raise ValueError("Invalid namespaced individual ID in review")
-        if row["decision"] == "keep":
+        if row["decision"] != "drop" and row["animal"] not in excluded_animals:
             rows.append({k: row[k] for k in REVIEW_FIELDS[:4]} | {"original_test": False})
+    # In exploratory mode, quarantine entire conflicting IDs instead of guessing a label.
+    conflicting = {}
+    if review_policy == "exploratory":
+        by_hash = {}
+        for row in rows:
+            by_hash.setdefault(sha256(row["path"]), []).append(row)
+        conflicting = {digest: items for digest, items in by_hash.items()
+                       if len({item["animal"] for item in items}) > 1}
+        conflicting_ids = {row["animal"] for items in conflicting.values() for row in items}
+        rows = [row for row in rows if row["animal"] not in conflicting_ids]
     # Duplicate audit precedes the final count requirement and split assignment.
     retained, audit = audit_and_split(rows, output, seed=seed, minimum_photos=minimum_photos)
     if {row["species"] for row in retained} != {"cat", "dog"}:
         raise ValueError("E3 pilot must retain both dogs and cats")
     audit["review_sha256"] = sha256(path)
     audit["review_decisions"] = dict(Counter(row["decision"] for row in reviewed))
+    audit["review_policy"] = review_policy
+    audit["excluded_animals"] = excluded_animals
+    audit["excluded_animal_photos"] = sum(row["animal"] in excluded_animals for row in reviewed)
+    audit["conflicting_hashes"] = conflicting
+    audit["conflicting_identities_quarantined"] = sorted({row["animal"] for items in conflicting.values() for row in items})
+    decisions = {row["path"]: row["decision"] for row in reviewed}
+    audit["retained_with_unverified_source_label"] = sum(decisions[row["path"]] == "" for row in retained)
+    audit["limitation"] = ("Exploratory pilot: pending decisions use publisher identity labels without individual visual "
+                           "approval. Technical filtering and a visual sample do not verify all identities or sessions."
+                           if review_policy == "exploratory" else "Explicit per-photo review; session diversity not verified.")
     (Path(output) / "audit.json").write_text(json.dumps(audit, indent=2))
     return retained, audit

@@ -73,7 +73,7 @@ def audit_and_split(rows, output, seed=42, near_mae=2.0, near_hash_distance=2, m
                 bits = [dh[y * 9 + x] > dh[y * 9 + x + 1] for y in range(8) for x in range(8)]
                 dhash = sum(int(value) << bit for bit, value in enumerate(bits))
                 ratio = im.width / im.height
-        except (OSError, ValueError) as exc:
+        except (OSError, ValueError, Image.DecompressionBombError) as exc:
             corrupt.append({"path": row["path"], "error": str(exc)})
             continue
         previous = hashes.get(row["sha256"])

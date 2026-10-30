@@ -113,3 +113,58 @@ def test_acquisition_does_not_download_implicitly_and_blocks_incomplete_extracti
     (tmp_path / "lcw-source.json").write_text(json.dumps({"extraction_pending": True, "version": 1}))
     with pytest.raises(ValueError, match="Incomplete extraction"):
         acquire(tmp_path, "lcw")
+
+
+def test_exploratory_filters_technical_problems_without_approving_pending_labels(tmp_path):
+    from pathlib import Path
+
+    rows = make_rows(tmp_path / "source")
+    def group(animal):
+        return [r for r in rows if r["animal"] == animal]
+    Path(group("dogs-world:dog:0")[0]["path"]).write_bytes(b"invalid source image")
+    repeated = group("dogs-world:dog:3")
+    Path(repeated[1]["path"]).write_bytes(Path(repeated[0]["path"]).read_bytes())
+    Path(group("lcw:cat:1")[0]["path"]).write_bytes(Path(group("lcw:cat:0")[0]["path"]).read_bytes())
+    path = write_review(rows, tmp_path / "review.csv")
+    with path.open(newline="") as stream:
+        decisions = list(csv.DictReader(stream))
+    dropped = group("dogs-world:dog:1")[0]["path"]
+    verified = group("dogs-world:dog:4")[0]["path"]
+    for row in decisions:
+        if row["path"] == dropped:
+            row["decision"] = "drop"
+        if row["path"] == verified:
+            row["decision"] = "keep"
+    with path.open("w", newline="") as stream:
+        writer = csv.DictWriter(stream, decisions[0].keys())
+        writer.writeheader()
+        writer.writerows(decisions)
+    before = path.read_bytes()
+    retained, audit = curate_review(path, tmp_path / "curated", review_policy="exploratory",
+                                    excluded_animals={"dogs-world:dog:2": "known ambiguous target"})
+    assert path.read_bytes() == before
+    assert audit["review_policy"] == "exploratory"
+    assert len(audit["corrupt"]) == 1 and len(audit["removed_duplicates"]) == 1
+    assert audit["excluded_animal_photos"] == 4
+    assert audit["conflicting_identities_quarantined"] == ["lcw:cat:0", "lcw:cat:1"]
+    assert audit["retained_with_unverified_source_label"] == len(retained) - 1
+    assert audit["review_decisions"][""] == 94
+    forbidden = {"dogs-world:dog:0", "dogs-world:dog:1", "dogs-world:dog:2", "dogs-world:dog:3",
+                 "lcw:cat:0", "lcw:cat:1"}
+    assert not forbidden.intersection(row["animal"] for row in retained)
+    assert {row["species"] for row in retained} == {"cat", "dog"}
+    assert {row["split"] for row in retained} == {"train", "val", "test"}
+    assert all(len({r["split"] for r in retained if r["animal"] == row["animal"]}) == 1 for row in retained)
+
+
+def test_exploratory_keeps_integrity_checks_and_strict_review_default(tmp_path):
+    rows = make_rows(tmp_path / "source")
+    path = write_review(rows, tmp_path / "review.csv")
+    with pytest.raises(ValueError, match="keep or drop"):
+        curate_review(path, tmp_path / "strict")
+    with pytest.raises(ValueError, match="review_policy"):
+        curate_review(path, tmp_path / "bad-policy", review_policy="approve-all")
+    from pathlib import Path
+    Path(rows[0]["path"]).write_bytes(b"changed after selection")
+    with pytest.raises(ValueError, match="changed after review"):
+        curate_review(path, tmp_path / "changed", review_policy="exploratory")
