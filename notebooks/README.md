@@ -16,6 +16,7 @@ convenciones del paquete.
 |---|---|---|
 | E1 · Línea base | ¿Qué capacidad de recuperación ofrece CLIP sin ajuste específico? | [Notebook](e1_clip_zero_shot.ipynb) · [ejecución v4](https://ml.pettrace.app/#/experiments/3/runs/8601747ecd384d948d429b3b490449c9) |
 | E2 · Localización | ¿Cómo cambia la recuperación al recortar la mascota con YOLO y conservar el mismo CLIP? | [Notebook](e2_yolo_crop_zero_shot.ipynb) · [ejecución v4](https://ml.pettrace.app/#/experiments/3/runs/9117658f1945404ca9d1058257bf97f0) |
+| Preparación E3 | ¿Qué identidades públicas quedan después del control de calidad? | [Pipeline de datos](e3_prepare_data.ipynb) · dataset versionado, filtros y exclusiones |
 | E3 · Aprendizaje métrico | ¿Una proyección MLP entrenada con identidades públicas transfiere a las mascotas de PetTrace? | [Notebook](e3_mlp_head_triplet.ipynb) · implementación disponible; entrenamiento real pendiente |
 | E4 · Adaptación del encoder | ¿Qué aporta adaptar el backbone mediante LoRA? | Etapa propuesta, sin notebook ni resultados registrados en este índice |
 | E5 · Información textual | ¿Puede la descripción de un avistamiento mejorar el orden de candidatos visuales? | Etapa propuesta, sin notebook ni resultados registrados en este índice |
@@ -38,7 +39,7 @@ fotografías, no sesiones de captura; la EER se estima y reporta sobre los mismo
 
 E3 configura ahora el mismo commit de v4 y recalcula E1/E2 para la comparación. El piloto
 propuesto utiliza Dogs of the World (perros) y LCW (gatos), con filtrado técnico y YOLO exploratorio antes de los splits, más una muestra visual reproducible,
-auditoría de duplicados y particiones por identidad. La adquisición parcial del piloto está activa; archivos completos, publicación
+auditoría de duplicados y particiones por identidad. La preparación independiente reutiliza la adquisición parcial del piloto y genera un dataset portable. El notebook de entrenamiento consume esa versión; archivos completos, publicación
 en MLflow y registro del modelo permanecen desactivados por defecto. El entrenamiento real sigue
 pendiente; v4 es un benchmark local exploratorio ya observado, no un test final intacto.
 Las ejecuciones [E1 v3](https://ml.pettrace.app/#/experiments/3/runs/af8a88b1e2a6434c9eeb31b62c9010e4)
@@ -49,8 +50,7 @@ como antecedentes sobre otra muestra.
 
 Los cuadernos siguen el recorrido: pregunta e hipótesis → muestra → modelo → entrenamiento cuando
 corresponde → evaluación → resultados → discusión → trazabilidad. Las tablas y figuras se generan
-con la implementación reutilizable del paquete `pettrace`; no se necesita ejecutar otro notebook
-ni disponer de sus reportes. E1/E2 conservan salidas de ejecuciones reales; E3 describe un protocolo
+con la implementación reutilizable del paquete `pettrace`; E1/E2 se ejecutan de forma independiente. E3 requiere un dataset previamente preparado, mediante el notebook de datos o el CLI, y reutiliza su versión verificable. E1/E2 conservan salidas de ejecuciones reales; E3 describe un protocolo
 implementado y separa expresamente lo pendiente.
 
 Las fotografías privadas no se incorporan a la exposición de resultados. El análisis usa códigos
@@ -90,3 +90,5 @@ E1–E5; por ello, su estado debe leerse junto con las métricas. El manifiesto 
 se mantienen fuera de Git.
 
 Detalles operativos: [E1 en Colab](../docs/e1_colab.md) y [protocolo E3](../docs/e3_colab.md).
+
+Preparación independiente: [contrato del pipeline de datos E3](../docs/e3_data_pipeline.md).

@@ -22,6 +22,7 @@ training = ["torch>=2.5,<3", "onnx>=1.17,<2", "pandas>=2.2.3,<4"]
 
 [project.scripts]
 pettrace-evaluate = "pettrace.cli:main"
+pettrace-prepare-e3 = "pettrace.e3_prepare:main"
 
 [dependency-groups]
 figures = ["matplotlib>=3.9,<4"]
