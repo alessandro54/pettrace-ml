@@ -33,6 +33,8 @@ datasets/
     v2.json
 ```
 
+La descarga usa cuatro conexiones por defecto (`DOWNLOAD_WORKERS`), con progreso, velocidad y ETA. Al reanudar verifica por CRC y omite las fotos ya válidas. El paralelismo no cambia la selección de identidades ni obliga a borrar la raíz existente.
+
 La ruta histórica `public/e3-body` se conserva para reutilizar las descargas existentes. Los snapshots generados sirven a E3 y a futuros experimentos; no dependen de volver a adquirir las fuentes. Un nombre local como `v1` no se mueve a otro fingerprint.
 
 ## Hugging Face y consumo

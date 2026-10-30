@@ -109,17 +109,95 @@ def test_pilot_receipt_reuses_verified_images_and_sidecars(tmp_path, monkeypatch
     blob = stream.getvalue()
     original = download.RangeFile
     monkeypatch.setattr(download, "RangeFile", lambda *args, **kwargs: original(*args, **kwargs, session=Session(blob)))
-    folder, receipt = download.acquire_pilot(tmp_path, "dogs-world", identities=1, photos_per_identity=4)
+    folder, receipt = download.acquire_pilot(tmp_path, "dogs-world", identities=1, photos_per_identity=4, workers=1)
     assert len(receipt["file_sha256"]) == 8 and receipt["selected_identities"] == ["one"]
     assert not receipt["extraction_pending"] and "temporary-token" not in json.dumps(receipt)
-    _, reused = download.acquire_pilot(tmp_path, "dogs-world", identities=1, photos_per_identity=4)
+    _, reused = download.acquire_pilot(tmp_path, "dogs-world", identities=1, photos_per_identity=4, workers=1)
     assert reused == receipt
     (folder / "metadata/0.json").write_text("tampered")
     with pytest.raises(ValueError, match="changed"):
-        download.acquire_pilot(tmp_path, "dogs-world", identities=1, photos_per_identity=4)
+        download.acquire_pilot(tmp_path, "dogs-world", identities=1, photos_per_identity=4, workers=1)
 
 
 def test_unsafe_archive_names_rejected():
     for name in ["../outside.jpg", "/outside.jpg", "folder\\outside.jpg"]:
         with pytest.raises(ValueError, match="Unsafe"):
             download._safe_name(name)
+
+
+def cat_archive():
+    stream = io.BytesIO()
+    with zipfile.ZipFile(stream, "w", zipfile.ZIP_DEFLATED) as z:
+        for index in range(8):
+            z.writestr(f"CatFullDataset/1/{index}.jpg", random.Random(index).randbytes(90000))
+    return stream.getvalue()
+
+
+def test_parallel_download_preserves_bytes_and_resumes_valid_crc_cache(tmp_path, monkeypatch):
+    import threading
+    import time
+
+    blob = cat_archive()
+    state = {"active": 0, "maximum": 0}
+    guard = threading.Lock()
+    sessions = []
+
+    class ConcurrentSession(Session):
+        def get(self, *args, **kwargs):
+            with guard:
+                state["active"] += 1
+                state["maximum"] = max(state["maximum"], state["active"])
+            try:
+                time.sleep(.02)  # Model independent network latency, not a wall-clock performance assertion.
+                return super().get(*args, **kwargs)
+            finally:
+                with guard:
+                    state["active"] -= 1
+
+    def factory():
+        session = ConcurrentSession(blob)
+        sessions.append(session)
+        return session
+
+    monkeypatch.setattr(download.requests, "Session", factory)
+    serial, original = download.acquire_pilot(tmp_path / "serial", "lcw", identities=1, photos_per_identity=8, workers=1)
+    parallel, result = download.acquire_pilot(tmp_path / "parallel", "lcw", identities=1, photos_per_identity=8, workers=4)
+    assert state["maximum"] >= 2
+    assert result["file_sha256"] == original["file_sha256"]
+    assert result["selected_identities"] == original["selected_identities"]
+    assert all((parallel / name).read_bytes() == (serial / name).read_bytes() for name in result["file_sha256"])
+    assert all(call["auth"] is None for session in sessions for call in session.calls)
+    # Make an unfinished receipt with one missing and one corrupt file; changing workers is transport-only.
+    receipt = tmp_path / "parallel/lcw-source.json"
+    state_json = json.loads(receipt.read_text())
+    state_json["extraction_pending"] = True
+    receipt.write_text(json.dumps(state_json))
+    untouched = parallel / "CatFullDataset/1/0.jpg"
+    untouched_mtime = untouched.stat().st_mtime_ns
+    (parallel / "CatFullDataset/1/1.jpg").unlink()
+    (parallel / "CatFullDataset/1/2.jpg").write_bytes(b"x" * 90000)
+    _, resumed = download.acquire_pilot(tmp_path / "parallel", "lcw", identities=1, photos_per_identity=8, workers=2)
+    assert resumed["file_sha256"] == original["file_sha256"]
+    assert untouched.stat().st_mtime_ns == untouched_mtime
+
+
+def test_parallel_requests_share_one_network_budget():
+    from concurrent.futures import ThreadPoolExecutor
+
+    blob = cat_archive()
+    with zipfile.ZipFile(io.BytesIO(blob)) as archive:
+        info = archive.getinfo("CatFullDataset/1/0.jpg")
+    size = 30 + len(info.filename.encode()) + 65535 + info.compress_size + 1
+    budget = 65536 + size
+    with download.RangeFile("https://source.example/download", session=Session(blob), max_network_bytes=budget) as remote:
+        def fetch(_):
+            try:
+                remote.fetch_entry_window(info, session=Session(blob))
+                return True
+            except ValueError as exc:
+                assert "budget" in str(exc)
+                return False
+        with ThreadPoolExecutor(max_workers=4) as pool:
+            outcomes = list(pool.map(fetch, range(8)))
+        assert sum(outcomes) == 1
+        assert remote.transferred <= budget

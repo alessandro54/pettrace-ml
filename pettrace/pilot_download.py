@@ -5,13 +5,17 @@ The full archive is never downloaded. Servers without Range support are rejected
 
 import hashlib
 import io
+import itertools
 import json
 import os
 import random
 import re
+import threading
+import time
 import zipfile
 import zlib
-from collections import OrderedDict, defaultdict
+from collections import OrderedDict, defaultdict, deque
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path, PurePosixPath
 
 import requests
@@ -22,15 +26,65 @@ from pettrace.e3_data import SOURCES
 from pettrace.public_data import EXTENSIONS, sha256
 
 
+def _session():
+    session = requests.Session()
+    session.headers.update({"User-Agent": "pettrace-e3-research/1.0"})
+    session.mount("https://", HTTPAdapter(max_retries=Retry(
+        total=4, backoff_factor=1, status_forcelist=[429, 500, 502, 503, 504], allowed_methods=["GET"])))
+    return session
+
+
+def _photo_windows(remote, infos, workers):
+    """Fetch a bounded window of images concurrently; ZIP decoding stays on the caller thread."""
+    if workers == 1:
+        for info in infos:
+            remote.prefetch_entry(info)
+            yield info
+        return
+    sessions, guard, local = [], threading.Lock(), threading.local()
+
+    def fetch(info):
+        if not hasattr(local, "session"):
+            local.session = _session()
+            with guard:
+                sessions.append(local.session)
+        # These sessions never receive Kaggle origin credentials.
+        return remote.fetch_entry_window(info, session=local.session)
+
+    pending, remaining = deque(), iter(infos)
+    pool = ThreadPoolExecutor(max_workers=workers)
+    try:
+        for info in itertools.islice(remaining, workers):
+            pending.append((info, pool.submit(fetch, info)))
+        while pending:
+            info, future = pending.popleft()
+            start, window = future.result()
+            remote.window_start, remote.window = start, window
+            following = next(remaining, None)
+            if following is not None:
+                pending.append((following, pool.submit(fetch, following)))
+            yield info
+    finally:
+        pool.shutdown(wait=True, cancel_futures=True)
+        for session in sessions:
+            session.close()
+
+
+def _check_entry(info, maximum=20 << 20):
+    _safe_name(info.filename)
+    if (info.file_size > maximum or info.compress_size > maximum + (1 << 20)
+            or (info.external_attr >> 16) & 0o170000 == 0o120000):
+        raise ValueError("Oversized image/metadata or symlink in archive")
+
+
 class RangeFile(io.RawIOBase):
     """Seekable ZIP input with a small LRU cache; never fall back to a whole GET."""
 
     def __init__(self, url, *, auth=None, block_size=4 << 20, cache_blocks=4, max_network_bytes=3 << 30, session=None):
         super().__init__()
-        self.session = session or requests.Session()
+        self.session = session or _session()
         self.session.headers.update({"User-Agent": "pettrace-e3-research/1.0"})
-        self.session.mount("https://", HTTPAdapter(max_retries=Retry(
-            total=4, backoff_factor=1, status_forcelist=[429, 500, 502, 503, 504], allowed_methods=["GET"])))
+        self._network_lock = threading.Lock()
         self.block_size, self.cache_blocks = block_size, cache_blocks
         self.position, self.transferred = 0, 0
         self.max_network_bytes = max_network_bytes
@@ -48,6 +102,8 @@ class RangeFile(io.RawIOBase):
             start, end, self.size = map(int, match.groups())
             if end != self.size - 1 or end - start + 1 > 65536:
                 raise ValueError("Invalid ZIP tail range")
+            if end - start + 1 > self.max_network_bytes:
+                raise ValueError("Pilot network budget exhausted before reading ZIP tail")
             self.url = response.url
             self.tail_start = start
             self.tail = response.raw.read(end - start + 2)
@@ -77,40 +133,43 @@ class RangeFile(io.RawIOBase):
             return self.cache[number]
         start = number * self.block_size
         end = min(self.size, start + self.block_size) - 1
-        if self.transferred + end - start + 1 > self.max_network_bytes:
-            raise ValueError("Pilot network budget exhausted; reduce pilot size")
-        with self.session.get(self.url, headers={"Range": f"bytes={start}-{end}", "Accept-Encoding": "identity"},
-                              stream=True, timeout=(30, 120)) as response:
-            expected = f"bytes {start}-{end}/{self.size}"
-            if response.status_code != 206 or response.headers.get("Content-Range") != expected:
-                raise ValueError("Server ignored the requested byte range; no full-download fallback")
-            block = response.raw.read(end - start + 2)
-            if len(block) != end - start + 1:
-                raise ValueError("Truncated archive range")
-        self.transferred += len(block)
+        block = self._fetch_range(start, end, self.session)
         self.cache[number] = block
         while len(self.cache) > self.cache_blocks:
             self.cache.popitem(last=False)
         return block
 
-    def prefetch_entry(self, info):
-        # One request per selected image, rather than fetching a 4 MiB block for each
-        # sparse image from a 74 GB archive. ZIP extra fields are bounded to 65535 bytes.
+    def _fetch_range(self, start, end, session):
+        size = end - start + 1
+        with self._network_lock:
+            if self.transferred + size > self.max_network_bytes:
+                raise ValueError("Pilot network budget exhausted; reduce pilot size")
+            # Reserve before starting I/O so simultaneous workers cannot overspend.
+            self.transferred += size
+        with session.get(self.url, headers={"Range": f"bytes={start}-{end}", "Accept-Encoding": "identity"},
+                         stream=True, timeout=(30, 120)) as response:
+            if response.status_code != 206 or response.headers.get("Content-Range") != f"bytes {start}-{end}/{self.size}":
+                raise ValueError("Invalid archive range; no full-download fallback")
+            window = response.raw.read(size + 1)
+            if len(window) != size:
+                raise ValueError("Truncated archive range")
+        return window
+
+    def _entry_bounds(self, info):
+        _check_entry(info)
         start = info.header_offset
         end = min(self.size - 1, start + 30 + len(info.filename.encode("utf-8")) + 65535 + info.compress_size)
+        return start, end
+
+    def fetch_entry_window(self, info, *, session):
+        start, end = self._entry_bounds(info)
+        return start, self._fetch_range(start, end, session)
+
+    def prefetch_entry(self, info):
+        start, end = self._entry_bounds(info)
         if self.window_start <= start and end < self.window_start + len(self.window):
             return
-        if self.transferred + end - start + 1 > self.max_network_bytes:
-            raise ValueError("Pilot network budget exhausted; reduce pilot size")
-        with self.session.get(self.url, headers={"Range": f"bytes={start}-{end}", "Accept-Encoding": "identity"},
-                              stream=True, timeout=(30, 120)) as response:
-            if response.status_code != 206 or response.headers.get("Content-Range") != f"bytes {start}-{end}/{self.size}":
-                raise ValueError("Invalid entry range; no full-download fallback")
-            window = response.raw.read(end - start + 2)
-            if len(window) != end - start + 1:
-                raise ValueError("Truncated entry range")
-        self.transferred += len(window)
-        self.window_start, self.window = start, window
+        self.window_start, self.window = self.fetch_entry_window(info, session=self.session)
 
     def read(self, size=-1):
         if size is None or size < 0:
@@ -152,9 +211,7 @@ def _safe_name(name):
 
 
 def _payload(z, info, maximum=20 << 20):
-    _safe_name(info.filename)
-    if info.file_size > maximum or (info.external_attr >> 16) & 0o170000 == 0o120000:
-        raise ValueError("Oversized image/metadata or symlink in archive")
+    _check_entry(info, maximum)
     with z.open(info) as stream:
         payload = stream.read(maximum + 1)
     if len(payload) > maximum:
@@ -203,9 +260,10 @@ def _candidate_groups(z, source, *, metadata_limit, photos_per_identity):
 
 
 def acquire_pilot(root, source, *, identities=300, photos_per_identity=10, minimum_photos=4,
-                  seed=42, metadata_limit=100000, max_photo_bytes=2 << 30, max_network_bytes=3 << 30):
+                  seed=42, metadata_limit=100000, max_photo_bytes=2 << 30, max_network_bytes=3 << 30, workers=4):
     """Download a bounded identity pilot; no inference/training or automatic review decisions."""
-    if source not in SOURCES or identities < 1 or minimum_photos < 2 or photos_per_identity < minimum_photos:
+    if (source not in SOURCES or identities < 1 or minimum_photos < 2 or photos_per_identity < minimum_photos
+            or not isinstance(workers, int) or not 1 <= workers <= 16):
         raise ValueError("Invalid pilot request")
     spec = SOURCES[source]
     root = Path(root).resolve()
@@ -253,25 +311,44 @@ def acquire_pilot(root, source, *, identities=300, photos_per_identity=10, minim
             selected.extend(photos[:photos_per_identity])
         if sum(info.file_size for info, _, _ in selected) > max_photo_bytes:
             raise ValueError("Selected photos exceed download budget; reduce the pilot in a new root")
-        hashes = {}
-        for number, (info, sidecar, raw) in enumerate(sorted(selected, key=lambda item: item[0].header_offset), 1):
+        hashes, plan = {}, []
+        for info, sidecar, raw in sorted(selected, key=lambda item: item[0].header_offset):
+            _check_entry(info)
             target = directory / str(_safe_name(info.filename))
-            target.parent.mkdir(parents=True, exist_ok=True)
             valid_cache = target.is_file() and target.stat().st_size == info.file_size and zlib.crc32(target.read_bytes()) == info.CRC
-            if not valid_cache:
-                remote.prefetch_entry(info)
-                payload = _payload(z, info)
-                partial = target.with_suffix(target.suffix + ".partial")
-                partial.write_bytes(payload)
-                partial.replace(target)
-            hashes[str(target.relative_to(directory))] = sha256(target)
-            if sidecar:
-                destination = directory / str(_safe_name(sidecar.filename))
-                destination.parent.mkdir(parents=True, exist_ok=True)
-                destination.write_bytes(raw)
-                hashes[str(destination.relative_to(directory))] = hashlib.sha256(raw).hexdigest()
-            if number % 100 == 0:
-                print(f"{source}: {number}/{len(selected)} pilot photos downloaded", flush=True)
+            plan.append((info, sidecar, raw, target, valid_cache))
+        missing = [info for info, _, _, _, valid in plan if not valid]
+        cached = len(plan) - len(missing)
+        print(f"{source}: {cached}/{len(plan)} cached photos verified; downloading {len(missing)} with {workers} workers", flush=True)
+        windows = _photo_windows(remote, missing, workers)
+        started = last_update = time.monotonic()
+        downloaded = 0
+        try:
+            for info, sidecar, raw, target, valid_cache in plan:
+                target.parent.mkdir(parents=True, exist_ok=True)
+                if not valid_cache:
+                    fetched = next(windows)
+                    assert fetched.filename == info.filename
+                    payload = _payload(z, info)
+                    partial = target.with_suffix(target.suffix + ".partial")
+                    partial.write_bytes(payload)
+                    partial.replace(target)
+                    downloaded += 1
+                hashes[str(target.relative_to(directory))] = sha256(target)
+                if sidecar:
+                    destination = directory / str(_safe_name(sidecar.filename))
+                    destination.parent.mkdir(parents=True, exist_ok=True)
+                    destination.write_bytes(raw)
+                    hashes[str(destination.relative_to(directory))] = hashlib.sha256(raw).hexdigest()
+                now = time.monotonic()
+                if not valid_cache and downloaded and (now - last_update >= 10 or downloaded == len(missing)):
+                    rate = downloaded / max(now - started, .001)
+                    eta = (len(missing) - downloaded) / rate
+                    print(f"{source}: {cached + downloaded}/{len(plan)} photos verified | "
+                          f"{rate:.2f} new photos/s | ETA {eta / 60:.1f} min", flush=True)
+                    last_update = now
+        finally:
+            windows.close()
         receipt.update({"extraction_pending": False, "archive_index_sha256": signature.hexdigest(),
                         "archive_bytes": remote.size, "network_bytes": remote.transferred,
                         "metadata_scanned": scanned, "eligible_identities_in_scan": len(eligible),

@@ -61,6 +61,7 @@ class PrepareConfig:
     metadata_limit: int = 100000
     max_network_bytes: int = 3 * 2**30
     allow_download: bool = False
+    download_workers: int = 4
     review_policy: str = "exploratory"
     excluded_animals: dict = field(default_factory=lambda: dict(KNOWN_EXCLUSIONS))
     confidence: float = 0.25
@@ -97,7 +98,7 @@ def acquire_candidates(config):
             source_root, receipt = acquire_pilot(
                 root, source, identities=config.identities_per_species, photos_per_identity=config.photos_per_identity,
                 minimum_photos=config.minimum_photos, seed=config.seed, metadata_limit=config.metadata_limit,
-                max_network_bytes=config.max_network_bytes)
+                max_network_bytes=config.max_network_bytes, workers=config.download_workers)
         found, ignored = discover_body_ids(source_root, source)
         rows.extend(found)
         skipped.extend(ignored)
@@ -369,13 +370,14 @@ def main():
     parser.add_argument("--identities-per-species", type=int, default=300)
     parser.add_argument("--photos-per-identity", type=int, default=10)
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--download-workers", type=int, default=4)
     args = parser.parse_args()
     detector_dir = args.detector_dir or acquire_detector(args.detector_uri, Path(args.data_root) / "detector-models")
     sources = {name: root for name, root in (("dogs-world", args.dog_root), ("lcw", args.cat_root)) if root}
     result = prepare(PrepareConfig(data_root=args.data_root, detector_dir=str(detector_dir), output_root=args.output_root,
                                    source_roots=sources, allow_download=args.allow_download,
                                    identities_per_species=args.identities_per_species,
-                                   photos_per_identity=args.photos_per_identity, seed=args.seed))
+                                   photos_per_identity=args.photos_per_identity, seed=args.seed, download_workers=args.download_workers))
     print(_json({"path": str(result.root), "fingerprint": result.fingerprint, "summary": result.summary}))
 
 
