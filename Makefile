@@ -43,10 +43,10 @@ mlflow-smoke:
 	$(DOCKER) $(IMAGE) tools/mlflow_smoke.py
 
 test:
-	uv run --group dev pytest -q
+	uv run --locked --group dev python -m pytest -q
 
 test-e3:
-	uv run --group dev --extra training pytest -q tests/test_e3.py
+	uv run --locked --group dev --extra training python -m pytest -q tests/test_e3.py
 
 lint:
 	uv run --group dev ruff check .

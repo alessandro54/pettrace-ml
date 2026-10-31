@@ -66,7 +66,7 @@ From a clean, committed checkout with uv **0.11.22**:
 
 ```bash
 uv sync --locked --group dev --extra notebooks --extra training
-uv run --locked pytest -q
+uv run --locked python -m pytest -q
 uv run --locked ruff check .
 uv run --no-sync python tools/build_release.py
 ```
