@@ -209,3 +209,36 @@ def test_private_kernel_class_overrides_system_colab_config(tmp_path, name):
     assert after.returncode == 0, after.stderr
     assert "standard kernel initialized" in after.stdout
     assert "google.colab._kernel.Kernel" in (global_config / name).read_text()
+
+
+@pytest.mark.parametrize("name", ["ipython_config.py", "ipython_kernel_config.py"])
+@pytest.mark.parametrize("section", ["InteractiveShellApp", "IPKernelApp"])
+@pytest.mark.parametrize("field", ["extensions", "extra_extensions"])
+def test_private_profile_does_not_load_colab_extensions(tmp_path, name, section, field):
+    import sys
+
+    global_config = tmp_path / "system-ipython"
+    global_config.mkdir()
+    contents = ('c = get_config()\n'
+                'c.IPKernelApp.reraise_ipython_extension_failures = True\n'
+                f'c.{section}.{field} = ["google.colab"]\n')
+    (global_config / name).write_text(contents)
+    work = tmp_path / "execution"
+    work.mkdir()
+    code = ("import sys; from IPython.core import application; "
+            "application.SYSTEM_CONFIG_DIRS = [sys.argv.pop(1)]; application.ENV_CONFIG_DIRS = []; "
+            "from ipykernel.kernelapp import IPKernelApp; "
+            "app = IPKernelApp.instance(); app.initialize(); "
+            "assert app.kernel_class.__module__ == 'ipykernel.ipkernel'; "
+            "assert app.extensions == [] and app.extra_extensions == []; "
+            "assert 'google.colab' not in sys.modules; print('kernel without host extensions')")
+    command = [sys.executable, "-I", "-c", code, str(global_config), "--IPKernelApp.quiet=False"]
+    env = run_e1.clean_environment(work)
+    before = subprocess.run(command, env=env, capture_output=True, text=True, timeout=30)
+    assert before.returncode != 0 and "No module named 'google.colab'" in before.stderr
+    run_e1.prepare_kernel_profile(work)
+    after = subprocess.run(command, env=env, capture_output=True, text=True, timeout=30)
+    assert after.returncode == 0, after.stderr
+    assert "kernel without host extensions" in after.stdout
+    assert "google.colab" not in after.stderr
+    assert (global_config / name).read_text() == contents

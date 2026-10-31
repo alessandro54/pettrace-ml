@@ -48,7 +48,10 @@ def prepare_kernel_profile(work):
     profile = work / ".ipython/profile_default"
     profile.mkdir(parents=True, exist_ok=True)
     # IPython still reads system-wide config; the private profile has higher priority.
-    config = 'c = get_config()\nc.IPKernelApp.kernel_class = "ipykernel.ipkernel.IPythonKernel"\n'
+    config = ('c = get_config()\n'
+              'c.IPKernelApp.kernel_class = "ipykernel.ipkernel.IPythonKernel"\n'
+              'c.IPKernelApp.extensions = []\n'
+              'c.IPKernelApp.extra_extensions = []\n')
     for name in ("ipython_config.py", "ipython_kernel_config.py"):
         (profile / name).write_text(config)
 
