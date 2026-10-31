@@ -1,0 +1,96 @@
+"""Isolation and failure recovery for the release's E1 entry point."""
+
+import json
+from types import SimpleNamespace
+
+import nbformat
+import pytest
+from nbclient.exceptions import CellExecutionError
+
+from pettrace.experiments import e1
+from pettrace.evaluation.research import PUBLIC_REPO, PUBLIC_COMMIT
+from tools import run_e1
+
+
+def test_bootstrap_drops_host_python_and_jupyter_configuration(monkeypatch):
+    for key in ("PYTHONPATH", "PYTHONHOME", "JUPYTER_PATH", "IPYTHONDIR", "UV_PROJECT_ENVIRONMENT", "VIRTUAL_ENV"):
+        monkeypatch.setenv(key, "/host/packages")
+    monkeypatch.setenv("HF_TOKEN", "secret-test-value")
+    env = run_e1.clean_environment()
+    assert "/host/packages" not in env.values()
+    assert env["HF_TOKEN"] == "secret-test-value"
+    assert env["PYTHONNOUSERSITE"] == "1"
+
+
+def test_download_rejects_wrong_release_checksum(tmp_path, monkeypatch):
+    from io import BytesIO
+    monkeypatch.setattr(run_e1, "urlopen", lambda *a, **k: BytesIO(b"changed"))
+    target = tmp_path / "requirements.txt"
+    with pytest.raises(ValueError, match="checksum"):
+        run_e1.download("requirements.txt", target, {"requirements.txt": "0" * 64})
+    assert not target.exists()
+
+
+def test_e1_rejects_host_kernel_before_scientific_imports(monkeypatch):
+    monkeypatch.setattr(e1.platform, "python_version", lambda: "3.13.16")
+    with pytest.raises(RuntimeError, match="isolated Python 3.11.15"):
+        e1.check_environment()
+
+
+def test_kernel_uses_selected_python_and_retains_failure_evidence(tmp_path):
+    notebook = nbformat.v4.new_notebook(cells=[
+        nbformat.v4.new_code_cell("import sys; print(sys.executable)"),
+        nbformat.v4.new_code_cell("raise RuntimeError('intentional failure')"),
+        nbformat.v4.new_code_cell("print('must not execute')", outputs=[nbformat.v4.new_output("stream", text="old")]),
+    ])
+    nbformat.write(notebook, tmp_path / "e1_clip_zero_shot.ipynb")
+    with pytest.raises(CellExecutionError, match="intentional failure"):
+        e1.execute_notebook(tmp_path)
+    saved = nbformat.read(tmp_path / "e1.executed.ipynb", as_version=4)
+    assert e1.sys.executable in saved.cells[0].outputs[0].text
+    assert saved.cells[1].outputs[-1].ename == "RuntimeError"
+    assert saved.cells[2].outputs == []
+    assert nbformat.read(tmp_path / "e1_clip_zero_shot.ipynb", as_version=4).cells[2].outputs[0].text == "old"
+
+
+def saved_domains(tmp_path):
+    for folder, repo, version, commit in ((tmp_path / "public_test", PUBLIC_REPO, "v1", PUBLIC_COMMIT),
+                                         (tmp_path, e1.PRIVATE_REPO, "v4", e1.PRIVATE_COMMIT)):
+        folder.mkdir(exist_ok=True)
+        ds = SimpleNamespace(repo=repo, version=version, commit=commit, fingerprint="fingerprint")
+        e1.save_publication_input(SimpleNamespace(dataset=ds, protocol="zero-shot", result={"saved": True}), folder)
+        (folder / "runtime.json").write_text(json.dumps({
+            "source_sha256": "same-code", "model_sha256": {"encoder.onnx": e1.ENCODER_SHA256}}))
+
+
+def test_publication_retry_uses_saved_results_and_preserves_original_runtime(tmp_path, monkeypatch):
+    saved_domains(tmp_path)
+    before = (tmp_path / "runtime.json").read_bytes()
+    monkeypatch.setattr(e1, "source_identity", lambda: {"source_sha256": "same-code"})
+    monkeypatch.setattr("pettrace.evaluation.core.load_model", lambda uri: object())
+    monkeypatch.setattr("pettrace.evaluation.core.evaluate", lambda *a, **k: pytest.fail("must not recompute"))
+    calls = []
+
+    def publish(ev, model, report, source, **kwargs):
+        assert ev.result == {"saved": True}
+        assert kwargs["expected_model_sha256"] == {"encoder.onnx": e1.ENCODER_SHA256}
+        calls.append(ev.dataset.repo)
+        return f"run-{len(calls)}"
+
+    monkeypatch.setattr("pettrace.tracking.publish_evaluation", publish)
+    receipt = e1.resume_publication(tmp_path)
+    assert receipt == {"published": True, "public_run_id": "run-1", "run_id": "run-2"}
+    assert calls == [PUBLIC_REPO, e1.PRIVATE_REPO]
+    assert (tmp_path / "runtime.json").read_bytes() == before
+
+
+def test_retry_rejects_changed_snapshot_before_tracking_writes(tmp_path, monkeypatch):
+    saved_domains(tmp_path)
+    path = tmp_path / "evaluation-input.json"
+    payload = json.loads(path.read_text())
+    payload["dataset"]["commit"] = "changed"
+    path.write_text(json.dumps(payload))
+    monkeypatch.setattr(e1, "source_identity", lambda: {"source_sha256": "same-code"})
+    monkeypatch.setattr("pettrace.evaluation.core.load_model", lambda *a: pytest.fail("must validate first"))
+    with pytest.raises(ValueError, match="pinned E1"):
+        e1.resume_publication(tmp_path)

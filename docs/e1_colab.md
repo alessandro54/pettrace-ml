@@ -1,41 +1,65 @@
-# E1 in VS Code with a Colab kernel
+# E1: isolated, versioned execution
 
-1. Use a fresh Python 3.11 or 3.12 runtime and run the installation cell. It installs the
-   versioned v0.2.1 wheel and all dependencies with hashes exported from `uv.lock`.
-2. Restart the kernel and continue from the package-verification cell. It displays the source
-   commit and lockfile hash embedded in the wheel. See [release installation](releases.md).
-3. Provide HF and production MLflow credentials through environment variables, Secrets or hidden
-   prompts. A local `.env` on your Mac is not automatically visible to the Colab kernel.
-4. Run the experiment cells in order. The published HF `v4` tag and the fixed registered E1
-   artifact must be available. E1 uses CPU inference and does not train a model.
-5. Review the generated results, analysis and conclusions. The final section always publishes to MLflow. Save the executed notebook from VS Code.
+## Colab or VS Code connected to Colab
 
-No package source files, local root path or report from another experiment are required beside
-the notebook. The implementation lives in the installed `pettrace` package. Package version,
-source hash, model hashes, dataset commit and runtime versions are recorded for reproducibility.
+Open [the v0.2.2 launcher](https://colab.research.google.com/github/alessandro54/pettrace-ml/blob/v0.2.2/colab/e1.ipynb)
+and run its three cells. CPU is sufficient. Supply these values through Colab Secrets or hidden prompts:
 
-If an earlier installation downgraded Colab's base NumPy/Hub/Requests, use a fresh runtime; a
-kernel restart alone does not undo installed packages. Restart the kernel after changing the
-installed package or replacing already imported dependencies.
+- `HF_TOKEN`: read access to `alessandro54/pettrace-reid` and `alessandro54/pettrace-training`.
+- `MLFLOW_TRACKING_USERNAME` and `MLFLOW_TRACKING_PASSWORD`: access to the existing
+  `pettrace-reid-eval` experiment and model registry at `https://ml.pettrace.app`, including permission
+  to create runs, log metrics and upload artifacts. A read-only MLflow account cannot complete E1.
 
-## Evidence and interpretation
+The launcher downloads checksummed assets from v0.2.2, installs uv 0.11.22 in a separate bootstrap
+directory, creates managed Python **3.11.15** and a virtual environment without system packages,
+and installs the release wheel and exact dependencies with `--require-hashes`.
+The experiment uses a separate Jupyter kernel whose executable is that environment's Python.
+The host Colab interpreter and its NumPy/Pillow installations are not modified or imported by E1.
+No kernel restart is needed. Keep the Colab session connected while it runs.
 
-The notebook reports retrieval metrics, gallery sizes and chance, descriptive EER, five figures,
-per-animal metrics and margins, the strongest confusions and exploratory lighting strata.
-`analysis.json` preserves the extra tables and dataset commit; `findings.md` preserves
-the generated conclusions. Publication is the last notebook step, after reviewing these findings. The actual v4 findings require a real execution;
-synthetic verification is not experimental evidence.
+Before downloading images, the runner checks imports, HF authentication and both immutable dataset
+commits, plus access to MLflow and model version 1. Write access is confirmed by actual publication.
+The notebook then checks dataset fingerprints, model hashes and golden embeddings.
 
-EER is fitted and reported on the same pairs. Lighting strata can be confounded by animal and
-scene; absent light values are loaded as zero. Compare models on the same dataset/protocol.
+## Terminal
 
-## Production publication
+From the v0.2.2 checkout, with a local `.env` containing the credentials:
 
-The shared `pettrace.tracking` module requires the existing `pettrace-reid-eval` experiment on
-`https://ml.pettrace.app`. E1 verifies its fixed encoder hash/golden set, and repeats its expected
-model/dataset checks at publication. Matching runs are reused; incomplete uploads are resumed.
-The evaluation does not promote models or change serving aliases.
+```bash
+python tools/run_e1.py --work-dir reports/my-e1 --env-file .env
+```
 
-Outputs are under `reports/e1_v4` relative to the kernel directory (`PETTRACE_OUTPUT_DIR` can
-change the parent). Preserve unpublished reports before disconnecting. Published reports are
-saved to MLflow, while `make notebook` can additionally attach a local executed notebook.
+The host Python needs pip and network access. The launcher downloads the same published notebook
+used in Colab; local source edits do not silently change the experiment. Use a new work directory
+for each new execution. Secrets are passed through the environment, not written into evidence.
+
+## Evidence and recovery
+
+Each work directory contains `e1.executed.ipynb`, `execution.json`, the hashed requirements and
+release identity, plus `reports/e1_v4/<run>/` with separate `public_test/` results.
+The runner checkpoints notebook outputs after each cell and on failure. The original notebook
+and its historical outputs are preserved. Each domain publishes to MLflow, and the runner attaches
+the executed notebook and environment evidence to both runs. The top-level `publication.json`
+exists only after both runs are finished and attachments have succeeded.
+
+If publication fails after evaluation, correct credentials/connectivity and run:
+
+```bash
+python tools/run_e1.py --work-dir reports/my-e1 --env-file .env --resume
+```
+
+This reuses saved numerical results and their original provenance. It verifies the model again
+but does not repeat dataset downloads or embedding evaluation. Existing publication keys resume
+incomplete uploads or reuse completed runs. Do not run concurrent retries for the same evidence.
+If the failure preceded evaluation completion, inspect the saved notebook before starting a new run.
+Colab storage is temporary: download unpublished evidence before discarding the session.
+
+## Reproducibility limits
+
+The reference is a fixed Python, wheel, dependencies, datasets, model and protocol. Hardware and OS
+are recorded, but not made identical by a virtual environment. E1 uses frozen CPU inference and
+has no randomized training. Repeat executions on the same environment should be compared using
+the saved full results; comparisons across architectures must report observed numeric differences.
+Do not interpret successful environment setup or synthetic tests as reproduced scientific results.
+Public and private galleries remain separate. Descriptive EER is fitted on the evaluated pairs;
+the evaluation does not establish a production threshold or generalization across capture sessions.

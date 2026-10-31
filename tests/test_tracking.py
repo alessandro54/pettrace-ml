@@ -102,6 +102,17 @@ def test_failed_upload_resumes_the_existing_run(publication):
     assert log.call_args.kwargs["run_id"] == "new-run"
 
 
+def test_independent_executions_have_separate_publication_keys(publication):
+    _, ev, model, report, _ = publication
+    keys = []
+    for execution_id in ("first", "first", "second"):
+        (report / "runtime.json").write_text(json.dumps({"execution_id": execution_id}))
+        publish(ev, model, report, "sources")
+        keys.append(json.loads((report / "run.json").read_text())["publication_key"])
+    assert keys[0] == keys[1]
+    assert keys[0] != keys[2]
+
+
 def test_rejects_unverified_model_and_active_run(publication, monkeypatch):
     import mlflow
 

@@ -51,6 +51,15 @@ def main():
         shutil.copy2(ROOT / name, output / name)
     shutil.copy2(ROOT / ".python-version", output / "python-version.txt")
     shutil.copy2(ROOT / "docs/releases.md", output / "INSTALL.md")
+    shutil.copy2(ROOT / "tools/run_e1.py", output / "run_e1.py")
+    shutil.copy2(ROOT / "colab/e1.ipynb", output / "e1_colab.ipynb")
+    notebook = json.loads((ROOT / "notebooks/e1_clip_zero_shot.ipynb").read_text())
+    for cell in notebook["cells"]:
+        if cell["cell_type"] == "code":
+            cell["outputs"], cell["execution_count"] = [], None
+    notebook["metadata"].pop("widgets", None)
+    notebook["metadata"].pop("pettrace", None)
+    (output / "e1_clip_zero_shot.ipynb").write_text(json.dumps(notebook, ensure_ascii=False, indent=1) + "\n")
     (output / "release.json").write_text(json.dumps(build, indent=2) + "\n")
     inventory = {path.name: sha256(path) for path in sorted(output.iterdir()) if not path.name.startswith(".")}
     (output / "SHA256SUMS").write_text("".join(f"{digest}  {name}\n" for name, digest in inventory.items()))

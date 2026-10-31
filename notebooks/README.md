@@ -49,18 +49,20 @@ Los resultados describen una muestra pequeña y una sola semilla de E3. No se re
 
 ## Conservación y reproducción
 
-Las primeras celdas instalan el paquete publicado y obtienen los accesos del entorno, Colab Secrets o campos ocultos. Una `.env` local no se transfiere automáticamente a Colab. Las dependencias efectivas y la identidad del código quedan en `runtime.json`; La instalación usa la release `v0.2.1` y sus requisitos con hashes.
+E1 se inicia desde `colab/e1.ipynb`: crea un entorno y kernel propios con Python 3.11.15 y la release v0.2.2, comprueba los accesos y ejecuta el notebook completo. E2/E3 mantienen su instalación en el kernel seleccionado. Las credenciales se obtienen del entorno, Colab Secrets o campos ocultos. Una `.env` local no se transfiere automáticamente a Colab. Las dependencias efectivas y la identidad del código quedan en `runtime.json`; La instalación usa la release `v0.2.1` y sus requisitos con hashes.
 
 Cada nueva corrida crea `reports/eN_v4/<fecha-id>`. Conserva `experiment-design.json`, `summary.json`, `scores.json`, `analysis.json`, `findings.md`, figuras y procedencia. E3 añade manifiesto/auditoría, configuración, historia/checkpoint, curvas, cobertura y modelo ONNX. Las salidas históricas del notebook se preservan al editar el método: las celdas nuevas o modificadas deben ejecutarse para producir evidencia actualizada.
 
 Todos los experimentos deben publicar resultados en `https://ml.pettrace.app`; `LOG_TO_MLFLOW=True` es obligatorio. Un fallo conserva evidencia local para reintentar y no constituye una corrida completamente publicada. El registro de versión de modelo se controla por separado y no promueve aliases de servicio. La política también figura en [AGENTS.md](../AGENTS.md). La publicación de la nueva comparación requiere completar ambos dominios; el registro del modelo se basa en el run privado y conserva su configuración explícita.
 
-`make notebook NB=notebooks/e1_clip_zero_shot.ipynb` ejecuta un notebook en Docker. `tools/attach_notebook.py` adjunta el notebook ejecutado usando su recibo; desde VS Code debe guardarse primero en el equipo local. `make manifest` actualiza el índice `experiments.yaml` mediante lectura de MLflow, después de una publicación real. El índice puede incluir runs fallidos o incompletos y debe interpretarse junto a su estado y artefactos.
+`make notebook NB=notebooks/e1_clip_zero_shot.ipynb` usa el lanzador aislado; los otros notebooks siguen usando Docker. `tools/attach_notebook.py` adjunta el notebook ejecutado usando su recibo; desde VS Code debe guardarse primero en el equipo local. `make manifest` actualiza el índice `experiments.yaml` mediante lectura de MLflow, después de una publicación real. El índice puede incluir runs fallidos o incompletos y debe interpretarse junto a su estado y artefactos.
 
 Las fotos privadas no se incorporan a la presentación de resultados; se emplean códigos de identidad. Los reportes permanecen fuera de Git. Las ejecuciones históricas v3 describen otra muestra y no deben mezclarse con esta comparación.
 
 ## Paquete para relanzar en Colab
 
-Los notebooks instalan la release **v0.2.1** con dependencias exportadas de `uv.lock` y verificación de hashes. Ejecuta la primera celda en un runtime limpio, reinicia el kernel y continúa desde la verificación del paquete. Esa celda muestra el commit y hash del lockfile incluidos en el wheel. Véase [instalación y releases](../docs/releases.md).
+Para E1 usa [`colab/e1.ipynb`](../colab/e1.ipynb), con release **v0.2.2** y ejecución aislada; véase [la guía](../docs/e1_colab.md). No necesita instalar paquetes en el kernel anfitrión ni reiniciarlo.
+
+Los notebooks E2/E3 instalan la release **v0.2.1** con dependencias exportadas de `uv.lock` y verificación de hashes. Ejecuta la primera celda en un runtime limpio, reinicia el kernel y continúa desde la verificación del paquete. Esa celda muestra el commit y hash del lockfile incluidos en el wheel. Véase [instalación y releases](../docs/releases.md).
 
 El código está en `src/pettrace/`, organizado por datos, modelos, entrenamiento y evaluación. E1/E2 no entrenan; E3 requiere GPU y entrena su MLP en la fase 2. La migración de imports conserva las salidas históricas: no constituye otra ejecución ni publica métricas nuevas.

@@ -23,6 +23,14 @@ def test_release_exports_hashed_environments_and_preserves_build_identity(tmp_pa
     package = tmp_path / "src/pettrace"
     package.mkdir(parents=True)
     (tmp_path / "docs").mkdir()
+    (tmp_path / "tools").mkdir()
+    (tmp_path / "colab").mkdir()
+    (tmp_path / "notebooks").mkdir()
+    (tmp_path / "tools/run_e1.py").write_text("# launcher")
+    (tmp_path / "colab/e1.ipynb").write_text("{}")
+    original = {"cells": [{"cell_type": "code", "outputs": ["historical"], "execution_count": 5}],
+                "metadata": {"widgets": {}, "pettrace": {"report": "old"}}}
+    (tmp_path / "notebooks/e1_clip_zero_shot.ipynb").write_text(json.dumps(original))
     for name, contents in {"pyproject.toml": '[project]\nversion = "0.2.0"\n', "uv.lock": "locked",
                            ".python-version": "3.11.15\n", "docs/releases.md": "Install guide"}.items():
         (tmp_path / name).write_text(contents)
@@ -51,6 +59,10 @@ def test_release_exports_hashed_environments_and_preserves_build_identity(tmp_pa
     assert captured[0]["uv_lock_sha256"] == hashlib.sha256(b"locked").hexdigest()
     assert (output / "python-version.txt").read_text() == "3.11.15\n"
     assert ".gitignore" not in (output / "SHA256SUMS").read_text()
+    clean = json.loads((output / "e1_clip_zero_shot.ipynb").read_text())
+    assert clean["cells"][0]["outputs"] == []
+    assert "pettrace" not in clean["metadata"]
+    assert json.loads((tmp_path / "notebooks/e1_clip_zero_shot.ipynb").read_text()) == original
     for profile in ("evaluation", "e3"):
         requirements = (output / f"requirements-{profile}.txt").read_text()
         assert "releases/download/v0.2.0/pettrace_ml-0.2.0-py3-none-any.whl" in requirements

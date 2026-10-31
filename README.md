@@ -217,7 +217,15 @@ The distribution is `pettrace-ml`, while the import package is `pettrace`. The r
 
 ### Google Colab / VS Code
 
-1. Open the selected E1, E2, or E3 notebook. Use a GPU runtime for E3; a T4 is sufficient for the current MLP configuration.
+For **E1**, open [the v0.2.2 Colab launcher](https://colab.research.google.com/github/alessandro54/pettrace-ml/blob/v0.2.2/colab/e1.ipynb).
+Run its three cells and supply credentials. It creates an isolated Python 3.11.15 environment,
+executes the released research notebook in a separate kernel and publishes both domains plus
+the notebook to MLflow. No host-kernel installation or restart is required. See [E1 instructions](docs/e1_colab.md).
+From a terminal: `python tools/run_e1.py --work-dir reports/my-e1 --env-file .env`.
+
+For E2/E3 (their previous runtime workflow remains in place):
+
+1. Open the selected E2 or E3 notebook. Use a GPU runtime for E3; a T4 is sufficient for the current MLP configuration.
 2. Run the first installation cell in a fresh runtime. It installs **v0.2.1** and all dependencies from the release's hashed requirements file, without resolving GitHub `main`.
 3. Restart the kernel, then continue from the package-verification cell. It verifies the package version and displays the embedded source commit and lockfile hash.
 4. Keep Python, CUDA/GPU and effective runtime versions with the results. Hosted Colab runtimes can differ from the reference environment; locks do not guarantee bit-identical GPU results.
@@ -230,7 +238,6 @@ Package tests validate implementation, not empirical E1/E2/E3 results. Preserved
 
 ```bash
 make image
-make notebook NB=notebooks/e1_clip_zero_shot.ipynb
 make notebook NB=notebooks/e2_yolo_crop_zero_shot.ipynb
 make evaluate DATASET=v4 MODEL=models:/pettrace-embedder/2 PROTOCOL=zero-shot REPORT=reports/e2_cli_v4
 make verify-model MODEL=models:/pettrace-embedder/2

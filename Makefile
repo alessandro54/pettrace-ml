@@ -24,8 +24,12 @@ prepare-e3:
 # Execute an experiment notebook in the pinned image and save it with its outputs (the canonical
 # record of the experiment): make notebook NB=notebooks/e1_clip_zero_shot.ipynb
 notebook:
+ifeq ($(NB),notebooks/e1_clip_zero_shot.ipynb)
+	python3 tools/run_e1.py --work-dir reports/e1-$$(date -u +%Y%m%dT%H%M%SZ) --env-file .env
+else
 	$(DOCKER) --entrypoint jupyter $(IMAGE) nbconvert --to notebook --execute --inplace --ExecutePreprocessor.timeout=3600 $(NB)
 	$(DOCKER) $(IMAGE) tools/attach_notebook.py $(NB)
+endif
 
 # E1: pettrace-embedder v1 @production (static: verifies an existing version, never re-creates it)
 register-v1:

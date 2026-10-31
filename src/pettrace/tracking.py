@@ -56,6 +56,9 @@ def publish_evaluation(ev, model, report, source_sha256, *, experiment,
         "dataset_fingerprint": ev.dataset.fingerprint, "model_sha256": model.sha256,
         "source_sha256": source_sha256, "result": ev.result,
     }
+    execution_id = json.loads((report / "runtime.json").read_text()).get("execution_id")
+    if execution_id:
+        identity["execution_id"] = execution_id
     key = hashlib.sha256(json.dumps(identity, sort_keys=True, default=float).encode()).hexdigest()
     matches = client.search_runs(
         [tracking_experiment.experiment_id], filter_string=f"tags.`{PUBLICATION_TAG}` = '{key}'", max_results=2,
@@ -123,6 +126,7 @@ def source_identity():
 def save_provenance(report, model):
     """Write runtime versions and installed source identity without requiring local project files."""
     import importlib.metadata
+    import os
     import platform
 
     packages = ("numpy", "pillow", "pyyaml", "onnxruntime", "mlflow-skinny", "huggingface-hub", "requests", "matplotlib")
@@ -131,6 +135,8 @@ def save_provenance(report, model):
         "packages": {name: importlib.metadata.version(name) for name in packages},
         "onnx_providers": model.pipeline.session.get_providers(), "model_sha256": model.sha256,
     }
+    if os.environ.get("PETTRACE_EXECUTION_ID"):
+        runtime["execution_id"] = os.environ["PETTRACE_EXECUTION_ID"]
     for name in ("torch", "onnx", "pandas"):
         try:
             runtime["packages"][name] = importlib.metadata.version(name)

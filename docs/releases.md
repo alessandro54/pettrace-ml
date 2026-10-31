@@ -1,7 +1,8 @@
 # Versioned package and experiment environments
 
-Release `v0.2.1` reorganizes the package under `src/pettrace`. It does not claim a new
-E3 result or change the research protocol. Existing notebook outputs remain historical evidence.
+Release `v0.2.2` adds an isolated E1 launcher to the package structure introduced in v0.2.1.
+See [E1 execution](e1_colab.md). This does not claim new experimental results or change the research
+protocol. Existing notebook outputs remain historical evidence.
 
 ## Install a release
 
@@ -12,7 +13,7 @@ Use a fresh virtual environment with Python **3.11.15**, the reference interpret
 uv python install 3.11.15
 uv venv --python 3.11.15 .venv
 curl --fail --location --output requirements-e3.txt \
-  https://github.com/alessandro54/pettrace-ml/releases/download/v0.2.1/requirements-e3.txt
+  https://github.com/alessandro54/pettrace-ml/releases/download/v0.2.2/requirements-e3.txt
 uv pip install --python .venv/bin/python --require-hashes -r requirements-e3.txt
 uv pip check --python .venv/bin/python
 ```
@@ -26,14 +27,16 @@ directory, then run `sha256sum --check SHA256SUMS` (macOS: `shasum -a 256 -c SHA
 
 ## Colab and Jupyter
 
-The notebooks install a specific release's hashed requirements into the selected kernel.
+E1 uses `colab/e1.ipynb` to create its own Python 3.11.15 environment and kernel. It never installs
+experiment dependencies into the host kernel. The executed research notebook checks this environment.
+The E2/E3 and preparation notebooks still install v0.2.1's hashed requirements into the selected kernel.
 Restart the kernel after installation, then run from the package verification cell onward.
 Do not replace packages in the middle of a training run. A new experiment must create a new
 report directory; retry publication in the original session without retraining.
 
 Colab's hosted Python, GPU and NVIDIA driver are managed externally. Its environment may
-contain additional packages. The notebooks reject Python versions outside the release's
-training support (3.11–3.12); use the reference interpreter in a dedicated environment for
+contain additional packages. E1's launcher fixes Python 3.11.15; E2 and data preparation support Python 3.11–3.13;
+E3 training requires Python 3.11–3.12 with the locked PyTorch version. Use the reference interpreter in a dedicated environment for
 closer reproduction. Do not silently upgrade dependencies to accommodate a different runtime.
 
 The locked PyTorch 2.5.1 Linux distribution uses CUDA 12.4 runtime dependencies; macOS uses
@@ -71,8 +74,9 @@ uv run --locked ruff check .
 uv run --no-sync python tools/build_release.py
 ```
 
-The builder creates `dist/v0.2.1/` with the wheel, source distribution, lockfile,
-hashed requirements, Python version, build provenance and checksums. It refuses to replace
+The builder creates `dist/v0.2.2/` with the wheel, source distribution, lockfile,
+hashed requirements, Python version, build provenance, E1 launcher, a research notebook copy without
+historical outputs, and checksums. It refuses to replace
 an existing release directory. The wheel embeds its source commit and lockfile hash;
 `source_identity()` hashes every Python module, including nested packages.
 

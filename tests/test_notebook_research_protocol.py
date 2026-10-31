@@ -17,6 +17,24 @@ def cells(path):
     return json.loads(path.read_text())["cells"]
 
 
+@pytest.mark.parametrize("path", [p for p in NOTEBOOKS if not p.name.startswith("e1_")]
+                         + [ROOT / "datasets/prepare_training.ipynb"], ids=lambda p: p.stem)
+@pytest.mark.parametrize("version", [(3, 10), (3, 11), (3, 12), (3, 13), (3, 14)])
+def test_notebook_python_support_matches_dependency_profile(path, version):
+    source = next("".join(c["source"]) for c in cells(path)
+                  if c["cell_type"] == "code" and "requirements-e" in "".join(c["source"]))
+    guard = next(n for n in ast.parse(source).body
+                 if isinstance(n, ast.If) and "version_info" in ast.unparse(n.test))
+    code = compile(ast.Module(body=[guard], type_ignores=[]), str(path), "exec")
+    namespace = {"sys": SimpleNamespace(version_info=version, version=".".join(map(str, version)))}
+    upper = (3, 13) if "requirements-e3" in source else (3, 14)
+    if (3, 11) <= version < upper:
+        exec(code, namespace)
+    else:
+        with pytest.raises(RuntimeError, match="Python"):
+            exec(code, namespace)
+
+
 @pytest.mark.parametrize("path", NOTEBOOKS, ids=lambda p: p.stem)
 def test_shared_research_structure_and_fixed_benchmark(path):
     contents = cells(path)
