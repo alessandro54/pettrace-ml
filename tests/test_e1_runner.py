@@ -1,6 +1,8 @@
 """Isolation and failure recovery for the release's E1 entry point."""
 
+import ast
 import json
+from pathlib import Path
 import subprocess
 from types import SimpleNamespace
 
@@ -11,6 +13,116 @@ from nbclient.exceptions import CellExecutionError
 from pettrace.experiments import e1
 from pettrace.evaluation.research import PUBLIC_REPO, PUBLIC_COMMIT
 from tools import run_e1
+
+
+def notebook_cell(cell_id):
+    notebook = nbformat.read(Path(__file__).parents[1] / "notebooks/e1_clip_zero_shot.ipynb", as_version=4)
+    return next(c.source for c in notebook.cells if c.id == cell_id)
+
+
+@pytest.mark.parametrize("failure", [None, "checksum", "install"])
+def test_interactive_setup_installs_verified_lock_and_requests_restart(tmp_path, monkeypatch, capsys, failure):
+    import hashlib
+    from io import BytesIO
+    from urllib import request
+
+    monkeypatch.chdir(tmp_path)
+    locked = b"fixture==1.0 --hash=sha256:abc\n"
+    code = notebook_cell("e1-setup")
+    digest = next(n.comparators[0].value for n in ast.walk(ast.parse(code))
+                  if isinstance(n, ast.Compare) and isinstance(n.left, ast.Call)
+                  and isinstance(n.left.func, ast.Attribute) and n.left.func.attr == "hexdigest")
+    code = code.replace(digest, hashlib.sha256(locked).hexdigest())
+    monkeypatch.setattr(request, "urlopen", lambda *a, **k: BytesIO(b"tampered" if failure == "checksum" else locked))
+    commands = []
+
+    def install(command, **kwargs):
+        commands.append(command)
+        assert Path(command[-1]).read_bytes() == locked
+        assert "--require-hashes" in command
+        return SimpleNamespace(returncode=1 if failure == "install" else 0)
+
+    monkeypatch.setattr(subprocess, "run", install)
+    if failure:
+        with pytest.raises((ValueError, RuntimeError), match={
+            "checksum": "checksum", "install": "Installation failed"}[failure]):
+            exec(code, {})
+    else:
+        exec(code, {})
+        assert "no restart required" in capsys.readouterr().out
+    assert len(commands) == (0 if failure == "checksum" else 1)
+
+
+def test_setup_requests_restart_only_for_changed_loaded_packages(tmp_path, monkeypatch, capsys):
+    from importlib import metadata
+    from io import BytesIO
+    from urllib import request
+
+    monkeypatch.chdir(tmp_path)
+    lock = (Path(__file__).parents[1] / "requirements/e1-runtime.txt").read_bytes()
+    monkeypatch.setattr(request, "urlopen", lambda *a, **k: BytesIO(lock))
+    monkeypatch.setattr(metadata, "packages_distributions", lambda: {"sys": ["fixture-loaded"]})
+    versions = iter(["1.0", "2.0", "2.0", "2.0"])
+    monkeypatch.setattr(metadata, "version", lambda name: next(versions))
+    monkeypatch.setattr(subprocess, "run", lambda *a, **k: SimpleNamespace(returncode=0))
+    namespace = {}
+    exec(notebook_cell("e1-setup"), namespace)
+    assert namespace["_E1_RESTART_REQUIRED"] == ["fixture-loaded"]
+    assert "Restart this session once" in capsys.readouterr().out
+    # Re-running installation must not forget that old objects remain in memory.
+    exec(notebook_cell("e1-setup"), namespace)
+    assert namespace["_E1_RESTART_REQUIRED"] == ["fixture-loaded"]
+
+
+def test_e1_runtime_lock_excludes_notebook_infrastructure():
+    from packaging.requirements import Requirement
+
+    lock = (Path(__file__).parents[1] / "requirements/e1-runtime.txt").read_text()
+    requirements = [Requirement(line.rstrip(chr(92) + " ").split(" --hash=")[0])
+                    for line in lock.splitlines() if line and not line[0].isspace() and not line.startswith("#")]
+    names = {r.name for r in requirements}
+    assert {"numpy", "pillow", "matplotlib", "onnxruntime", "pettrace-ml"} <= names
+    assert not any(name.startswith(("jupyter", "ipython", "ipykernel", "ipywidgets", "nbconvert", "nbclient"))
+                   or name == "pip" for name in names)
+
+
+def test_interactive_verification_refuses_installing_kernel():
+    with pytest.raises(RuntimeError, match="Restart"):
+        exec(notebook_cell("e1-dependencies"), {"_E1_RESTART_REQUIRED": ["numpy"]})
+
+
+def test_interactive_verification_rejects_tampered_lock(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "requirements-e1-runtime.txt").write_text("tampered")
+    with pytest.raises(ValueError, match="checksum"):
+        exec(notebook_cell("e1-dependencies"), {})
+
+
+def test_interactive_verification_rejects_dependency_drift(tmp_path, monkeypatch):
+    import hashlib
+    import importlib.metadata
+
+    monkeypatch.chdir(tmp_path)
+    locked = b"numpy==99.0\n"
+    (tmp_path / "requirements-e1-runtime.txt").write_bytes(locked)
+    code = notebook_cell("e1-dependencies")
+    digest = next(n.comparators[0].value for n in ast.walk(ast.parse(code))
+                  if isinstance(n, ast.Compare) and isinstance(n.left, ast.Call)
+                  and isinstance(n.left.func, ast.Attribute) and n.left.func.attr == "hexdigest")
+    code = code.replace(digest, hashlib.sha256(locked).hexdigest())
+    monkeypatch.setattr(importlib.metadata, "version", lambda name: "1.0")
+    with pytest.raises(RuntimeError, match="numpy differs"):
+        exec(code, {})
+
+
+def test_e1_science_runs_in_visible_cells_without_worker_guards():
+    notebook = nbformat.read(Path(__file__).parents[1] / "notebooks/e1_clip_zero_shot.ipynb", as_version=4)
+    for cell in notebook.cells:
+        if cell.cell_type == "code":
+            assert "E1_IN_WORKER" not in cell.source
+            assert "run_e1(" not in cell.source
+    assert "ev = evaluate(" in notebook_cell("c3cd5a9e")
+    assert "display(" in notebook_cell("ead8756f")
 
 
 def test_bootstrap_drops_host_python_and_jupyter_configuration(tmp_path, monkeypatch):

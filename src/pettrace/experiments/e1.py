@@ -37,7 +37,7 @@ def hub_session():
 
 def check_environment():
     if platform.python_version() != PYTHON or sys.prefix == sys.base_prefix:
-        raise RuntimeError(f"E1 requires an isolated Python {PYTHON}; use colab/e1.ipynb or tools/run_e1.py")
+        raise RuntimeError(f"E1 requires an isolated Python {PYTHON}; use tools/run_e1.py (see docs/e1_colab.md)")
     if not source_identity()["build"]:
         raise RuntimeError("E1 requires a published release wheel with build provenance")
     # Exercise the imports that can fail when host-kernel packages leak into the environment.

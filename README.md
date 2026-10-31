@@ -217,11 +217,15 @@ The distribution is `pettrace-ml`, while the import package is `pettrace`. The r
 
 ### Google Colab / VS Code
 
-For **E1**, open [the v0.2.2 Colab launcher](https://colab.research.google.com/github/alessandro54/pettrace-ml/blob/v0.2.2/colab/e1.ipynb).
-Run its three cells and supply credentials. It creates an isolated Python 3.11.15 environment,
-executes the released research notebook in a separate kernel and publishes both domains plus
-the notebook to MLflow. No host-kernel installation or restart is required. See [E1 instructions](docs/e1_colab.md).
-From a terminal: `python tools/run_e1.py --work-dir reports/my-e1 --env-file .env`.
+For **E1**, open [the experiment notebook](notebooks/e1_clip_zero_shot.ipynb) in a fresh runtime,
+run setup and continue from environment verification. Restart the same session only if
+setup reports changed packages that were already loaded; it preserves Colab’s notebook infrastructure.
+The remaining cells run interactively: results appear below their code, and the final cell
+publishes both domains to MLflow. See [setup and recovery](docs/e1_colab.md).
+
+The separate command `python tools/run_e1.py --work-dir reports/my-e1 --env-file .env`
+retains the historical isolated Python 3.11.15 workflow with the published v0.2.2 notebook.
+Notebooks are reserved for experiments and preprocessing.
 
 For E2/E3 (their previous runtime workflow remains in place):
 

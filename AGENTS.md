@@ -11,4 +11,6 @@ All current and future experiment runs must publish their results to MLflow at h
 
 ## Thesis notebook standard
 
+Notebooks are reserved for experiments and data preparation/preprocessing. Keep launchers, installation and other operational tooling in Python scripts; do not add wrapper notebooks.
+
 Use exactly three phases documented in notebooks/README.md: data preparation/preprocessing, representation/training, and evaluation/analysis. Data cleaning lives in datasets/; experiment notebooks load and verify prepared versions. Cite external methods next to their use and distinguish them from this research's own design choices. Evaluate the immutable public v1 test split and PetTrace separately; never mix their galleries or use public test identities to select E3 checkpoints. Each experiment must state its objective, question, hypothesis, intervention, controls, sample, training/selection protocol, evaluation metrics, results and limitations. Distinguish recorded evidence from prospective method changes. Describe closed-set same-species retrieval, photo-level leave-one-out, descriptive EER and uncertainty limits accurately. Keep dataset preparation separate, pin immutable benchmark commits, preserve per-run reports, cite primary method/data sources, and never invent results or publication receipts.

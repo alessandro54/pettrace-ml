@@ -1,5 +1,7 @@
 # Experimentos de investigación · PetTrace
 
+Los notebooks se reservan para experimentos y preparación/preprocesamiento de datos. Los lanzadores y herramientas de instalación se mantienen como scripts Python, sin notebooks adicionales.
+
 Los tres cuadernos documentan una secuencia de investigación de tesis sobre recuperación visual de identidades individuales de perros y gatos. Cada condición modifica un componente del pipeline y conserva el mismo benchmark privado de evaluación. La raza no es la etiqueta del problema.
 
 | Experimento | Intervención | Parámetros ajustados | Comparación |
@@ -49,7 +51,7 @@ Los resultados describen una muestra pequeña y una sola semilla de E3. No se re
 
 ## Conservación y reproducción
 
-E1 se inicia desde `colab/e1.ipynb`: crea un entorno y kernel propios con Python 3.11.15 y la release v0.2.2, comprueba los accesos y ejecuta el notebook completo. E2/E3 mantienen su instalación en el kernel seleccionado. Las credenciales se obtienen del entorno, Colab Secrets o campos ocultos. Una `.env` local no se transfiere automáticamente a Colab. Las dependencias efectivas y la identidad del código quedan en `runtime.json`; La instalación usa la release `v0.2.1` y sus requisitos con hashes.
+E1 se ejecuta celda a celda en el kernel de Colab: instala la release v0.2.2 y el perfil de ejecución con hashes, conservando las herramientas de Colab, y continúa desde la verificación (reinicia solo si setup lo solicita) (véase [la guía](../docs/e1_colab.md)). Las tablas y figuras aparecen en el propio notebook. E2/E3 mantienen su instalación de v0.2.1. Las credenciales se obtienen del entorno, Colab Secrets o campos ocultos; una `.env` local no se transfiere automáticamente. `runtime.json` conserva el entorno real de cada corrida.
 
 Cada nueva corrida crea `reports/eN_v4/<fecha-id>`. Conserva `experiment-design.json`, `summary.json`, `scores.json`, `analysis.json`, `findings.md`, figuras y procedencia. E3 añade manifiesto/auditoría, configuración, historia/checkpoint, curvas, cobertura y modelo ONNX. Las salidas históricas del notebook se preservan al editar el método: las celdas nuevas o modificadas deben ejecutarse para producir evidencia actualizada.
 
@@ -61,7 +63,7 @@ Las fotos privadas no se incorporan a la presentación de resultados; se emplean
 
 ## Paquete para relanzar en Colab
 
-Para E1 usa [`colab/e1.ipynb`](../colab/e1.ipynb), con release **v0.2.2** y ejecución aislada; véase [la guía](../docs/e1_colab.md). No necesita instalar paquetes en el kernel anfitrión ni reiniciarlo.
+Para E1 ejecuta la instalación de su notebook en una sesión nueva y continúa desde la verificación; reinicia solo si cambió una biblioteca ya cargada. Usa el wheel **v0.2.2** y `requirements/e1-runtime.txt` con hashes, sin reinstalar IPython ni el kernel. El setup no ejecuta el experimento. Python 3.11–3.13 está admitido; el entorno histórico aislado usa Python 3.11.15. [La guía](../docs/e1_colab.md) describe resultados, límites y recuperación.
 
 Los notebooks E2/E3 instalan la release **v0.2.1** con dependencias exportadas de `uv.lock` y verificación de hashes. Ejecuta la primera celda en un runtime limpio, reinicia el kernel y continúa desde la verificación del paquete. Esa celda muestra el commit y hash del lockfile incluidos en el wheel. Véase [instalación y releases](../docs/releases.md).
 

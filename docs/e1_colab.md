@@ -1,68 +1,27 @@
-# E1: isolated, versioned execution
+# E1 en Colab
 
-## Colab or VS Code connected to Colab
+Abre [`e1_clip_zero_shot.ipynb`](../notebooks/e1_clip_zero_shot.ipynb) en una sesión nueva con Python 3.11–3.13.
 
-Open [the v0.2.2 launcher](https://colab.research.google.com/github/alessandro54/pettrace-ml/blob/v0.2.2/colab/e1.ipynb)
-and run its three cells. CPU is sufficient. Supply these values through Colab Secrets or hidden prompts:
+1. Ejecuta setup. Instala el wheel v0.2.2 y el [perfil de dependencias](../requirements/e1-runtime.txt) con hashes, sin reinstalar las herramientas de Jupyter de Colab.
+2. Continúa desde la verificación. **Reinicia la misma sesión solo si setup lo solicita** porque cambió una biblioteca cargada. No elimines el runtime.
+3. Proporciona `HF_TOKEN`, `MLFLOW_TRACKING_USERNAME` y `MLFLOW_TRACKING_PASSWORD` mediante Secrets o campos ocultos. La `.env` local no se transfiere a Colab.
+4. Ejecuta las tres fases en orden. Las tablas y figuras aparecen debajo de sus celdas.
 
-- `HF_TOKEN`: read access to `alessandro54/pettrace-reid` and `alessandro54/pettrace-training`.
-- `MLFLOW_TRACKING_USERNAME` and `MLFLOW_TRACKING_PASSWORD`: access to the existing
-  `pettrace-reid-eval` experiment and model registry at `https://ml.pettrace.app`, including permission
-  to create runs, log metrics and upload artifacts. A read-only MLflow account cannot complete E1.
+Los errores de instalación quedan en `e1-install.log`. «Ejecutar todo» se detiene en la verificación si necesita un reinicio.
 
-The launcher downloads checksummed assets from v0.2.2, installs uv 0.11.22 in a separate bootstrap
-directory, creates managed Python **3.11.15** and a virtual environment without system packages,
-and installs the release wheel and exact dependencies with `--require-hashes`.
-The experiment uses a separate Jupyter kernel whose executable is that environment's Python.
-The host Colab interpreter and its NumPy/Pillow installations are not modified or imported by E1.
-No kernel restart is needed. Keep the Colab session connected while it runs.
+## Resultados y recuperación
 
-Before downloading images, the runner checks imports, HF authentication and both immutable dataset
-commits, plus access to MLflow and model version 1. Write access is confirmed by actual publication.
-The notebook then checks dataset fingerprints, model hashes and golden embeddings.
+Cada corrida guarda reportes en `REPORT`, con el test público y PetTrace separados. La última celda publica ambos en `https://ml.pettrace.app`; `publication.json` debe contener `published: true`, `run_id` y `public_run_id`. Guarda el notebook para conservar sus salidas.
 
-## Terminal
+Si aparece `413` al subir una lámina de fotografías, ejecuta solo la última celda actualizada: prepara vistas JPEG de hasta 512 KiB, conserva los PNG originales junto a `REPORT` (fuera de la carpeta subida) y reintenta la publicación. No recalcula embeddings ni métricas.
 
-From the v0.2.2 checkout, with a local `.env` containing the credentials:
+Si falla únicamente la publicación, conserva los reportes y reintenta sin repetir inferencia:
 
-```bash
-python tools/run_e1.py --work-dir reports/my-e1 --env-file .env
+```python
+from pettrace.experiments.e1 import resume_publication
+resume_publication(REPORT)
 ```
 
-The host Python needs pip and network access. The launcher downloads the same published notebook
-used in Colab; local source edits do not silently change the experiment. Use a new work directory
-for each new execution. Secrets are passed through the environment, not written into evidence.
+Las salidas históricas no acreditan una nueva corrida. El entorno de referencia es Python 3.11.15: las versiones, datasets y modelo quedan registrados, pero la igualdad de métricas entre plataformas debe comprobarse con corridas completas. [Versiones de Colab](https://research.google.com/colaboratory/runtime-version-faq.html).
 
-## Evidence and recovery
-
-Each work directory contains `e1.executed.ipynb`, `execution.json`, the hashed requirements and
-release identity, plus `reports/e1_v4/<run>/` with separate `public_test/` results.
-The runner checkpoints notebook outputs after each cell and on failure. The original notebook
-and its historical outputs are preserved. Each domain publishes to MLflow, and the runner attaches
-the executed notebook and environment evidence to both runs. The top-level `publication.json`
-exists only after both runs are finished and attachments have succeeded.
-The tracking proxy limits request sizes, so the MLflow `notebook/` artifact contains parts of at
-most 512 KiB, a checksum manifest and `restore_notebook.py`. Download that directory and run
-`python restore_notebook.py` to reconstruct the exact original notebook. The local file remains whole.
-
-If publication fails after evaluation, correct credentials/connectivity and run:
-
-```bash
-python tools/run_e1.py --work-dir reports/my-e1 --env-file .env --resume
-```
-
-This reuses saved numerical results and their original provenance. It verifies the model again
-but does not repeat dataset downloads or embedding evaluation. Existing publication keys resume
-incomplete uploads or reuse completed runs. Do not run concurrent retries for the same evidence.
-If the failure preceded evaluation completion, inspect the saved notebook before starting a new run.
-Colab storage is temporary: download unpublished evidence before discarding the session.
-
-## Reproducibility limits
-
-The reference is a fixed Python, wheel, dependencies, datasets, model and protocol. Hardware and OS
-are recorded, but not made identical by a virtual environment. E1 uses frozen CPU inference and
-has no randomized training. Repeat executions on the same environment should be compared using
-the saved full results; comparisons across architectures must report observed numeric differences.
-Do not interpret successful environment setup or synthetic tests as reproduced scientific results.
-Public and private galleries remain separate. Descriptive EER is fitted on the evaluated pairs;
-the evaluation does not establish a production threshold or generalization across capture sessions.
+El lanzador opcional `tools/run_e1.py` conserva la ejecución histórica aislada; descarga el notebook de la release y produce `e1.executed.ipynb`. El notebook interactivo no lo utiliza.
