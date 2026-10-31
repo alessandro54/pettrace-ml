@@ -4,7 +4,15 @@ La pregunta de E3 es si una MLP 512→256→512 sobre E2 congelado mejora la rec
 
 ## Separación de datos y entrenamiento
 
-La preparación se ejecuta en `datasets/prepare_training.ipynb`, separado de los notebooks experimentales, o mediante `make prepare-e3` / `pettrace-prepare-e3`. El pipeline produce una versión con imágenes propias, manifiesto, exclusiones, auditoría y hashes. Después `e3_mlp_head_triplet.ipynb` consume esa versión mediante `load_prepared`; no vuelve a adquirir ni filtrar las fuentes. El contrato completo está en [Pipeline de datos](e3_data_pipeline.md).
+La preparación se ejecuta en `datasets/prepare_training.ipynb`, separado de los notebooks experimentales, o mediante `make prepare-e3` / `pettrace-prepare-e3`. El pipeline produce una versión con imágenes propias, manifiesto, exclusiones, auditoría y hashes. Después `e3_mlp_head_triplet.ipynb` consume esa versión mediante `load_training` o `load_local_training`; no vuelve a adquirir ni filtrar las fuentes. El contrato completo está en [Pipeline de datos](e3_data_pipeline.md).
+
+## Primera corrida con la versión publicada
+
+Abre `notebooks/e3_mlp_head_triplet.ipynb`, selecciona el runtime GPU T4 de Colab y ejecuta **Run All**. El notebook carga por defecto el dataset privado `alessandro54/pettrace-training@v1` (212 MB, 1.826 fotos, 402 identidades), fijado al commit `dd7a00cb8b3638759ffa0216251e62d334b5bf10` y al fingerprint `38ef098d26afa792a1712f9e37487d143f60a9a3bc647a5fdde5505f790f8c7d`. No es necesario ejecutar otra vez la preparación.
+
+Los accesos se obtienen del entorno, Colab Secrets o campos ocultos. El extractor E2 calcula o reutiliza embeddings de las 1.549 fotos de train/val; después la MLP entrena hasta 30 épocas con parada temprana. La salida muestra pérdida y mAP de validación por época. El test público queda reservado. Al finalizar se exporta ONNX y se compara E3 con E1/E2 en el benchmark privado v4. La publicación en MLflow es obligatoria. `REGISTER_E3` controla por separado el registro de una versión del modelo.
+
+Conserva la carpeta `reports/e3_v4/<fecha-id>` antes de cerrar el runtime: incluye `head.pt`, modelo ONNX, curvas y métricas. Colab no guarda esa carpeta en el repositorio automáticamente. Para usar una copia preparada local establece `HF_TRAINING_DATASET_REPO=""` y `E3_PREPARED_DATASET`.
 
 ## Fuentes y límite de adquisición
 
@@ -32,7 +40,7 @@ En el dataset preparado, `animal-screening.json` registra cajas, puntuaciones, m
 
 Después del filtrado se genera una muestra reproducible de cuatro identidades por especie; `visual-sample.json` conserva la selección. Esta muestra no garantiza que las demás etiquetas sean correctas, no detecta todos los casos con varios animales y no demuestra sesiones independientes. La primera corrida es exploratoria bajo posible ruido de etiquetas.
 
-`PrepareConfig.review_policy = "strict"` exige decisiones explícitas en `review.csv`; el visor opcional de `pettrace.e3_review` permite completarlas. El pipeline exploratorio no solicita decisiones foto por foto. La revisión no modifica etiquetas, rutas ni hashes. Una selección o imagen distinta requiere volver a generar la revisión. El test público no entra al optimizador ni a la selección; este notebook no publica métricas de ese test.
+`PrepareConfig.review_policy = "strict"` exige decisiones explícitas en `review.csv`; el visor opcional de `pettrace.e3_review` permite completarlas. El pipeline exploratorio no solicita decisiones foto por foto. La revisión no modifica etiquetas, rutas ni hashes. Una selección o imagen distinta requiere volver a generar la revisión. El test público no entra al optimizador ni a la selección. La nueva fase 3 lo evalúa después de fijar el checkpoint, con una galería separada de PetTrace.
 
 ## Modelo, entrenamiento y comparación
 
@@ -42,13 +50,27 @@ La referencia privada es `pettrace-reid@v4`, commit `8b12db0dce41040a821f9792bea
 
 El grafo ONNX fusionado se valida y E1/E2 se recalculan sobre la misma muestra y las mismas consultas/galerías. El protocolo local es zero-shot sobre todas las fotos elegibles de v4, sin restringir al split test. La EER es descriptiva sobre los mismos pares y no valida un umbral de producción. v4 ya se observó durante E1/E2 y es un benchmark exploratorio; no debe describirse como test final intacto.
 
+## Cobertura del dataset en MLflow
+
+`dataset.train_pct` expresa `100 × fotos de train / fotos originales de las dos fuentes`. Para v1 el máximo es 694.594 entradas de imagen: Dogs of the World 313.671 y LCW 380.923. Se contaron los índices ZIP completos y se comprobaron sus hashes contra los recibos del dataset preparado; no fue necesario descargar las fotos originales completas. La referencia queda en `datasets/source_capacity_v1.json` y en la celda de cobertura del notebook para que funcione de forma independiente en Colab.
+
+La primera corrida E3 usa 1.276 fotos para entrenar (**0,1837 %**), y 1.549 incluyendo validación (**0,2230 %**). Los 277 archivos del test público no entran en ninguno de esos numeradores. `dataset.retained_pct` describe las 1.826 fotos conservadas en la versión preparada; no implica que todas hayan entrenado el modelo. El denominador incluye fotos antes de limpieza, no representa el máximo elegible para reidentificación ni un total de individuos.
+
+El reporte `dataset-coverage.json` conserva métricas, conteos y referencias por fuente (versión y hash). En todas las corridas se registran como métricas `dataset.train_pct`, `dataset.train_val_pct` y sus variantes `dataset.cat.*` / `dataset.dog.*`. Para agregar cobertura a una sesión E3 ya completada basta ejecutar la nueva celda de cobertura; no es necesario repetir el ajuste. La publicación obligatoria requiere que esa celda se haya ejecutado.
+
+## Estructura de investigación
+
+E1/E2/E3 comparten tres fases: datos, representación/entrenamiento y evaluación/análisis definidas en [el índice de notebooks](../notebooks/README.md). E3 distingue la selección pública del checkpoint de la evaluación privada, explicita la galería cerrada y conserva `experiment-design.json`. El análisis por identidad se guarda en `analysis.json`; las curvas de pérdida/validación y los hiperparámetros también se registran como métricas y parámetros consultables de MLflow.
+
+Las celdas añadidas durante la estandarización no alteran las salidas históricas. Para generar el nuevo análisis en una sesión ya entrenada se ejecuta de nuevo la comparación de líneas base y las celdas de análisis/publicación; no se repite la optimización de la MLP. Cada reproducción completa crea una carpeta nueva por corrida.
+
 ## Evidencia y publicación
 
 Cada corrida crea un directorio nuevo bajo `reports/e3_v4/<fecha-id>`. Contiene fuentes, revisión, manifiesto, auditoría, configuración de entrenamiento, huellas, historia/checkpoint, curvas, artefactos ONNX, líneas base, métricas, comparación, hallazgos y `runtime.json`. Hojas de contacto quedan en el directorio local del piloto y no se adjuntan al reporte.
 
-`LOG_TO_MLFLOW = False` y `REGISTER_E3 = False` son valores literales en la configuración. El entorno no los activa implícitamente. La adquisición pública y las hojas de contacto no solicitan credenciales privadas. La preparación solicita solo los accesos de lectura MLflow para adquirir el detector E2, salvo que ya esté disponible localmente. El notebook de entrenamiento solicita los accesos MLflow y Hugging Face después de verificar el dataset preparado; se mantienen en Secrets, entorno o campos ocultos. Solo cambiar explícitamente `LOG_TO_MLFLOW` permite publicar; registrar requiere también `REGISTER_E3`. No se promueve ningún alias.
+Todas las corridas de E3 y los demás experimentos deben publicar sus resultados en MLflow. `LOG_TO_MLFLOW = True` es obligatorio y la celda final rechaza `False`. No hay desactivación mediante variables del entorno ni opción CLI `--no-mlflow`. Si una subida falla, se conserva el reporte y se reintenta la publicación sin repetir entrenamiento; la corrida no está completa hasta que exista el recibo de publicación. `REGISTER_E3` controla el registro del modelo por separado y no promueve un alias. Las credenciales permanecen en el entorno, Secrets o campos ocultos; la preparación de datos conserva su flujo independiente.
 
-El notebook requiere el paquete actualizado instalado; una sesión de Colab no puede importar cambios sin publicar del equipo local. Las pruebas sintéticas verifican el wiring y los límites de datos, no constituyen entrenamiento real ni resultados de E3. La primera corrida real requiere completar el filtrado técnico, los accesos de lectura y el runtime GPU. `PETTRACE_PACKAGE_SOURCE` puede seleccionar explícitamente una wheel actual si se utiliza ese mecanismo.
+El notebook requiere el paquete actualizado instalado; una sesión de Colab no puede importar cambios sin publicar del equipo local. Las pruebas sintéticas verifican el wiring y los límites de datos, no constituyen entrenamiento real ni resultados de E3. La corrida `20261030T153523Z-e258882a` ya conserva entrenamiento y evaluación reales: checkpoint de época 3, Rank-1 privado 72,79 % y mAP 0,5682. Su última salida guardada no acredita una publicación; esa fase debe completarse con el recibo correspondiente. Una reproducción necesita el dataset preparado, accesos de lectura/escritura y runtime GPU. `PETTRACE_PACKAGE_SOURCE` puede seleccionar explícitamente una wheel actual si se utiliza ese mecanismo.
 
 ## Fuentes primarias
 

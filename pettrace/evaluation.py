@@ -9,8 +9,8 @@ Protocols:
   split      queries = `test` photos, gallery = the other `test` photos of the same species
              (leave-one-out), threshold at the EER on `val`, FAR/FRR on `test`. Trained models.
   zero-shot  every photo is a query whatever its split; the EER threshold is fitted on the same
-             pairs it is reported on (optimistic). Pretrained models only (E1, E2).
-Each animal scores with its best photo, as the app does. Metrics: Rank-1/5/10 per animal, mAP per
+             pairs it is reported on (descriptive). E1/E2 or E3 on identities excluded from fitting.
+Each animal scores with its best photo, as the app does. Metrics: Rank-1/2/5/10 per animal, mAP per
 photo, per species and global, always with the gallery size.
 """
 

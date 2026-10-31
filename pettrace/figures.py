@@ -23,6 +23,18 @@ def _animals(ev) -> tuple[list[str], dict[str, str]]:
     return sorted(species_of, key=lambda a: (species_of[a], a)), species_of
 
 
+def identity_labels(ev):
+    """Short plot labels with a saved reversible map; short original IDs remain unchanged."""
+    labels = {}
+    for sp in sorted({p.species for p in ev.photos}):
+        names = sorted({p.animal for p in ev.photos if p.species == sp})
+        # Use compact labels for the whole species to avoid collisions with short originals.
+        compact = any(len(name) > 18 for name in names)
+        for i, name in enumerate(names, 1):
+            labels[name] = f"{sp}-{i:03d}" if compact else name
+    return labels
+
+
 def _mean_similarity(ev) -> dict:
     """Per species: mean cosine of photo pairs of the same animal vs of different animals."""
     out = {}
@@ -78,7 +90,8 @@ def rank1_per_animal(ev, label: str):
         ax.bar(0, 0, color=COLORS[sp], label=SPECIES_ES[sp])
     ax.set_ylim(0, 115)
     ax.set_ylabel("Rank-1 (%)")
-    ax.set_xticks(range(len(animals)), animals, rotation=45, ha="right")
+    labels = identity_labels(ev)
+    ax.set_xticks(range(len(animals)), [labels[a] for a in animals], rotation=45, ha="right")
     ax.set_title(f"Rank-1 por animal — {label}", fontsize=11)
     ax.legend(frameon=False, fontsize=8, ncol=3, loc="upper center", bbox_to_anchor=(0.5, -0.32))
     fig.tight_layout()
@@ -112,8 +125,10 @@ def cmc(ev, label: str):
     fig, ax = plt.subplots(figsize=(6.5, 3.0))
     ax.plot(range(1, max_rank + 1), curve, marker="o", color="#0F766E")
     for k, v in enumerate(curve, 1):
+        if len(curve) > 12 and k not in {1, 2, 5, 10, max_rank}:
+            continue
         ax.annotate(f"{v:.0f}%", (k, v), textcoords="offset points", xytext=(0, 7), ha="center", fontsize=9)
-    ax.set_xticks(range(1, max_rank + 1))
+    ax.set_xticks(range(1, max_rank + 1) if max_rank <= 12 else sorted({1, 2, 5, 10, max_rank} & set(range(1, max_rank + 1))))
     ax.set_ylim(0, 110)
     ax.set_xlabel("rango k")
     ax.set_ylabel("aciertos ≤ k (%)")
@@ -129,17 +144,21 @@ def similarity_matrix(ev, label: str = ""):
     animals, species_of = _animals(ev)
     sim = ev.embeddings @ ev.embeddings.T
     groups = [sp for sp in ("cat", "dog") if sp in species_of.values()]
-    fig, axes = plt.subplots(1, len(groups), figsize=(4.4 * len(groups), 4.2), squeeze=False)
+    side = max(4.4, 0.32 * max(sum(species_of[a] == sp for a in animals) for sp in groups))
+    fig, axes = plt.subplots(1, len(groups), figsize=(side * len(groups), side), squeeze=False)
     im = None
     for ax, sp in zip(axes[0], groups):
         names = [a for a in animals if species_of[a] == sp]
         idx = {a: [i for i, p in enumerate(ev.photos) if p.animal == a] for a in names}
         M = np.array([[sim[np.ix_(idx[a], idx[b])].mean() for b in names] for a in names])
         im = ax.imshow(M, cmap="viridis", vmin=0.6, vmax=0.95)
-        ax.set_xticks(range(len(names)), names, rotation=45, ha="right", fontsize=9)
-        ax.set_yticks(range(len(names)), names, fontsize=9)
+        labels = identity_labels(ev)
+        ax.set_xticks(range(len(names)), [labels[a] for a in names], rotation=45, ha="right", fontsize=9)
+        ax.set_yticks(range(len(names)), [labels[a] for a in names], fontsize=9)
         for i in range(len(names)):
             for j in range(len(names)):
+                if len(names) > 20:
+                    continue
                 ax.text(j, i, f"{M[i, j]:.2f}", ha="center", va="center", fontsize=7,
                         color="white" if M[i, j] < 0.8 else "black")
         ax.set_title(SPECIES_ES[sp].capitalize(), fontsize=11)
@@ -155,7 +174,8 @@ def confusion(ev, label: str = ""):
 
     rows, (_, species_of) = _rows(ev), _animals(ev)
     groups = [sp for sp in ("cat", "dog") if sp in species_of.values()]
-    fig, axes = plt.subplots(1, len(groups), figsize=(4.9 * len(groups), 4.4), squeeze=False,
+    side = max(4.9, 0.32 * max(len({p.animal for p in ev.photos if p.species == sp}) for sp in groups))
+    fig, axes = plt.subplots(1, len(groups), figsize=(side * len(groups), side), squeeze=False,
                              gridspec_kw={"wspace": 0.35})
     im = None
     for k, (ax, sp) in enumerate(zip(axes[0], groups)):
@@ -168,8 +188,9 @@ def confusion(ev, label: str = ""):
                 C[pos[r["animal"]], pos[r["animal"] if r["rank"] == 1 else r["rival"]]] += 1
         share = C / np.maximum(C.sum(axis=1, keepdims=True), 1)
         im = ax.imshow(share, cmap="Blues", vmin=0, vmax=1)
-        ax.set_xticks(range(len(names)), names, rotation=45, ha="right", fontsize=9)
-        ax.set_yticks(range(len(names)), names, fontsize=9)
+        labels = identity_labels(ev)
+        ax.set_xticks(range(len(names)), [labels[a] for a in names], rotation=45, ha="right", fontsize=9)
+        ax.set_yticks(range(len(names)), [labels[a] for a in names], fontsize=9)
         for i in range(len(names)):
             for j in range(len(names)):
                 if C[i, j]:
@@ -184,10 +205,47 @@ def confusion(ev, label: str = ""):
     return fig
 
 
+def comparison_figure(evaluations, label: str):
+    """Rank-1/Rank-2 and mAP, by species and domain; galleries remain separate."""
+    import matplotlib.pyplot as plt
+
+    names = list(evaluations)
+    scopes = [scope for scope in ("global", "cat", "dog")
+              if all(e.result["test"].get(scope, {}).get("queries") for e in evaluations.values())]
+    fig, axes = plt.subplots(1, 2, figsize=(11, 4.8))
+    width = 0.8 / max(1, len(names) * 2)
+    positions = np.arange(len(scopes))
+    palette = plt.rcParams["axes.prop_cycle"].by_key()["color"]
+    for i, name in enumerate(names):
+        color = palette[i % len(palette)]
+        for j, metric in enumerate(("rank1", "rank2")):
+            values = [evaluations[name].result["test"][scope][metric] * 100 for scope in scopes]
+            bars = axes[0].bar(positions - 0.4 + width / 2 + (2*i+j)*width, values,
+                               width, label=f"{name} · Rank-{j+1}", color=color,
+                               alpha=1.0 if j == 0 else 0.6, hatch="" if j == 0 else "//")
+            axes[0].bar_label(bars, fmt="%.1f", fontsize=7)
+        map_values = [evaluations[name].result["test"][scope]["mAP"] for scope in scopes]
+        bars = axes[1].bar(positions - 0.4 + (i+0.5)*0.8/len(names), map_values,
+                           0.8/len(names), label=name, color=color)
+        axes[1].bar_label(bars, fmt="%.3f", fontsize=8)
+    for ax in axes:
+        ax.set_xticks(positions, ["Global" if scope == "global" else SPECIES_ES[scope] for scope in scopes])
+        ax.legend(frameon=False, fontsize=8, loc="upper center", bbox_to_anchor=(0.5, -0.13), ncol=2)
+    axes[0].set(ylabel="Consultas recuperadas (%)", ylim=(0, 115), title="Recuperación por identidad")
+    axes[1].set(ylabel="mAP", ylim=(0, 1.15), title="Ordenamiento de fotografías relevantes")
+    fig.suptitle(label, fontsize=11)
+    fig.tight_layout()
+    return fig
+
+
+def ranking_metrics(ev, label: str):
+    return comparison_figure({ev.dataset.name: ev}, label)
+
+
 def all_figures(ev, label: str) -> dict:
     return {"confusion": confusion(ev, label), "rank1_por_animal": rank1_per_animal(ev, label),
             "distribucion_scores": score_distribution(ev, label), "cmc": cmc(ev, label),
-            "matriz_similitud": similarity_matrix(ev)}
+            "matriz_similitud": similarity_matrix(ev), "rank1_rank2_map": ranking_metrics(ev, label)}
 
 
 def save(ev, model, outdir: str, label: str | None = None) -> dict:
@@ -197,6 +255,7 @@ def save(ev, model, outdir: str, label: str | None = None) -> dict:
     matplotlib.use("Agg", force=False)
     os.makedirs(outdir, exist_ok=True)
     s = summary(ev, model)
+    json.dump(identity_labels(ev), open(os.path.join(outdir, "identity-labels.json"), "w"), indent=2)
     json.dump(s, open(os.path.join(outdir, "summary.json"), "w"), indent=2, default=float)
     json.dump({"result": ev.result, "same": ev.same.round(5).tolist(), "diff": ev.diff.round(5).tolist(),
                "photos": [{"animal": p.animal, "species": p.species, "path": os.path.relpath(p.path, ev.dataset.root)}
@@ -205,6 +264,9 @@ def save(ev, model, outdir: str, label: str | None = None) -> dict:
     label = label or f"{s['model_version']} · {ev.dataset.name}"
     for name, fig in all_figures(ev, label).items():
         fig.savefig(os.path.join(outdir, f"{name}.png"), dpi=200, bbox_inches="tight")
+        import matplotlib.pyplot as plt
+
+        plt.close(fig)
     return s
 
 
