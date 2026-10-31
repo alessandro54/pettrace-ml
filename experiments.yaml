@@ -1,0 +1,72 @@
+# Small reference index; MLflow is the source of truth for complete results.
+# Metrics are snapshots with values on a 0-1 scale. Refresh with make manifest.
+schema_version: 1
+tracking_uri: https://ml.pettrace.app
+mlflow_experiment:
+  name: pettrace-reid-eval
+  id: '3'
+runs:
+- experiment: E1
+  run_id: af8a88b1e2a6434c9eeb31b62c9010e4
+  url: https://ml.pettrace.app/#/experiments/3/runs/af8a88b1e2a6434c9eeb31b62c9010e4
+  status: FINISHED
+  started_at: '2026-10-06T22:02:13.479000+00:00'
+  dataset: pettrace-reid@v3
+  dataset_commit: 354763693e9105eb953c559620037dd98995326b
+  model: clip-vit-b32@v1
+  model_uri: models:/pettrace-embedder/1
+  protocol: 'zero-shot: same-species gallery, leave-one-out, EER on all pairs (optimistic)'
+  code_commit: f80d1d6bc9a686982897ec19ebf10672c14a3451
+  metrics:
+    rank1: 0.734375
+    rank5: 0.984375
+    mAP: 0.5085611919937317
+    eer: 0.3922446607216752
+- experiment: E2
+  run_id: e0d3e49aec554a4588efa3bce99955e1
+  url: https://ml.pettrace.app/#/experiments/3/runs/e0d3e49aec554a4588efa3bce99955e1
+  status: FINISHED
+  started_at: '2026-10-06T22:04:37.742000+00:00'
+  dataset: pettrace-reid@v3
+  dataset_commit: 354763693e9105eb953c559620037dd98995326b
+  model: clip-vit-b32-crop@v1
+  model_uri: models:/pettrace-embedder/2
+  protocol: 'zero-shot: same-species gallery, leave-one-out, EER on all pairs (optimistic)'
+  code_commit: c9dd2b98dd412169c0c701a76e1e276e1e486bc2
+  metrics:
+    rank1: 0.703125
+    rank5: 0.9921875
+    mAP: 0.5270571276638145
+    eer: 0.349911077837691
+- experiment: E1
+  run_id: 8601747ecd384d948d429b3b490449c9
+  url: https://ml.pettrace.app/#/experiments/3/runs/8601747ecd384d948d429b3b490449c9
+  status: FINISHED
+  started_at: '2026-10-29T16:33:11.803000+00:00'
+  dataset: pettrace-reid@v4
+  dataset_commit: 8b12db0dce41040a821f9792bea5b352342263ce
+  model: clip-vit-b32@v1
+  model_uri: models:/pettrace-embedder/1
+  protocol: 'zero-shot: same-species gallery, leave-one-out, EER on all pairs (optimistic)'
+  code_commit: 36ec1ddb3a4ba82b7642fabaa63bf2840034c69e
+  metrics:
+    rank1: 0.659016393442623
+    rank5: 0.940983606557377
+    mAP: 0.3751305716485671
+    eer: 0.36226429043517716
+- experiment: E2
+  run_id: 9117658f1945404ca9d1058257bf97f0
+  url: https://ml.pettrace.app/#/experiments/3/runs/9117658f1945404ca9d1058257bf97f0
+  status: FINISHED
+  started_at: '2026-10-29T17:20:57.860000+00:00'
+  dataset: pettrace-reid@v4
+  dataset_commit: 8b12db0dce41040a821f9792bea5b352342263ce
+  model: clip-vit-b32-crop@v1
+  model_uri: models:/pettrace-embedder/2
+  protocol: 'zero-shot: same-species gallery, leave-one-out, EER on all pairs (optimistic)'
+  code_commit: 36ec1ddb3a4ba82b7642fabaa63bf2840034c69e
+  metrics:
+    rank1: 0.6786885245901639
+    rank5: 0.921311475409836
+    mAP: 0.3960432744181124
+    eer: 0.338341176915873

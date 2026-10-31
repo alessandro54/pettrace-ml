@@ -1,15 +1,18 @@
 # pettrace-ml
 
-Re-identification experiments for **PetTrace**, a mobile app that helps find lost pets in Lima
-(UPC thesis). Given a photo of a sighted animal, the system ranks the lost-pet reports of the same
-species by visual similarity; the owner confirms. This repository holds everything needed to
-measure that ranking: the evaluation harness, model registration, notebooks and the published
-reports. The app itself (iOS, Android, Go core, vision service) lives in a separate repository.
+Investigación sobre **re-identificación visual de mascotas** para PetTrace, desarrollada en el
+marco de una tesis de la UPC. Ante una fotografía de un avistamiento, el sistema ordena candidatos
+de la misma especie por similitud visual; la confirmación de identidad corresponde a la persona.
+La pregunta es cómo recuperar **al mismo individuo**, no cómo clasificar su raza.
 
-> **Resumen (ES).** Experimentos de re-identificación de mascotas de la tesis PetTrace (UPC):
-> arnés de evaluación, registro de modelos, notebooks y resultados. Cada resultado es
-> reproducible con los comandos de abajo y está trazado en MLflow al commit, al modelo (sha256)
-> y a la versión del dataset.
+Este repositorio presenta el recorrido experimental, las decisiones metodológicas y la evidencia
+obtenida. E1 establece una línea base con CLIP; E2 estudia el recorte mediante detección; E3 plantea
+una proyección métrica entrenable. Lo implementado y lo ejecutado se distinguen de las etapas
+propuestas. Los [cuadernos de investigación](notebooks/README.md) integran explicación, cálculo,
+resultados y límites; MLflow conserva la evidencia completa.
+
+El paquete de evaluación, registro de modelos y herramientas permite reproducir los análisis.
+La aplicación (iOS, Android, core en Go y servicio de visión) se mantiene en otro repositorio.
 
 ## Experiments
 
@@ -17,11 +20,37 @@ reports. The app itself (iOS, Android, Go core, vision service) lives in a separ
 |---|---|---|---|
 | E1 | full image → CLIP ViT-B/32 → 512-d, L2 | none (zero-shot) | registered, in production |
 | E2 | YOLOv8n detects the animal → crop (10 % margin) → same CLIP | none (zero-shot) | registered, candidate |
-| E3 | E2 + frozen CLIP + MLP head, triplet loss | head on `train` | design |
+| E3 | E2 + frozen CLIP + MLP head, triplet loss | public identity train/val | implemented; first Colab run pending ([guide](docs/e3_colab.md)) |
 | E4 | E3 + LoRA fine-tuning (r = 8, α = 16, q/v) | LoRA on `train` | design |
 | E5 | E4 + re-ranking with the sighting's text description | weight on `val` | design |
 
-### Results on `pettrace-reid@v3` (zero-shot)
+### Evidencia actual: comparación E1/E2 en `pettrace-reid@v4`
+
+Las ejecuciones registradas comparten el commit de dataset
+`8b12db0dce41040a821f9792bea5b352342263ce`. E2 recalcula E1 sobre las mismas consultas y galerías
+para estudiar el recorte con el encoder constante.
+
+| Indicador | E1 | E2 |
+|---|---:|---:|
+| Rank-1 | 65.90 % | 67.87 % |
+| Rank-5 | 94.10 % | 92.13 % |
+| mAP | 0.3751 | 0.3960 |
+| EER descriptiva | 36.23 % | 33.83 % |
+
+En esta muestra, el recorte mejora Rank-1, mAP y EER, mientras Rank-5 disminuye. El contraste es
+descriptivo: no demuestra significancia estadística ni qué señales causan la recuperación.
+La separación leave-one-out no distingue sesiones de captura, y la EER no usa calibración
+independiente. Los detalles y diagnósticos están en [E1 v4](https://ml.pettrace.app/#/experiments/3/runs/8601747ecd384d948d429b3b490449c9)
+y [E2 v4](https://ml.pettrace.app/#/experiments/3/runs/9117658f1945404ca9d1058257bf97f0), localizables
+también desde [`experiments.yaml`](experiments.yaml).
+
+E3 prepara un piloto revisado de Dogs of the World y LCW y compara contra las líneas base
+sobre el mismo commit de v4. Descargas completas, publicación y registro están desactivados
+por defecto. El entrenamiento real y sus métricas siguen pendientes; el uso previo de v4
+lo convierte en un benchmark exploratorio, no en una prueba final nunca observada.
+
+### Antecedente: resultados en `pettrace-reid@v3` (zero-shot)
+
 
 14 animals (7 cats, 7 dogs), 128 photos. Every photo is a query against the other photos of the
 same species (leave-one-out); each animal scores with its best photo. Chance Rank-1 = 1/7 = 14.3 %.
@@ -34,23 +63,63 @@ The EER threshold is chosen on the same pairs (optimistic).
 | mAP | 0.509 | 0.527 |
 | EER (threshold) | 39.2 % (0.794) | 35.0 % (0.812) |
 
-Cropping separates same-animal from different-animal scores better (lower EER, higher mAP) and
-helps dogs, but hurts look-alike cats (`cat-01` is taken for `cat-02`, same tabby pattern, in 6 of
-10 queries): part of E1's hits came from the photo's background. With 128 queries the Rank-1 gap is
-within noise (confidence intervals: [TODO.md](TODO.md)). Per-animal tables and figures:
-[`reports/e1_v3`](reports/e1_v3), [`reports/e2_v3`](reports/e2_v3).
+En v3, el recorte se asocia con menor EER y mayor mAP, ayuda a perros y reduce el Rank-1 de gatos.
+La confusión entre `cat-01` y `cat-02`, de patrón atigrado similar, aparece en 6 de 10 consultas de
+`cat-01`. Es una observación descriptiva: no aísla una causa atribuible al fondo o al pelaje.
+El tamaño de muestra y la dependencia entre fotos limitan la interpretación del delta global.
+Per-animal tables and figures:
+[E1 v3 in MLflow](https://ml.pettrace.app/#/experiments/3/runs/af8a88b1e2a6434c9eeb31b62c9010e4),
+[E2 v3 in MLflow](https://ml.pettrace.app/#/experiments/3/runs/e0d3e49aec554a4588efa3bce99955e1).
 
 | | Notebook (canonical record) | MLflow run (`pettrace-reid-eval`) | Code commit |
 |---|---|---|---|
 | E1 | [`e1_clip_zero_shot.ipynb`](notebooks/e1_clip_zero_shot.ipynb) | [`af8a88b1`](https://ml.pettrace.app/#/experiments/3/runs/af8a88b1e2a6434c9eeb31b62c9010e4) | `f80d1d6` |
 | E2 | [`e2_yolo_crop_zero_shot.ipynb`](notebooks/e2_yolo_crop_zero_shot.ipynb) | [`e0d3e49a`](https://ml.pettrace.app/#/experiments/3/runs/e0d3e49aec554a4588efa3bce99955e1) | `c9dd2b9` |
 
-Each notebook shows the data, how the model was built, the whole evaluation computed step by step
-(preprocessing, embeddings, similarities, ranking, metric formulas, checked against the library),
-tables, figures with how to read them, and conclusions,
-and is attached (executed) to its run together with the figures.
+Each notebook is an independently executable experiment report. It installs the `pettrace-ml`
+package, declares its own configuration, loads its own data/models, and presents the method,
+tables, figures, interpretation and limitations. E2 and E3 compute their baseline comparisons
+within the same run; neither requires reports from an earlier notebook. Publication to production
+MLflow is explicitly controlled in each notebook.
 
-## What identifies a result
+For development, install from the checkout with `uv sync --group dev --extra training`.
+For a remote kernel, notebooks use the installed package. Until the first wheel release exists,
+`PETTRACE_PACKAGE_SOURCE` defaults to a pip source install from the public repository's `main`.
+Publish the code first; local edits are not available to Colab. A release wheel URL can be used
+instead without changing the experiment cells. Dependencies remain visible in each notebook.
+Package metadata permits Python 3.11–3.13. Verification here uses Python 3.11; a real Colab
+3.13 run remains to be checked. The Docker environment is fixed by `uv.lock`.
+
+The distribution is named `pettrace-ml`; its Python import package is `pettrace`:
+
+```python
+from pettrace import data, metrics
+from pettrace.evaluation import evaluate
+```
+
+## Experiment results
+
+El índice versionado [`experiments.yaml`](experiments.yaml) reúne las ejecuciones publicadas de
+E1–E5: dataset, modelo, estado, commit, métricas principales y enlace a MLflow. Las métricas del
+índice son una instantánea; los resultados completos y sus artefactos siguen en MLflow.
+Después de publicar nuevas ejecuciones, actualiza el índice con `make manifest` y versiona solo
+el manifiesto. El comando consulta MLflow en modo lectura y no descarga reportes ni crea runs.
+
+
+MLflow is the source of truth for metrics, figures, analysis, conclusions, provenance and executed
+notebooks. The completed [E1 v4 run](https://ml.pettrace.app/#/experiments/3/runs/8601747ecd384d948d429b3b490449c9)
+is recorded separately from the historical v3 runs above. Server read access is required.
+
+Produced with onnxruntime 1.20.1 and Pillow 11.0; re-checked on 2026-10-10 after the move to
+onnxruntime 1.31.0, Pillow 12.3.0 and mlflow-skinny 3.17.0 (the vision service's versions): same
+Rank-1/5/10, mAP, EER and threshold for both, largest difference 5.4e-07 in `summary.json`, pair
+scores within their 1e-05 rounding.
+
+Local `reports/` directories are working output only and are Git-ignored. Keep unpublished or
+failed-upload outputs until publication succeeds; results can be downloaded from MLflow later.
+Do not commit generated reports or create a second versioned results archive in this repository.
+
+## Identidad de los artefactos históricos de v3
 
 Registry version numbers and run IDs are local to one MLflow server; these are not:
 
@@ -76,32 +145,35 @@ git checkout <commit from the run's git_sha tag>   # f80d1d6 (E1), c9dd2b9 (E2)
 cp .env.example .env            # MLflow user/password + HF_TOKEN
 make image                      # Linux, Python 3.11, versions from uv.lock
 
-make notebook NB=notebooks/e1_clip_zero_shot.ipynb        # E1: executes, logs a run, attaches itself
-make notebook NB=notebooks/e2_yolo_crop_zero_shot.ipynb    # E2 (reads E1's report for the comparison)
+make notebook NB=notebooks/e1_clip_zero_shot.ipynb        # E1: executes; enable E1_LOG_TO_MLFLOW=true to publish
+make notebook NB=notebooks/e2_yolo_crop_zero_shot.ipynb    # E2, including its own E1 baseline
 make evaluate DATASET=v3 MODEL=models:/pettrace-embedder/2 PROTOCOL=zero-shot REPORT=reports/e2_v3  # CLI
 ```
 
 Evaluating writes a run, so a read-only user can reproduce the numbers without logging:
-`docker run --rm --env-file .env -v $PWD:/repo pettrace-ml scripts/evaluate.py --dataset v3 --model models:/pettrace-embedder/2 --protocol zero-shot --no-mlflow`.
+`docker run --rm --env-file .env -v $PWD:/repo pettrace-ml -m pettrace.cli --dataset v3 --model models:/pettrace-embedder/2 --protocol zero-shot --no-mlflow`.
+
+The optional evaluation CLI is `pettrace-evaluate` (or `python -m pettrace.cli`).
 
 The models are downloaded from MLflow and checked by hash. To rebuild them from scratch instead:
 `make image-export && make register-v1` re-exports E1 from the pinned Hugging Face revision and
 must give the same sha256; E2's detector is the COCO-pretrained `yolov8n.pt` exported with
-Ultralytics 8.3.253 (command in [`scripts/register_e2.py`](scripts/register_e2.py)); a re-export
+Ultralytics 8.3.253 (command in [`tools/register_e2.py`](tools/register_e2.py)); a re-export
 is not guaranteed to be byte-identical, so the validated file is the one inside version 2.
 
 ## Layout
 
 ```
-reid/        harness: data (pinned dataset versions), metrics (Rank-k, mAP, EER), evaluation
-             (protocol, model identity, MLflow run), figures, pipeline (ONNX runner), golden
-             (fingerprint), clip_reference (PyTorch parity reference)
-scripts/     evaluate, register_v1, register_e2, verify_model, attach_notebook, mlflow_smoke
-notebooks/   one notebook per experiment (E1–E5): data, model, training, evaluation, results, MLflow run
-reports/     published scores, figures and summaries per model × dataset version
+pettrace/    reusable loading, inference, training, evaluation, figures and tracking
+notebooks/   independently executable experiment reports (E1–E5)
+tests/       package correctness checks; not experimental results or runtime code
+tools/       optional registration, verification and notebook-attachment commands
+docs/        execution notes and experiment protocols
+experiments.yaml  small Git-tracked index of MLflow runs
+reports/     ignored working output, generated when needed; published results live in MLflow
 ```
 
-`reid/pipeline.py`, `reid/golden.py` and `reid/clip_reference.py` mirror the vision service's
+`pettrace/pipeline.py`, `pettrace/golden.py` and `pettrace/clip_reference.py` mirror the vision service's
 modules in the app repository; the golden fingerprint on every registered version (checked by the
 service at startup and by `make verify-model`) fails if they diverge.
 
@@ -111,7 +183,11 @@ service at startup and by `make verify-model`) fails if they diverge.
   for a private research dataset; EXIF/GPS is stripped. Reports contain scores and file names only.
 - **Animals are pseudonymous.** The dataset and everything here use codes (`cat-01`, `dog-03`);
   pets' names never leave the curation tool, because names plus photos identify the owners.
-  `v3` is the only dataset version (earlier ones used names and were removed).
+  Published v3 and v4 snapshots have distinct commits; historical name-based versions were removed.
 - Code: MIT ([LICENSE](LICENSE)).
 - YOLOv8 weights (E2 detector) are AGPL-3.0 (Ultralytics); they are not distributed here.
 - CLIP ViT-B/32: OpenAI, MIT.
+
+### Dataset de entrenamiento compartido
+
+El pipeline [datasets/prepare_training.ipynb](datasets/prepare_training.ipynb) prepara Dogs of the World y LCW con filtros YOLO, deduplicación, exclusiones y splits por identidad. Genera `pettrace-training` con versiones locales como `v1`, reutilizables en E3 y otros experimentos. La publicación privada en Hugging Face es opcional y está desactivada por defecto; `pettrace-reid@v4` permanece como benchmark separado. Véase [datasets/README.md](datasets/README.md).

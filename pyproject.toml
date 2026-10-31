@@ -4,23 +4,31 @@ version = "0.1.0"
 description = "PetTrace re-identification experiments: evaluation harness, model registration, notebooks and reports"
 readme = "README.md"
 license = "MIT"
-requires-python = ">=3.11,<3.12"
+requires-python = ">=3.11,<3.14"
 dependencies = [
-    # Same versions the PetTrace vision service serves with (apps/vision/pyproject.toml).
+    # Compatible runtime dependencies; uv.lock pins the local/Docker environment.
     "numpy>=1.26,<3",
     "pillow==12.3.0",
     "pyyaml>=6,<7",
     "onnxruntime==1.31.0",
     "mlflow-skinny==3.17.0",
-    "huggingface-hub>=0.26,<1",
+    "huggingface-hub>=0.26,<3",
     "requests>=2.32,<3",
 ]
+
+[project.optional-dependencies]
+notebooks = ["matplotlib>=3.9,<4", "ipython>=8,<10", "ipywidgets>=8.1,<9"]
+training = ["torch>=2.5,<3", "onnx>=1.17,<2", "pandas>=2.2.3,<4"]
+
+[project.scripts]
+pettrace-evaluate = "pettrace.cli:main"
+pettrace-prepare-e3 = "pettrace.e3_prepare:main"
 
 [dependency-groups]
 figures = ["matplotlib>=3.9,<4"]
 # Execute the experiment notebooks (make notebook).
 notebooks = ["nbconvert>=7.16,<8", "ipykernel>=6.29,<7", "nbformat>=5.10,<6"]
-# Model export / registration only (register_v1.py, reid.clip_reference). Not needed to evaluate.
+# Model export / registration only (register_v1.py, pettrace.clip_reference). Not needed to evaluate.
 export = [
     "torch==2.5.1",
     "transformers==4.47.1",
@@ -36,7 +44,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["reid"]
+packages = ["pettrace"]
 
 [tool.ruff]
 line-length = 120
@@ -48,4 +56,4 @@ select = ["E", "F"]
 ignore = ["E501"]
 
 [tool.pytest.ini_options]
-testpaths = ["reid"]
+testpaths = ["tests"]

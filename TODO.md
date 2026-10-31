@@ -15,6 +15,8 @@
 
 ## OE3 (experiments E3–E5)
 
+- [x] E3 implementation and self-contained Colab notebook: identity import/audit, frozen E2 + MLP, P×K batches, triplet loss, val-only checkpoint selection, ONNX parity, MLflow evidence. First real training run remains pending.
+
 - [ ] **Training data**: E3–E4 train on public pet re-ID datasets (check licences); `pettrace-reid`
       stays an independent test set. Keep growing it (test first, then `val`).
 - [ ] **Sighting-style photos** (outside the home, far, from behind) and an owner-photo vs
