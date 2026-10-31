@@ -34,6 +34,8 @@ E1, E2 y E3 usan exactamente este mismo test y el mismo snapshot PetTrace v4. Se
 
 ## Evidencia histórica de referencia
 
+E1 tiene un baseline congelado, **`e1-v1`**, con las corridas pública y privada verificadas. [Registro de cierre](../docs/e1-frozen.json): incluye el commit y hash del notebook ejecutado, modelo, datasets y métricas para las comparaciones posteriores.
+
 | Indicador global | E1 | E2 | E3 |
 |---|---:|---:|---:|
 | Rank-1 | 65,90 % | 67,87 % | 72,79 % |

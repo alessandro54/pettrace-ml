@@ -8,7 +8,7 @@ import or execute these files. Install `pettrace-ml` before running them, or use
 | `register_v1.py` | Export/verify the original CLIP model |
 | `register_e2.py` | Export/register the detector-crop model |
 | `verify_model.py` | Check a downloaded model's golden fingerprint |
-| `attach_notebook.py` | Attach a saved executed notebook to its published run |
+| `attach_notebook.py` | Attach a saved notebook; E1 with `--run-id` and `--public-run-id` archives both runs, verifies downloads and syncs final receipts |
 | `mlflow_smoke.py` | Check tracking connectivity |
 | `build_release.py` | Build the versioned wheel and source distribution with embedded provenance and checksums |
 | `run_e1.py` | Bootstrap the released E1 notebook in isolated Python 3.11.15; retry publication with `--resume` |

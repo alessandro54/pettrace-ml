@@ -1,0 +1,136 @@
+{
+  "schema_version": 1,
+  "experiment": "E1",
+  "baseline": "e1-v1",
+  "status": "frozen",
+  "frozen_on": "2026-10-31",
+  "timezone": "America/Lima",
+  "tracking_uri": "https://ml.pettrace.app",
+  "mlflow_experiment_id": "3",
+  "notebook": {
+    "git_commit": "9f0a72277a0b27dff5d7d199644f022b465277a5",
+    "path": "notebooks/e1_clip_zero_shot.ipynb",
+    "sha256": "53a56021ba0ddb6523b37aaa259c846a49ceefa75a47e2fa428673aa580f0e6a",
+    "artifact_directory": "notebook",
+    "restore_script": "restore_notebook.py"
+  },
+  "protocol": {
+    "model": "models:/pettrace-embedder/1",
+    "training": false,
+    "detector": false,
+    "gallery": "separate_domains_same_species",
+    "query": "photo_leave_one_out",
+    "identity_score": "max_photo_similarity",
+    "mAP_unit": "photograph",
+    "eer": "descriptive; fitted and measured on the same pairs"
+  },
+  "domains": {
+    "public": {
+      "run_id": "670af363cda5492899ce6466cc0962e9",
+      "dataset": "alessandro54/pettrace-training",
+      "dataset_version": "v1",
+      "dataset_commit": "dd7a00cb8b3638759ffa0216251e62d334b5bf10",
+      "dataset_fingerprint": "4edecfe52cc871bfbc09a90561a1c604a177dbc2dbc0288b54a2c71cf45ba7ed",
+      "queries": 277,
+      "identities": 60,
+      "metrics": {
+        "rank1": 0.6859205776173285,
+        "rank2": 0.8014440433212996,
+        "rank5": 0.8880866425992779,
+        "rank10": 0.9314079422382672,
+        "mAP": 0.5500786464091689
+      },
+      "eer": 0.30418879014876155,
+      "threshold": 0.8106516003608704,
+      "publication_receipt": {
+        "published": true,
+        "run_id": "670af363cda5492899ce6466cc0962e9"
+      },
+      "reference_run": "8d9e85d25d174728b19c2251b6862a7c",
+      "same_query_ranks_and_ap_as_reference": true,
+      "metric_differences_from_reference": {
+        "val.threshold": -5.364418029785156e-07
+      }
+    },
+    "pettrace": {
+      "run_id": "4e6391cc267940ba952aa75aee43dad7",
+      "dataset": "alessandro54/pettrace-reid",
+      "dataset_version": "v4",
+      "dataset_commit": "8b12db0dce41040a821f9792bea5b352342263ce",
+      "dataset_fingerprint": "db002d9b5355989f",
+      "queries": 305,
+      "identities": 31,
+      "metrics": {
+        "rank1": 0.659016393442623,
+        "rank2": 0.7836065573770492,
+        "rank5": 0.940983606557377,
+        "rank10": 0.9868852459016394,
+        "mAP": 0.3751305716485671
+      },
+      "eer": 0.36226429043517716,
+      "threshold": 0.797016978263855,
+      "publication_receipt": {
+        "published": true,
+        "run_id": "4e6391cc267940ba952aa75aee43dad7",
+        "public_run_id": "670af363cda5492899ce6466cc0962e9"
+      },
+      "reference_run": "26023579108b4a38bcb01f0d91cd7749",
+      "same_query_ranks_and_ap_as_reference": true,
+      "metric_differences_from_reference": {
+        "val.threshold": 5.364418029785156e-07
+      }
+    }
+  },
+  "package": {
+    "version": "0.2.2",
+    "source_sha256": "3e6a7b8d9a1c40d43b64695c8afff83c85e68379ed9122328f3dd3c614312592",
+    "git_commit": "ae115febedea2595bb73618200d9c8e0c331b769",
+    "encoder_sha256": "4773e649274ca8774c4a63d45f0438fe598ee7ba67e65def97537aa0eca9a576"
+  },
+  "runtime": {
+    "source_sha256": "3e6a7b8d9a1c40d43b64695c8afff83c85e68379ed9122328f3dd3c614312592",
+    "package_version": "0.2.2",
+    "git_sha": "ae115febedea2595bb73618200d9c8e0c331b769",
+    "git_dirty": false,
+    "build": {
+      "version": "0.2.2",
+      "git_sha": "ae115febedea2595bb73618200d9c8e0c331b769",
+      "git_dirty": false,
+      "uv_lock_sha256": "a55f45c6d0a1c5c6dd5c013f1af3f4d63f728320a57cf4c8d9f1bbfb0a70532d",
+      "reference_python": "3.11.15",
+      "uv": "uv 0.11.22 (94988e5e0 2026-06-18 aarch64-apple-darwin)"
+    },
+    "python": "3.13.18",
+    "platform": "Linux-6.6.159+-x86_64-with-glibc2.39",
+    "packages": {
+      "numpy": "2.4.6",
+      "pillow": "12.3.0",
+      "pyyaml": "6.0.3",
+      "onnxruntime": "1.31.0",
+      "mlflow-skinny": "3.17.0",
+      "huggingface-hub": "0.36.2",
+      "requests": "2.34.2",
+      "matplotlib": "3.11.2",
+      "torch": "2.11.0+cpu",
+      "pandas": "2.2.3"
+    },
+    "onnx_providers": [
+      "CPUExecutionProvider"
+    ],
+    "model_sha256": {
+      "encoder.onnx": "4773e649274ca8774c4a63d45f0438fe598ee7ba67e65def97537aa0eca9a576"
+    },
+    "training_runtime": {
+      "cuda": null,
+      "cudnn": null,
+      "cuda_available": false,
+      "devices": [],
+      "deterministic_algorithms": false
+    }
+  },
+  "limits": [
+    "No bitwise equivalence across hardware is claimed.",
+    "No capture-session-disjoint evaluation or confidence intervals.",
+    "Frozen test evidence must not select E3 checkpoints."
+  ]
+}
