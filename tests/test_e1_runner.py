@@ -37,6 +37,20 @@ def test_e1_rejects_host_kernel_before_scientific_imports(monkeypatch):
         e1.check_environment()
 
 
+def test_hub_retry_respects_service_wait_and_does_not_retry_bad_credentials(monkeypatch):
+    from urllib3.response import HTTPResponse
+
+    delays = []
+    monkeypatch.setattr("urllib3.util.retry.time.sleep", delays.append)
+    with e1.hub_session() as session:
+        retry = session.get_adapter("https://huggingface.co").max_retries
+        retry.sleep(HTTPResponse(status=429, headers={"Retry-After": "134"}))
+        assert delays == [134]
+        assert retry.is_retry("GET", 429, has_retry_after=True)
+        assert not retry.is_retry("GET", 401)
+        assert not retry.is_retry("POST", 429, has_retry_after=True)
+
+
 def test_kernel_uses_selected_python_and_retains_failure_evidence(tmp_path):
     notebook = nbformat.v4.new_notebook(cells=[
         nbformat.v4.new_code_cell("import sys; print(sys.executable)"),

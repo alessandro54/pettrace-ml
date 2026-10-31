@@ -22,6 +22,19 @@ PRIVATE_REPO = "alessandro54/pettrace-reid"
 PRIVATE_COMMIT = "8b12db0dce41040a821f9792bea5b352342263ce"
 
 
+def hub_session():
+    import requests
+    from requests.adapters import HTTPAdapter
+    from urllib3.util import Retry
+
+    session = requests.Session()
+    # Hub 0.36 does not retry 429 responses from the Xet token endpoint.
+    retry = Retry(total=5, backoff_factor=1, status_forcelist=[429, 500, 502, 503, 504],
+                  allowed_methods=["GET", "HEAD"], respect_retry_after_header=True)
+    session.mount("https://", HTTPAdapter(max_retries=retry))
+    return session
+
+
 def check_environment():
     if platform.python_version() != PYTHON or sys.prefix == sys.base_prefix:
         raise RuntimeError(f"E1 requires an isolated Python {PYTHON}; use colab/e1.ipynb or tools/run_e1.py")
@@ -33,6 +46,9 @@ def check_environment():
     from pettrace.data.versions import load_training  # noqa: F401
     from pettrace.evaluation.figures import save  # noqa: F401
     import mlflow  # noqa: F401
+    from huggingface_hub import configure_http_backend
+
+    configure_http_backend(backend_factory=hub_session)
 
 
 def credentials(env_file=None):
@@ -198,6 +214,7 @@ def main():
     credentials(args.env_file)
     preflight()
     os.environ["PETTRACE_OUTPUT_DIR"] = str(work / "reports")
+    os.environ.setdefault("PETTRACE_TRAINING_CACHE", str(work.parent / ".pettrace-training"))
     os.environ["HF_DATASET_REPO"] = PRIVATE_REPO
     os.environ["GIT_SHA"] = build["git_sha"]
     os.environ["GIT_DIRTY"] = "false"
