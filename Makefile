@@ -1,4 +1,4 @@
-.PHONY: image image-export evaluate notebook register-v1 register-e2 verify-model mlflow-smoke test test-e3 lint manifest prepare-e3
+.PHONY: image image-export evaluate notebook register-v1 register-e2 verify-model test test-e3 lint manifest prepare-e3
 
 IMAGE ?= pettrace-ml
 # Every MLflow run records the commit it came from; GIT_DIRTY=true marks uncommitted code.
@@ -42,9 +42,6 @@ register-e2:
 MODEL ?= models:/pettrace-embedder@production
 verify-model:
 	$(DOCKER) $(IMAGE) tools/verify_model.py $(MODEL)
-
-mlflow-smoke:
-	$(DOCKER) $(IMAGE) tools/mlflow_smoke.py
 
 test:
 	uv run --locked --group dev --group notebooks --extra notebooks python -m pytest -q

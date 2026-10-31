@@ -1,19 +1,20 @@
 # Operational tools
 
-These commands support model administration and local automation. Experiment notebooks do not
-import or execute these files. Install `pettrace-ml` before running them, or use the Make targets.
+Experiment code lives in `src/pettrace/`; these scripts handle packaging and administration.
+Interactive Colab experiments do not require running them. Install `pettrace-ml` first.
 
-| Tool | Purpose |
+| Tool | When to use it |
 |---|---|
-| `register_v1.py` | Export/verify the original CLIP model |
-| `register_e2.py` | Export/register the detector-crop model |
-| `verify_model.py` | Check a downloaded model's golden fingerprint |
-| `attach_notebook.py` | Attach a saved notebook; E1 with `--run-id` and `--public-run-id` archives both runs, verifies downloads and syncs final receipts |
-| `mlflow_smoke.py` | Check tracking connectivity |
-| `build_release.py` | Build the versioned wheel and source distribution with embedded provenance and checksums |
-| `run_e1.py` | Bootstrap the released E1 notebook in isolated Python 3.11.15; retry publication with `--resume` |
-| `sync_experiments.py` | Refresh `experiments.yaml` from MLflow without modifying runs |
-| `archive/squash_dataset.py` | Historical one-off dataset maintenance; not part of experiment execution |
+| `attach_notebook.py` | After saving an executed notebook: archive its outputs in MLflow. E1 uses both run IDs; see [the guide](../docs/e1_colab.md). |
+| `build_release.py` | Before publishing a package release: build wheel, sdist and checksums. |
+| `sync_experiments.py` | After publishing experiments: refresh `experiments.yaml` with `make manifest` (read-only on MLflow). |
+| `verify_model.py` | Check a model's golden embeddings with `make verify-model MODEL=...`; supports offline artifacts. |
+| `register_v1.py` | Model administration: export/register CLIP with `make register-v1`. Can update a registry alias. |
+| `register_e2.py` | Model administration: export/register the detector-crop pipeline with `make register-e2`. Can update a registry alias. |
+| `run_e1.py` | Optional historical reproduction: run the released v0.2.2 notebook in isolated Python 3.11.15, or retry with `--resume`. |
+
+The registration scripts are not needed to evaluate existing pinned model versions.
+The historical dataset-squashing and synthetic MLflow smoke scripts were retired; Git retains them.
 
 Reusable dataset acquisition is in `pettrace.data.acquisition`; optional E3 orchestration is in
 `pettrace.experiments.legacy`. The evaluation CLI is `pettrace-evaluate` or `python -m pettrace.cli`.
