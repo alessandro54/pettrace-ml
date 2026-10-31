@@ -9,4 +9,4 @@ from importlib.metadata import PackageNotFoundError, version
 try:
     __version__ = version("pettrace-ml")
 except PackageNotFoundError:
-    __version__ = "0.2.0+source"
+    __version__ = "0.2.1+source"

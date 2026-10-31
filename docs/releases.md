@@ -1,18 +1,18 @@
 # Versioned package and experiment environments
 
-Release `v0.2.0` reorganizes the package under `src/pettrace`. It does not claim a new
+Release `v0.2.1` reorganizes the package under `src/pettrace`. It does not claim a new
 E3 result or change the research protocol. Existing notebook outputs remain historical evidence.
 
 ## Install a release
 
 Use a fresh virtual environment with Python **3.11.15**, the reference interpreter in
-`.python-version`. Download `requirements-e3.txt` from the matching GitHub Release:
+`.python-version`. The release asset `python-version.txt` records this interpreter without a hidden filename. Download `requirements-e3.txt` from the matching GitHub Release:
 
 ```bash
 uv python install 3.11.15
 uv venv --python 3.11.15 .venv
 curl --fail --location --output requirements-e3.txt \
-  https://github.com/alessandro54/pettrace-ml/releases/download/v0.2.0/requirements-e3.txt
+  https://github.com/alessandro54/pettrace-ml/releases/download/v0.2.1/requirements-e3.txt
 uv pip install --python .venv/bin/python --require-hashes -r requirements-e3.txt
 uv pip check --python .venv/bin/python
 ```
@@ -56,7 +56,7 @@ src/pettrace/
   cli.py         # evaluation command
 ```
 
-Imports changed in 0.2.0; the repository notebooks and tools use the new paths. Install and
+Imports changed in 0.2.1; the repository notebooks and tools use the new paths. Install and
 restart the kernel as one migration. The legacy runner is not the notebook's two-domain
 protocol; moving it does not make their results interchangeable.
 
@@ -71,7 +71,7 @@ uv run --locked ruff check .
 uv run --no-sync python tools/build_release.py
 ```
 
-The builder creates `dist/v0.2.0/` with the wheel, source distribution, lockfile,
+The builder creates `dist/v0.2.1/` with the wheel, source distribution, lockfile,
 hashed requirements, Python version, build provenance and checksums. It refuses to replace
 an existing release directory. The wheel embeds its source commit and lockfile hash;
 `source_identity()` hashes every Python module, including nested packages.

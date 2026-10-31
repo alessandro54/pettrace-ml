@@ -47,11 +47,12 @@ def main():
         ], cwd=ROOT, check=True, stdout=subprocess.DEVNULL)
         with requirements.open("a") as stream:
             stream.write(f"\npettrace-ml @ {url} --hash=sha256:{sha256(wheel)}\n")
-    for name in ("uv.lock", "pyproject.toml", ".python-version"):
+    for name in ("uv.lock", "pyproject.toml"):
         shutil.copy2(ROOT / name, output / name)
+    shutil.copy2(ROOT / ".python-version", output / "python-version.txt")
     shutil.copy2(ROOT / "docs/releases.md", output / "INSTALL.md")
     (output / "release.json").write_text(json.dumps(build, indent=2) + "\n")
-    inventory = {path.name: sha256(path) for path in sorted(output.iterdir())}
+    inventory = {path.name: sha256(path) for path in sorted(output.iterdir()) if not path.name.startswith(".")}
     (output / "SHA256SUMS").write_text("".join(f"{digest}  {name}\n" for name, digest in inventory.items()))
     print(output)
 

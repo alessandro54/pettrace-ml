@@ -34,6 +34,7 @@ def test_release_exports_hashed_environments_and_preserves_build_identity(tmp_pa
         if args[1] == "build":
             captured.append(json.loads((package / "_build.json").read_text()))
             output = Path(args[-1])
+            (output / ".gitignore").write_text("*\n")
             (output / "pettrace_ml-0.2.0-py3-none-any.whl").write_bytes(b"wheel fixture")
             (output / "pettrace_ml-0.2.0.tar.gz").write_bytes(b"source fixture")
         elif args[1] == "export":
@@ -48,6 +49,8 @@ def test_release_exports_hashed_environments_and_preserves_build_identity(tmp_pa
     assert not (package / "_build.json").exists()
     assert captured[0]["git_sha"] == "a" * 40
     assert captured[0]["uv_lock_sha256"] == hashlib.sha256(b"locked").hexdigest()
+    assert (output / "python-version.txt").read_text() == "3.11.15\n"
+    assert ".gitignore" not in (output / "SHA256SUMS").read_text()
     for profile in ("evaluation", "e3"):
         requirements = (output / f"requirements-{profile}.txt").read_text()
         assert "releases/download/v0.2.0/pettrace_ml-0.2.0-py3-none-any.whl" in requirements

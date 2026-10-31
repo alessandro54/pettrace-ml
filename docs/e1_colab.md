@@ -1,7 +1,7 @@
 # E1 in VS Code with a Colab kernel
 
 1. Use a fresh Python 3.11 or 3.12 runtime and run the installation cell. It installs the
-   versioned v0.2.0 wheel and all dependencies with hashes exported from `uv.lock`.
+   versioned v0.2.1 wheel and all dependencies with hashes exported from `uv.lock`.
 2. Restart the kernel and continue from the package-verification cell. It displays the source
    commit and lockfile hash embedded in the wheel. See [release installation](releases.md).
 3. Provide HF and production MLflow credentials through environment variables, Secrets or hidden

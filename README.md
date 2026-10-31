@@ -218,7 +218,7 @@ The distribution is `pettrace-ml`, while the import package is `pettrace`. The r
 ### Google Colab / VS Code
 
 1. Open the selected E1, E2, or E3 notebook. Use a GPU runtime for E3; a T4 is sufficient for the current MLP configuration.
-2. Run the first installation cell in a fresh runtime. It installs **v0.2.0** and all dependencies from the release's hashed requirements file, without resolving GitHub `main`.
+2. Run the first installation cell in a fresh runtime. It installs **v0.2.1** and all dependencies from the release's hashed requirements file, without resolving GitHub `main`.
 3. Restart the kernel, then continue from the package-verification cell. It verifies the package version and displays the embedded source commit and lockfile hash.
 4. Keep Python, CUDA/GPU and effective runtime versions with the results. Hosted Colab runtimes can differ from the reference environment; locks do not guarantee bit-identical GPU results.
 5. Execute the three phases and publish both evaluation domains to MLflow. Do not reinstall packages during an active run.

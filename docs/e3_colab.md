@@ -8,7 +8,7 @@ La preparación se ejecuta en `datasets/prepare_training.ipynb`, separado de los
 
 ## Primera corrida con la versión publicada
 
-Abre `notebooks/e3_mlp_head_triplet.ipynb`, selecciona un runtime GPU T4 limpio, instala la release v0.2.0 con la primera celda, reinicia el kernel y continúa desde la verificación del paquete. Véase [instalación versionada](releases.md). El notebook carga por defecto el dataset privado `alessandro54/pettrace-training@v1` (212 MB, 1.826 fotos, 402 identidades), fijado al commit `dd7a00cb8b3638759ffa0216251e62d334b5bf10` y al fingerprint `38ef098d26afa792a1712f9e37487d143f60a9a3bc647a5fdde5505f790f8c7d`. No es necesario ejecutar otra vez la preparación.
+Abre `notebooks/e3_mlp_head_triplet.ipynb`, selecciona un runtime GPU T4 limpio, instala la release v0.2.1 con la primera celda, reinicia el kernel y continúa desde la verificación del paquete. Véase [instalación versionada](releases.md). El notebook carga por defecto el dataset privado `alessandro54/pettrace-training@v1` (212 MB, 1.826 fotos, 402 identidades), fijado al commit `dd7a00cb8b3638759ffa0216251e62d334b5bf10` y al fingerprint `38ef098d26afa792a1712f9e37487d143f60a9a3bc647a5fdde5505f790f8c7d`. No es necesario ejecutar otra vez la preparación.
 
 Los accesos se obtienen del entorno, Colab Secrets o campos ocultos. El extractor E2 calcula o reutiliza embeddings de las 1.549 fotos de train/val; después la MLP entrena hasta 30 épocas con parada temprana. La salida muestra pérdida y mAP de validación por época. El test público queda reservado. Al finalizar se exporta ONNX y se compara E3 con E1/E2 en el benchmark privado v4. La publicación en MLflow es obligatoria. `REGISTER_E3` controla por separado el registro de una versión del modelo.
 
@@ -26,7 +26,7 @@ El recibo registra configuración, versión, huella del índice ZIP, IDs elegido
 
 La misma configuración permite reanudar una interrupción y reutilizar una adquisición completa verificada. Para cambiar tamaño/semilla se usa otra raíz de datos. Pueden proporcionarse extracciones manuales con `E3_DOGS_WORLD_ROOT` y `E3_LCW_ROOT`. El pipeline independiente no utiliza el camino histórico de archivos completos.
 
-Los accesos Kaggle opcionales siguen en el entorno; ninguna clave ni URL firmada entra al recibo. Las fuentes públicas inspeccionadas respondieron a solicitudes anónimas. El notebook instala la release v0.2.0 de GitHub con dependencias fijadas y hashes; no consume `main` ni wheels arbitrarios de `/content`.
+Los accesos Kaggle opcionales siguen en el entorno; ninguna clave ni URL firmada entra al recibo. Las fuentes públicas inspeccionadas respondieron a solicitudes anónimas. El notebook instala la release v0.2.1 de GitHub con dependencias fijadas y hashes; no consume `main` ni wheels arbitrarios de `/content`.
 
 ## Control de calidad exploratorio
 
