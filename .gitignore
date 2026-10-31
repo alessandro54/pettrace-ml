@@ -7,6 +7,8 @@ __pycache__/
 *.pyc
 .pytest_cache/
 .ruff_cache/
+dist/
+src/pettrace/_build.json
 # Model files: registered in MLflow (sha256 tagged), never committed
 artifacts/
 *.pt

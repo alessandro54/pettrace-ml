@@ -7,8 +7,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from pettrace.e3_prepare import prepare
-from pettrace.training_data import load_local_training, load_training, publish_training, record_version
+from pettrace.data.preparation import prepare
+from pettrace.data.versions import load_local_training, load_training, publish_training, record_version
 from test_e3_prepare import setup_pipeline
 
 
@@ -75,9 +75,9 @@ class Hub:
 
 def install_hub(tmp_path, monkeypatch):
     hub = Hub(tmp_path / "hub")
-    monkeypatch.setattr("pettrace.training_data.HfApi", lambda: hub)
-    monkeypatch.setattr("pettrace.training_data.hf_hub_download", hub.download_file)
-    monkeypatch.setattr("pettrace.training_data.snapshot_download", hub.download_snapshot)
+    monkeypatch.setattr("pettrace.data.versions.HfApi", lambda: hub)
+    monkeypatch.setattr("pettrace.data.versions.hf_hub_download", hub.download_file)
+    monkeypatch.setattr("pettrace.data.versions.snapshot_download", hub.download_snapshot)
     return hub
 
 
@@ -116,7 +116,7 @@ def test_private_hub_release_is_idempotent_inventory_only_and_loads_by_commit(tm
     with pytest.raises(ValueError, match="fingerprint"):
         load_training(expected_fingerprint="0" * 64, cache_dir=tmp_path / "cache")
     # Exercise the experiment's real Hub input branch, without credentials or fitting a model.
-    from pettrace.public_data import sha256
+    from pettrace.data.curation import sha256
     notebook = json.loads((Path(__file__).parents[1] / "notebooks/e3_mlp_head_triplet.ipynb").read_text())
     cell = next(c for c in notebook["cells"] if c["id"] == "e3-load-prepared")
     report = tmp_path / "report"

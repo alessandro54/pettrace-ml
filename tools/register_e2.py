@@ -34,8 +34,8 @@ import onnxruntime as ort
 import yaml
 from mlflow import MlflowClient
 
-from pettrace.golden import GOLDEN_SET_VERSION, compare, fingerprint, golden_images
-from pettrace.pipeline import Pipeline
+from pettrace.models.golden import GOLDEN_SET_VERSION, compare, fingerprint, golden_images
+from pettrace.models.pipeline import Pipeline
 
 MODEL_NAME = "pettrace-embedder"
 EXPERIMENT = "pettrace-embedder"
@@ -129,7 +129,7 @@ def main() -> None:
                     "golden_set": GOLDEN_SET_VERSION,
                     "fingerprint": golden_fp,
                     "images": len(golden),
-                    "runner": "pettrace.pipeline (= vision.ml.pipeline)",
+                    "runner": "pettrace.models.pipeline (= vision.ml.pipeline)",
                     "tolerance": {"cosine_min": 0.9999, "max_abs_diff": 1e-3},
                 },
                 f,

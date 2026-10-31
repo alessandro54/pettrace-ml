@@ -10,9 +10,10 @@ import or execute these files. Install `pettrace-ml` before running them, or use
 | `verify_model.py` | Check a downloaded model's golden fingerprint |
 | `attach_notebook.py` | Attach a saved executed notebook to its published run |
 | `mlflow_smoke.py` | Check tracking connectivity |
+| `build_release.py` | Build a clean versioned wheel, lock exports and checksums |
 | `sync_experiments.py` | Refresh `experiments.yaml` from MLflow without modifying runs |
 | `archive/squash_dataset.py` | Historical one-off dataset maintenance; not part of experiment execution |
 
-Reusable dataset acquisition is in `pettrace.acquisition`; optional E3 orchestration is in
-`pettrace.experiments`. The evaluation CLI is `pettrace-evaluate` or `python -m pettrace.cli`.
+Reusable dataset acquisition is in `pettrace.data.acquisition`; optional E3 orchestration is in
+`pettrace.experiments.legacy`. The evaluation CLI is `pettrace-evaluate` or `python -m pettrace.cli`.
 Tests live only in `tests/` and are excluded from the runtime wheel.

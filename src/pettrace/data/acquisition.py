@@ -9,7 +9,7 @@ from pathlib import Path
 
 import requests
 
-from pettrace.public_data import audit_and_split, discover
+from pettrace.data.curation import audit_and_split, discover
 
 MPDD_URL = "https://data.mendeley.com/public-files/datasets/v5j6m8dzhv/files/05d1d583-faf6-410d-89a5-a6b1134b6e5e/file_downloaded"
 MPDD_SHA256 = "6c800c1b4aa67629544dec7444dee85bc57781abde1ae1d077ea9ef1804284cd"

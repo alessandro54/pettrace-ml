@@ -9,8 +9,8 @@ import pytest
 import yaml
 from PIL import Image
 
-from pettrace.e3_prepare import PrepareConfig, load_prepared, prepare
-from pettrace.public_data import sha256
+from pettrace.data.preparation import PrepareConfig, load_prepared, prepare
+from pettrace.data.curation import sha256
 
 
 class FakeDetector:
@@ -36,7 +36,7 @@ class FakeDetector:
 
 
 def setup_pipeline(tmp_path, monkeypatch):
-    monkeypatch.setattr("pettrace.e3_prepare.Detector", FakeDetector)
+    monkeypatch.setattr("pettrace.data.preparation.Detector", FakeDetector)
     FakeDetector.calls = 0
     roots = {"dogs-world": tmp_path / "raw-dogs", "lcw": tmp_path / "raw-cats"}
     rng = np.random.default_rng(42)
@@ -147,7 +147,7 @@ def test_failed_preparation_never_updates_latest_or_exposes_partial_snapshot(tmp
 
 def test_detector_acquisition_reads_only_pinned_detector_and_spec_and_checks_cache(tmp_path, monkeypatch):
     import mlflow
-    from pettrace.e3_prepare import acquire_detector
+    from pettrace.data.preparation import acquire_detector
 
     source = tmp_path / "upstream"
     source.mkdir()
@@ -182,7 +182,7 @@ def test_detector_401_is_recoverable_but_permission_errors_are_preserved(tmp_pat
     import mlflow
     from mlflow.exceptions import MlflowException
     from mlflow.protos.databricks_pb2 import UNAUTHENTICATED, PERMISSION_DENIED
-    from pettrace.e3_prepare import DetectorAuthenticationError, acquire_detector
+    from pettrace.data.preparation import DetectorAuthenticationError, acquire_detector
 
     monkeypatch.setattr(mlflow, "set_tracking_uri", lambda value: None)
     monkeypatch.setattr(mlflow, "set_registry_uri", lambda value: None)

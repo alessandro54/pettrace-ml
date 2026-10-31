@@ -1,4 +1,7 @@
-"""Run E3 after public_data audit. Optional programmatic orchestration; notebooks can call the individual package operations."""
+"""Legacy E3 protocol: public-validation calibration and private test-split evaluation.
+
+This differs from the thesis notebooks' two-domain, all-eligible-photo evaluation.
+"""
 
 import csv
 import hashlib
@@ -7,13 +10,12 @@ import shutil
 from pathlib import Path
 
 import numpy as np
-import torch
 from PIL import Image, ImageOps
 
-from pettrace import data, metrics
-from pettrace.e3 import Config, export_encoder, fast_eer, fit, project
-from pettrace.evaluation import embed, load_model
-from pettrace.public_data import feature_cache
+from pettrace.data import benchmark as data
+from pettrace.evaluation import metrics
+from pettrace.evaluation.core import embed, load_model
+from pettrace.training.features import feature_cache
 
 
 def evaluate_embeddings(features, rows, threshold):
@@ -24,10 +26,14 @@ def evaluate_embeddings(features, rows, threshold):
 
 
 def run(manifest, base_uri, dataset_version, output, config=None, log_mlflow=True, require_gpu=True):
-    import mlflow
-
     if not log_mlflow:
         raise ValueError("MLflow publication is mandatory for every experiment run")
+
+    import mlflow
+    import torch
+
+    from pettrace.training.triplet import Config, export_encoder, fast_eer, fit, project
+
     config = config or Config()
     if require_gpu and not torch.cuda.is_available():
         raise RuntimeError("Select a GPU runtime in Colab before running E3")
@@ -69,14 +75,12 @@ def run(manifest, base_uri, dataset_version, output, config=None, log_mlflow=Tru
         if source.exists():
             shutil.copy2(source, output / "data" / name)
     manifest_sha = hashlib.sha256(Path(manifest).read_bytes()).hexdigest()
-    source_digest = hashlib.sha256()
-    for directory in [Path(__file__).parent]:
-        for path in sorted(directory.glob("*.py")):
-            source_digest.update(path.name.encode())
-            source_digest.update(path.read_bytes())
+    from pettrace.tracking import source_identity
+
+    source = source_identity()
     provenance = {"experiment": "E3", "base_uri": base_uri, "base_sha256": base.sha256,
                   "manifest_sha256": manifest_sha, "feature_cache_sha256": cache_digest,
-                  "source_sha256": source_digest.hexdigest(), "dataset_version": dataset_version,
+                  "source_sha256": source["source_sha256"], "dataset_version": dataset_version,
                   "torch": torch.__version__, "onnxruntime": ort.__version__,
                   "augmentation": "none; frozen E2 embeddings cached once",
                   "sampling": "same-species P x K, alternating species",
@@ -87,9 +91,9 @@ def run(manifest, base_uri, dataset_version, output, config=None, log_mlflow=Tru
         mlflow.set_experiment("pettrace-embedder")
         active_run = mlflow.start_run(run_name=f"e3-mlp-triplet-seed-{config.seed}")
         mlflow.log_params({**config.__dict__, "manifest_sha256": manifest_sha,
-                           "base_uri": base_uri, "source_sha256": source_digest.hexdigest()})
+                           "base_uri": base_uri, "source_sha256": source["source_sha256"]})
         mlflow.set_tags({"experiment": "E3", "git_dirty": "true",
-                         "source_sha256": source_digest.hexdigest(), "training_source": "public_body_identities"})
+                         "source_sha256": source["source_sha256"], "training_source": "public_body_identities"})
         import pandas as pd
 
         for split, context in [("train", "training"), ("val", "validation")]:
@@ -126,7 +130,7 @@ def run(manifest, base_uri, dataset_version, output, config=None, log_mlflow=Tru
         if not local_photos:
             raise ValueError("Pinned local dataset has no test identities")
         public_hashes = {r["sha256"] for r in rows}
-        from pettrace.public_data import sha256
+        from pettrace.data.curation import sha256
 
         if any(sha256(p.path) in public_hashes for p in local_photos):
             raise ValueError("An image is shared by public data and the local held-out test set")
@@ -142,7 +146,7 @@ def run(manifest, base_uri, dataset_version, output, config=None, log_mlflow=Tru
             for name, embeddings in [("E2", frozen), ("E3", project(head, frozen))]:
                 results[domain][name] = evaluate_embeddings(embeddings, evaluation_rows, calibration[name]["threshold"])
         # Real-image parity after export, in addition to the synthetic golden set.
-        from pettrace.pipeline import Pipeline
+        from pettrace.models.pipeline import Pipeline
 
         images = []
         for photo in local_photos[:5]:

@@ -49,7 +49,7 @@ Los resultados describen una muestra pequeña y una sola semilla de E3. No se re
 
 ## Conservación y reproducción
 
-Las primeras celdas instalan el paquete publicado y obtienen los accesos del entorno, Colab Secrets o campos ocultos. Una `.env` local no se transfiere automáticamente a Colab. Las dependencias efectivas y la identidad del código quedan en `runtime.json`; `PETTRACE_PACKAGE_SOURCE` permite indicar una fuente versionada.
+Las primeras celdas instalan el paquete publicado y obtienen los accesos del entorno, Colab Secrets o campos ocultos. Una `.env` local no se transfiere automáticamente a Colab. Las dependencias efectivas y la identidad del código quedan en `runtime.json`; La instalación usa la release `v0.2.0` y sus requisitos con hashes.
 
 Cada nueva corrida crea `reports/eN_v4/<fecha-id>`. Conserva `experiment-design.json`, `summary.json`, `scores.json`, `analysis.json`, `findings.md`, figuras y procedencia. E3 añade manifiesto/auditoría, configuración, historia/checkpoint, curvas, cobertura y modelo ONNX. Las salidas históricas del notebook se preservan al editar el método: las celdas nuevas o modificadas deben ejecutarse para producir evidencia actualizada.
 
@@ -61,6 +61,6 @@ Las fotos privadas no se incorporan a la presentación de resultados; se emplean
 
 ## Paquete para relanzar en Colab
 
-Las nuevas celdas requieren `pettrace.research` y las métricas Rank-2 actualizadas. Un kernel con la versión anterior debe instalar el wheel construido con estos cambios antes de ejecutar **Run All** (o instalar el código después de publicarlo en GitHub). No basta con abrir el notebook actualizado si el paquete remoto sigue siendo antiguo.
+Los notebooks instalan la release **v0.2.0** con dependencias exportadas de `uv.lock` y verificación de hashes. Ejecuta la primera celda en un runtime limpio, reinicia el kernel y continúa desde la verificación del paquete. Esa celda muestra el commit y hash del lockfile incluidos en el wheel. Véase [instalación y releases](../docs/releases.md).
 
-Después de subir el wheel al runtime, instalarlo con `%pip install --force-reinstall --no-deps /content/pettrace_ml-0.1.0-py3-none-any.whl`, reiniciar el kernel y ejecutar el notebook completo. E1/E2 no entrenan; E3 requiere GPU T4 y entrena su MLP en la fase 2. No se reejecutó ni se publicaron nuevas métricas al editar los cuadernos.
+El código está en `src/pettrace/`, organizado por datos, modelos, entrenamiento y evaluación. E1/E2 no entrenan; E3 requiere GPU y entrena su MLP en la fase 2. La migración de imports conserva las salidas históricas: no constituye otra ejecución ni publica métricas nuevas.

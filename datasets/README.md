@@ -46,7 +46,7 @@ La publicación de datos no activa el registro de modelos ni la publicación de 
 Un experimento puede cargar:
 
 ```python
-from pettrace.training_data import load_local_training, load_training
+from pettrace.data.versions import load_local_training, load_training
 
 prepared, provenance = load_local_training("datasets/build/pettrace-training/v1.json")
 # Después de publicar:

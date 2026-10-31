@@ -79,12 +79,13 @@ def pair_scores(E: np.ndarray, animals: list[str], species: list[str]) -> tuple[
 
 
 def eer(same: np.ndarray, diff: np.ndarray) -> tuple[float, float]:
-    """Equal error rate and the threshold where false accepts = false rejects."""
+    """Closest empirical FAR/FRR crossing, choosing the lowest threshold on ties."""
     if len(same) == 0 or len(diff) == 0:
         return float("nan"), float("nan")
+    same, diff = np.sort(same), np.sort(diff)
     thresholds = np.unique(np.concatenate([same, diff]))
-    far = np.array([np.mean(diff >= t) for t in thresholds])
-    frr = np.array([np.mean(same < t) for t in thresholds])
+    far = (len(diff) - np.searchsorted(diff, thresholds, side="left")) / len(diff)
+    frr = np.searchsorted(same, thresholds, side="left") / len(same)
     k = int(np.argmin(np.abs(far - frr)))
     return float((far[k] + frr[k]) / 2), float(thresholds[k])
 

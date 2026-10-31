@@ -9,8 +9,8 @@ from pathlib import Path
 from huggingface_hub import HfApi, hf_hub_download, snapshot_download
 from huggingface_hub.utils import validate_repo_id
 
-from pettrace.data import REPO as BENCHMARK_REPO
-from pettrace.e3_prepare import load_prepared
+from pettrace.data.benchmark import REPO as BENCHMARK_REPO
+from pettrace.data.preparation import load_prepared
 
 REPO = "alessandro54/pettrace-training"
 

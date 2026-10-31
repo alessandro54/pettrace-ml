@@ -5,7 +5,7 @@ import numpy as np
 import pytest
 from PIL import Image
 
-from pettrace.e3_data import acquire, curate_review, discover_body_ids, select_pilot, write_review
+from pettrace.data.sources import acquire, curate_review, discover_body_ids, select_pilot, write_review
 
 
 def test_dog_sidecars_use_individual_id_and_reject_ambiguous_and_escaping_paths(tmp_path):
@@ -104,7 +104,7 @@ def test_duplicate_removal_enforces_four_actual_photos(tmp_path):
 def test_acquisition_does_not_download_implicitly_and_blocks_incomplete_extraction(tmp_path, monkeypatch):
     def forbid(*args, **kwargs):
         raise AssertionError("network is forbidden")
-    monkeypatch.setattr("pettrace.e3_data.requests.get", forbid)
+    monkeypatch.setattr("pettrace.data.sources.requests.get", forbid)
     with pytest.raises(FileNotFoundError, match="ALLOW_DATA_DOWNLOAD"):
         acquire(tmp_path, "lcw")
     folder = tmp_path / "lcw"

@@ -5,8 +5,8 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from pettrace import metrics
-from pettrace.research import public_test_dataset, save_benchmark_comparison
+from pettrace.evaluation import metrics
+from pettrace.evaluation.research import public_test_dataset, save_benchmark_comparison
 
 
 def prepared(tmp_path):
@@ -72,7 +72,7 @@ def test_comparison_keeps_each_gallery_size_and_rank2(tmp_path):
 
 
 def test_long_identity_plot_labels_are_unique_reversible_and_species_specific():
-    from pettrace.figures import identity_labels
+    from pettrace.evaluation.figures import identity_labels
 
     photos = [SimpleNamespace(animal=name, species=sp) for name, sp in [
         ("cat-001", "cat"), ("lcw:cat:123456789012345678901234", "cat"),

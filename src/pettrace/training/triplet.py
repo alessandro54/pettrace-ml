@@ -96,7 +96,7 @@ def project(head, features, device="cpu", batch=512):
 
 
 def validation_score(head, features, rows, device):
-    from pettrace.metrics import retrieval
+    from pettrace.evaluation.metrics import retrieval
 
     embeddings = project(head, features, device)
     result = retrieval(embeddings, [r["animal"] for r in rows], [r["species"] for r in rows])
@@ -108,15 +108,12 @@ def validation_score(head, features, rows, device):
 
 
 def fast_eer(same, diff):
-    """Exact existing EER definition, O(N log N), suitable for public validation pairs."""
+    """Compatibility entry point for training callers requiring both pair classes."""
+    from pettrace.evaluation.metrics import eer
+
     if not len(same) or not len(diff):
         raise ValueError("EER calibration needs positive and negative pairs")
-    same, diff = np.sort(same), np.sort(diff)
-    thresholds = np.unique(np.concatenate([same, diff]))
-    far = (len(diff) - np.searchsorted(diff, thresholds, side="left")) / len(diff)
-    frr = np.searchsorted(same, thresholds, side="left") / len(same)
-    i = int(np.argmin(np.abs(far - frr)))
-    return float((far[i] + frr[i]) / 2), float(thresholds[i])
+    return eer(same, diff)
 
 
 def fit(features, rows, output, config=None, device=None, callback=None):
@@ -199,8 +196,8 @@ def export_encoder(base_model_dir, head, output_dir, model_version):
     import yaml
     from onnx import compose
 
-    from pettrace.golden import compare, fingerprint, golden_images
-    from pettrace.pipeline import Pipeline
+    from pettrace.models.golden import compare, fingerprint, golden_images
+    from pettrace.models.pipeline import Pipeline
 
     base_dir, output = Path(base_model_dir), Path(output_dir)
     output.mkdir(parents=True, exist_ok=True)

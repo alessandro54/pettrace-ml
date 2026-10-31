@@ -1,4 +1,4 @@
-# Mirror of apps/vision/src/vision/ml/golden.py in the PetTrace app repo; see pettrace/pipeline.py.
+# Mirror of apps/vision/src/vision/ml/golden.py in the PetTrace app repo; see src/pettrace/models/pipeline.py.
 
 """Golden fingerprint: fixed inputs whose embeddings identify a model version.
 

@@ -8,7 +8,7 @@ La preparación se ejecuta en `datasets/prepare_training.ipynb`, separado de los
 
 ## Primera corrida con la versión publicada
 
-Abre `notebooks/e3_mlp_head_triplet.ipynb`, selecciona el runtime GPU T4 de Colab y ejecuta **Run All**. El notebook carga por defecto el dataset privado `alessandro54/pettrace-training@v1` (212 MB, 1.826 fotos, 402 identidades), fijado al commit `dd7a00cb8b3638759ffa0216251e62d334b5bf10` y al fingerprint `38ef098d26afa792a1712f9e37487d143f60a9a3bc647a5fdde5505f790f8c7d`. No es necesario ejecutar otra vez la preparación.
+Abre `notebooks/e3_mlp_head_triplet.ipynb`, selecciona un runtime GPU T4 limpio, instala la release v0.2.0 con la primera celda, reinicia el kernel y continúa desde la verificación del paquete. Véase [instalación versionada](releases.md). El notebook carga por defecto el dataset privado `alessandro54/pettrace-training@v1` (212 MB, 1.826 fotos, 402 identidades), fijado al commit `dd7a00cb8b3638759ffa0216251e62d334b5bf10` y al fingerprint `38ef098d26afa792a1712f9e37487d143f60a9a3bc647a5fdde5505f790f8c7d`. No es necesario ejecutar otra vez la preparación.
 
 Los accesos se obtienen del entorno, Colab Secrets o campos ocultos. El extractor E2 calcula o reutiliza embeddings de las 1.549 fotos de train/val; después la MLP entrena hasta 30 épocas con parada temprana. La salida muestra pérdida y mAP de validación por época. El test público queda reservado. Al finalizar se exporta ONNX y se compara E3 con E1/E2 en el benchmark privado v4. La publicación en MLflow es obligatoria. `REGISTER_E3` controla por separado el registro de una versión del modelo.
 
@@ -26,7 +26,7 @@ El recibo registra configuración, versión, huella del índice ZIP, IDs elegido
 
 La misma configuración permite reanudar una interrupción y reutilizar una adquisición completa verificada. Para cambiar tamaño/semilla se usa otra raíz de datos. Pueden proporcionarse extracciones manuales con `E3_DOGS_WORLD_ROOT` y `E3_LCW_ROOT`. El pipeline independiente no utiliza el camino histórico de archivos completos.
 
-Los accesos Kaggle opcionales siguen en el entorno; ninguna clave ni URL firmada entra al recibo. Las fuentes públicas inspeccionadas respondieron a solicitudes anónimas. El notebook instala el código publicado en GitHub o la fuente explícita `PETTRACE_PACKAGE_SOURCE`; los wheels viejos en `/content` no se seleccionan automáticamente.
+Los accesos Kaggle opcionales siguen en el entorno; ninguna clave ni URL firmada entra al recibo. Las fuentes públicas inspeccionadas respondieron a solicitudes anónimas. El notebook instala la release v0.2.0 de GitHub con dependencias fijadas y hashes; no consume `main` ni wheels arbitrarios de `/content`.
 
 ## Control de calidad exploratorio
 
@@ -40,7 +40,7 @@ En el dataset preparado, `animal-screening.json` registra cajas, puntuaciones, m
 
 Después del filtrado se genera una muestra reproducible de cuatro identidades por especie; `visual-sample.json` conserva la selección. Esta muestra no garantiza que las demás etiquetas sean correctas, no detecta todos los casos con varios animales y no demuestra sesiones independientes. La primera corrida es exploratoria bajo posible ruido de etiquetas.
 
-`PrepareConfig.review_policy = "strict"` exige decisiones explícitas en `review.csv`; el visor opcional de `pettrace.e3_review` permite completarlas. El pipeline exploratorio no solicita decisiones foto por foto. La revisión no modifica etiquetas, rutas ni hashes. Una selección o imagen distinta requiere volver a generar la revisión. El test público no entra al optimizador ni a la selección. La nueva fase 3 lo evalúa después de fijar el checkpoint, con una galería separada de PetTrace.
+`PrepareConfig.review_policy = "strict"` exige decisiones explícitas en `review.csv`; el visor opcional de `pettrace.data.review` permite completarlas. El pipeline exploratorio no solicita decisiones foto por foto. La revisión no modifica etiquetas, rutas ni hashes. Una selección o imagen distinta requiere volver a generar la revisión. El test público no entra al optimizador ni a la selección. La nueva fase 3 lo evalúa después de fijar el checkpoint, con una galería separada de PetTrace.
 
 ## Modelo, entrenamiento y comparación
 
@@ -70,11 +70,11 @@ Cada corrida crea un directorio nuevo bajo `reports/e3_v4/<fecha-id>`. Contiene 
 
 Todas las corridas de E3 y los demás experimentos deben publicar sus resultados en MLflow. `LOG_TO_MLFLOW = True` es obligatorio y la celda final rechaza `False`. No hay desactivación mediante variables del entorno ni opción CLI `--no-mlflow`. Si una subida falla, se conserva el reporte y se reintenta la publicación sin repetir entrenamiento; la corrida no está completa hasta que exista el recibo de publicación. `REGISTER_E3` controla el registro del modelo por separado y no promueve un alias. Las credenciales permanecen en el entorno, Secrets o campos ocultos; la preparación de datos conserva su flujo independiente.
 
-El notebook requiere el paquete actualizado instalado; una sesión de Colab no puede importar cambios sin publicar del equipo local. Las pruebas sintéticas verifican el wiring y los límites de datos, no constituyen entrenamiento real ni resultados de E3. La corrida `20261030T153523Z-e258882a` ya conserva entrenamiento y evaluación reales: checkpoint de época 3, Rank-1 privado 72,79 % y mAP 0,5682. Su última salida guardada no acredita una publicación; esa fase debe completarse con el recibo correspondiente. Una reproducción necesita el dataset preparado, accesos de lectura/escritura y runtime GPU. `PETTRACE_PACKAGE_SOURCE` puede seleccionar explícitamente una wheel actual si se utiliza ese mecanismo.
+El notebook requiere el paquete actualizado instalado; una sesión de Colab no puede importar cambios sin publicar del equipo local. Las pruebas sintéticas verifican el wiring y los límites de datos, no constituyen entrenamiento real ni resultados de E3. La corrida `20261030T153523Z-e258882a` ya conserva entrenamiento y evaluación reales: checkpoint de época 3, Rank-1 privado 72,79 % y mAP 0,5682. Su última salida guardada no acredita una publicación; esa fase debe completarse con el recibo correspondiente. Una reproducción necesita el dataset preparado, accesos de lectura/escritura y runtime GPU. La instalación versionada está documentada en [releases.md](releases.md).
 
 ## Fuentes primarias
 
 - Dogs of the World: https://www.kaggle.com/datasets/lextoumbourou/dogs-world
 - LCW: https://www.kaggle.com/datasets/dseidli/lcwlabeled-cats-in-the-wild
 
-MPDD y Cat Individual Images siguen disponibles en el importador histórico `pettrace.acquisition.prepare`, pero no son las fuentes activas de este piloto. El runner extendido `pettrace.experiments` conserva un protocolo distinto; sus pruebas/calibración públicas no se atribuyen a este notebook.
+MPDD y Cat Individual Images siguen disponibles en el importador histórico `pettrace.data.acquisition.prepare`, pero no son las fuentes activas de este piloto. El runner extendido `pettrace.experiments.legacy` conserva un protocolo distinto; sus pruebas/calibración públicas no se atribuyen a este notebook.

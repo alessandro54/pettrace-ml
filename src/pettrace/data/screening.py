@@ -10,8 +10,8 @@ import onnxruntime as ort
 import PIL
 from PIL import Image, ImageOps
 
-from pettrace import pipeline
-from pettrace.public_data import sha256
+from pettrace.models import pipeline
+from pettrace.data.curation import sha256
 
 SPECIES = {15: "cat", 16: "dog"}
 

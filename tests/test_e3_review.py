@@ -3,9 +3,9 @@ import csv
 import pytest
 from PIL import Image
 
-from pettrace.e3_data import write_review
-from pettrace.e3_review import ReviewPending, photo_reviewer, require_review_complete, review_status, save_decisions
-from pettrace.public_data import sha256
+from pettrace.data.sources import write_review
+from pettrace.data.review import ReviewPending, photo_reviewer, require_review_complete, review_status, save_decisions
+from pettrace.data.curation import sha256
 
 
 def fixture_review(tmp_path):
@@ -87,7 +87,7 @@ def test_widget_displays_bad_files_without_approval_saves_and_resumes(tmp_path):
 
 
 def test_prompt_review_rejects_incomplete_answers_and_resumes_saved_progress(tmp_path, monkeypatch):
-    from pettrace.e3_review import review_with_prompts
+    from pettrace.data.review import review_with_prompts
 
     rows, path = fixture_review(tmp_path)
     monkeypatch.setattr("IPython.display.display", lambda value: None)

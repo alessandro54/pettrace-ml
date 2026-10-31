@@ -12,9 +12,9 @@ pytest.importorskip("onnx")
 from torch import nn
 from torch.nn import functional as F
 
-from pettrace.e3 import Config, Head, batch_hard_triplet, export_encoder, fast_eer, fit, pk_batch
-from pettrace.metrics import eer
-from pettrace.public_data import audit_and_split, discover
+from pettrace.training.triplet import Config, Head, batch_hard_triplet, export_encoder, fast_eer, fit, pk_batch
+from pettrace.evaluation.metrics import eer
+from pettrace.data.curation import audit_and_split, discover
 
 
 def test_pk_batch_has_same_species_unique_identities_and_distinct_positives():
@@ -138,7 +138,7 @@ def test_nested_archives_extract_once_and_reject_path_traversal(tmp_path):
     import io
     import zipfile
 
-    from pettrace.acquisition import extract
+    from pettrace.data.acquisition import extract
 
     nested = io.BytesIO()
     with zipfile.ZipFile(nested, "w") as archive:

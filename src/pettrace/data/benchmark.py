@@ -46,8 +46,8 @@ class Dataset:
 def load(version: str, repo: str = REPO, cache_dir: str | None = None) -> Dataset:
     from huggingface_hub import HfApi, snapshot_download
 
-    root = snapshot_download(repo, repo_type="dataset", revision=version, cache_dir=cache_dir)
     commit = HfApi().dataset_info(repo, revision=version).sha
+    root = snapshot_download(repo, repo_type="dataset", revision=commit, cache_dir=cache_dir)
     return from_dir(root, repo=repo, version=version, commit=commit)
 
 

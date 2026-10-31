@@ -22,8 +22,8 @@ import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
-from pettrace.e3_data import SOURCES
-from pettrace.public_data import EXTENSIONS, sha256
+from pettrace.data.sources import SOURCES
+from pettrace.data.curation import EXTENSIONS, sha256
 
 
 def _session():

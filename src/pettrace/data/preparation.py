@@ -17,11 +17,11 @@ import onnxruntime as ort
 import yaml
 from PIL import Image, ImageDraw, ImageOps, __version__ as pillow_version
 
-from pettrace.e3_data import SOURCES, curate_review, discover_body_ids, select_pilot, write_review
-from pettrace.e3_detection import screen_animals
-from pettrace.pilot_download import acquire_pilot
-from pettrace.pipeline import Detector
-from pettrace.public_data import sha256
+from pettrace.data.sources import SOURCES, curate_review, discover_body_ids, select_pilot, write_review
+from pettrace.data.screening import screen_animals
+from pettrace.data.pilot import acquire_pilot
+from pettrace.models.pipeline import Detector
+from pettrace.data.curation import sha256
 
 DETECTOR_SHA256 = "da8f9b9ebea5157cdcefa7bea9fd782249ebdf119f917c07d64e5b41942b9c9d"
 BASE_MODEL = "models:/pettrace-embedder/2"
@@ -286,8 +286,10 @@ def prepare(config):
         review = list(csv.DictReader(stream))
     settings = asdict(config)
     settings.pop("output_root")
-    implementation = {name: sha256(Path(__file__).with_name(name)) for name in
-                      ("e3_prepare.py", "e3_data.py", "e3_detection.py", "public_data.py", "pilot_download.py", "pipeline.py")}
+    package_root = Path(__file__).resolve().parents[1]
+    implementation = {name: sha256(package_root / name) for name in
+                      ("data/preparation.py", "data/sources.py", "data/screening.py", "data/curation.py",
+                       "data/pilot.py", "models/pipeline.py")}
     inputs = {"config": settings, "detector_step": step, "implementation": implementation,
               "runtime": {"numpy": np.__version__, "onnxruntime": ort.__version__, "pillow": pillow_version},
               "detector_spec_sha256": sha256(model_root / "pipeline.yaml"),

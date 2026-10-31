@@ -1,6 +1,6 @@
 [project]
 name = "pettrace-ml"
-version = "0.1.0"
+version = "0.2.0"
 description = "PetTrace re-identification experiments: evaluation harness, model registration, notebooks and reports"
 readme = "README.md"
 license = "MIT"
@@ -17,18 +17,18 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-notebooks = ["matplotlib>=3.9,<4", "ipython>=8,<10", "ipywidgets>=8.1,<9"]
+notebooks = ["matplotlib>=3.9,<4", "ipython>=8,<10", "ipywidgets>=8.1,<9", "pip>=25,<27"]
 training = ["torch>=2.5,<3", "onnx>=1.17,<2", "pandas>=2.2.3,<4"]
 
 [project.scripts]
 pettrace-evaluate = "pettrace.cli:main"
-pettrace-prepare-e3 = "pettrace.e3_prepare:main"
+pettrace-prepare-e3 = "pettrace.data.preparation:main"
 
 [dependency-groups]
 figures = ["matplotlib>=3.9,<4"]
 # Execute the experiment notebooks (make notebook).
 notebooks = ["nbconvert>=7.16,<8", "ipykernel>=6.29,<7", "nbformat>=5.10,<6"]
-# Model export / registration only (register_v1.py, pettrace.clip_reference). Not needed to evaluate.
+# Model export / registration only (register_v1.py, pettrace.models.clip_reference). Not needed to evaluate.
 export = [
     "torch==2.5.1",
     "transformers==4.47.1",
@@ -40,16 +40,22 @@ dev = [
 ]
 
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling==1.27.0"]
 build-backend = "hatchling.build"
 
+[tool.hatch.build]
+artifacts = ["src/pettrace/_build.json"]
+
 [tool.hatch.build.targets.wheel]
-packages = ["pettrace"]
+packages = ["src/pettrace"]
+
+[tool.hatch.build.targets.sdist]
+include = ["/src/pettrace", "/pyproject.toml", "/uv.lock", "/.python-version", "/README.md", "/LICENSE", "/docs/releases.md"]
 
 [tool.ruff]
 line-length = 120
 target-version = "py311"
-extend-exclude = ["notebooks"]
+extend-exclude = ["notebooks", "datasets/*.ipynb"]
 
 [tool.ruff.lint]
 select = ["E", "F"]

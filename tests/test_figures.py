@@ -5,7 +5,7 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from pettrace import figures, metrics
+from pettrace.evaluation import figures, metrics
 
 
 def test_singleton_rival_in_summary_and_confusion():

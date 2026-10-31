@@ -4,9 +4,9 @@ import numpy as np
 import pytest
 from PIL import Image
 
-from pettrace.e3_detection import animal_boxes, screen_animals
-from pettrace.pipeline import Detector
-from pettrace.public_data import sha256
+from pettrace.data.screening import animal_boxes, screen_animals
+from pettrace.models.pipeline import Detector
+from pettrace.data.curation import sha256
 
 
 def prediction(items):

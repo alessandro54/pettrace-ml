@@ -1,8 +1,9 @@
 """Unit tests for the evaluation protocol: `python -m pytest ml/reid -q`."""
 
 import numpy as np
+import pytest
 
-from pettrace import metrics
+from pettrace.evaluation import metrics
 
 
 def unit(v):
@@ -56,6 +57,24 @@ def test_eer_and_threshold():
 def test_eer_needs_both_kinds_of_pairs():
     e, t = metrics.eer(np.array([0.9]), np.array([]))
     assert np.isnan(e) and np.isnan(t)
+
+
+@pytest.mark.parametrize("decimals", [None, 1, 0])
+def test_eer_matches_empirical_threshold_sweep(decimals):
+    rng = np.random.default_rng(42)
+    same, diff = rng.random(37), rng.random(83)
+    if decimals is not None:
+        same, diff = np.round(same, decimals), np.round(diff, decimals)
+    thresholds = np.unique(np.concatenate([same, diff]))
+    far = np.array([np.mean(diff >= t) for t in thresholds])
+    frr = np.array([np.mean(same < t) for t in thresholds])
+    selected = int(np.argmin(np.abs(far - frr)))
+    expected = (float((far[selected] + frr[selected]) / 2), float(thresholds[selected]))
+    assert metrics.eer(same, diff) == expected
+
+
+def test_eer_chooses_lowest_threshold_on_equal_crossing_distances():
+    assert metrics.eer(np.array([0.2, 0.8]), np.array([0.5])) == (0.75, 0.5)
 
 
 def test_single_animal_species_is_skipped():

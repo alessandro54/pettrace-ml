@@ -1,12 +1,9 @@
 # E1 in VS Code with a Colab kernel
 
-1. Select the Colab kernel and run the dependency cell. It keeps compatible Colab NumPy/Hub
-   libraries (`numpy>=2.1,<2.3`, `huggingface-hub>=1.32,<2`), preserves Requests, and fixes
-   ONNX Runtime/MLflow versions. These bounds address the Numba and datasets conflicts seen
-   in the previous runtime output.
-2. Run the package-install cell. It uses an installed `pettrace-ml` package; if absent, it installs
-   from `PETTRACE_PACKAGE_SOURCE` (currently the public Git source). Publish the current code
-   before using it remotely. Set this variable to a release wheel URL once a wheel is published.
+1. Use a fresh Python 3.11 or 3.12 runtime and run the installation cell. It installs the
+   versioned v0.2.0 wheel and all dependencies with hashes exported from `uv.lock`.
+2. Restart the kernel and continue from the package-verification cell. It displays the source
+   commit and lockfile hash embedded in the wheel. See [release installation](releases.md).
 3. Provide HF and production MLflow credentials through environment variables, Secrets or hidden
    prompts. A local `.env` on your Mac is not automatically visible to the Colab kernel.
 4. Run the experiment cells in order. The published HF `v4` tag and the fixed registered E1

@@ -11,7 +11,7 @@ from pathlib import Path
 import mlflow
 import yaml
 
-from pettrace.evaluation import EXPERIMENT
+from pettrace.evaluation.core import EXPERIMENT
 from pettrace.tracking import PRODUCTION_URI
 
 

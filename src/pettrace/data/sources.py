@@ -9,8 +9,8 @@ from pathlib import Path
 
 import requests
 
-from pettrace.acquisition import download, extract
-from pettrace.public_data import EXTENSIONS, audit_and_split, sha256
+from pettrace.data.acquisition import download, extract
+from pettrace.data.curation import EXTENSIONS, audit_and_split, sha256
 
 SOURCES = {
     "dogs-world": {"ref": "lextoumbourou/dogs-world", "version": 1, "species": "dog", "license": "CC0 (publisher)"},

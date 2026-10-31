@@ -33,7 +33,7 @@ def test_cli_rejects_tracking_opt_out_before_loading_models(monkeypatch):
 
 
 def test_training_runner_rejects_tracking_opt_out_before_work(tmp_path):
-    from pettrace.experiments import run
+    from pettrace.experiments.legacy import run
 
     with pytest.raises(ValueError, match="mandatory"):
         run("nonexistent.csv", "unused", "v4", tmp_path / "run", log_mlflow=False)

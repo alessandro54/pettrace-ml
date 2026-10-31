@@ -206,30 +206,25 @@ If an upload fails, retain the local evidence and retry publication without retr
 git clone https://github.com/alessandro54/pettrace-ml.git
 cd pettrace-ml
 cp .env.example .env
-uv sync --group dev --group figures --group notebooks --extra training
+uv sync --locked --group dev --group figures --group notebooks --extra notebooks --extra training
 make test
 make lint
 ```
 
 Set credentials directly in the local `.env`, runtime environment, Colab Secrets, or hidden prompts. Do not put tokens or passwords in notebook source. A local `.env` is not automatically transferred to Colab. Dataset access needs `HF_TOKEN`; model acquisition and result publication need the configured MLflow credentials.
 
-The distribution is `pettrace-ml`, while the import package is `pettrace`. Project metadata supports Python 3.11–3.13; effective dependency versions are recorded for each run. [`uv.lock`](uv.lock) fixes the local/Docker dependency resolution.
+The distribution is `pettrace-ml`, while the import package is `pettrace`. The reference interpreter is Python 3.11.15; the locked training/notebook environment supports Python 3.11–3.12. [`uv.lock`](uv.lock) fixes dependency resolution. See [versioned releases](docs/releases.md) for installing the published wheel together with its hashed dependencies.
 
 ### Google Colab / VS Code
 
 1. Open the selected E1, E2, or E3 notebook. Use a GPU runtime for E3; a T4 is sufficient for the current MLP configuration.
-2. Install the current package. The notebooks accept `PETTRACE_PACKAGE_SOURCE` and otherwise use the published GitHub `main` source when required. Unpushed local changes are not available to Colab.
-3. If using a wheel, build it with `uv build --wheel`, upload it to the runtime, and install it before running the experiment:
-
-   ```python
-   %pip install --force-reinstall --no-deps /content/pettrace_ml-0.1.0-py3-none-any.whl
-   ```
-
-4. Restart the kernel after replacing an imported package. The updated comparison requires `pettrace.research` and Rank-2 support; an older installation is insufficient.
-5. Run the notebook from the beginning. It loads the pinned data/models, executes its three phases, and publishes both evaluation domains to MLflow.
+2. Run the first installation cell in a fresh runtime. It installs **v0.2.0** and all dependencies from the release's hashed requirements file, without resolving GitHub `main`.
+3. Restart the kernel, then continue from the package-verification cell. It verifies the package version and displays the embedded source commit and lockfile hash.
+4. Keep Python, CUDA/GPU and effective runtime versions with the results. Hosted Colab runtimes can differ from the reference environment; locks do not guarantee bit-identical GPU results.
+5. Execute the three phases and publish both evaluation domains to MLflow. Do not reinstall packages during an active run.
 6. Save the executed notebook. From VS Code, the remote kernel cannot read the notebook file open on the local machine; use the attachment tool after saving it locally when applicable.
 
-The updated package was built and checked, and **55 targeted protocol, training, figure, and tracking tests passed** during preparation. Those checks are implementation validation, not a new E1/E2/E3 experiment run. The updated public/private comparisons remain pending execution.
+Package tests validate implementation, not empirical E1/E2/E3 results. Preserved notebook outputs belong to their recorded runtime and code, not automatically to the new release.
 
 ### Docker and supporting tools
 
@@ -253,8 +248,12 @@ The encoder/detector ONNX files are verified by SHA-256 and a synthetic golden s
 ```text
 datasets/          Shared preparation notebook, dataset documentation, source-capacity reference
 notebooks/         Three-phase E1/E2/E3 experiment reports and research index
-pettrace/          Data loading, inference, metric learning, evaluation, figures, tracking
-pettrace/research.py  Reserved public-test view and public/private comparison reports
+src/pettrace/data/        Acquisition, curation, screening, preparation and versioned snapshots
+src/pettrace/models/      ONNX inference, golden checks and CLIP reference
+src/pettrace/training/    Frozen feature cache and metric learning/export
+src/pettrace/evaluation/  Protocols, metrics, figures and public/private research comparisons
+src/pettrace/experiments/ Explicitly separate legacy orchestration
+src/pettrace/tracking.py  Publication and source/runtime provenance
 tests/             Implementation/protocol checks, not empirical research results
 tools/             Model registration, verification, notebook attachment, run-index synchronization
 docs/              Execution guides, pipeline protocol, references.bib

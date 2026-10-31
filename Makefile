@@ -19,7 +19,7 @@ evaluate:
 # make prepare-e3 [PREPARE_ARGS="--detector-dir artifacts/e2"]
 PREPARE_ARGS ?=
 prepare-e3:
-	$(DOCKER) $(IMAGE) -m pettrace.e3_prepare --allow-download $(PREPARE_ARGS)
+	$(DOCKER) $(IMAGE) -m pettrace.data.preparation --allow-download $(PREPARE_ARGS)
 
 # Execute an experiment notebook in the pinned image and save it with its outputs (the canonical
 # record of the experiment): make notebook NB=notebooks/e1_clip_zero_shot.ipynb

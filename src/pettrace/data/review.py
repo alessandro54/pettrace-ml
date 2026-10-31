@@ -10,8 +10,8 @@ from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageOps
 
-from pettrace.e3_data import REVIEW_FIELDS
-from pettrace.public_data import sha256
+from pettrace.data.sources import REVIEW_FIELDS
+from pettrace.data.curation import sha256
 
 
 def _read(path):

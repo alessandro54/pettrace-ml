@@ -25,9 +25,10 @@ from dataclasses import dataclass
 import numpy as np
 from PIL import Image, ImageOps
 
-from pettrace import data, metrics
-from pettrace.golden import compare, fingerprint, golden_images
-from pettrace.pipeline import Pipeline
+from pettrace.data import benchmark as data
+from pettrace.evaluation import metrics
+from pettrace.models.golden import compare, fingerprint, golden_images
+from pettrace.models.pipeline import Pipeline
 
 EXPERIMENT = "pettrace-reid-eval"
 

@@ -9,7 +9,7 @@ import json
 import re
 from pathlib import Path
 
-from pettrace.data import Dataset, Photo
+from pettrace.data.benchmark import Dataset, Photo
 
 PUBLIC_REPO = "alessandro54/pettrace-training"
 PUBLIC_VERSION = "v1"
@@ -46,7 +46,7 @@ def public_test_dataset(prepared, receipt):
 
 def save_benchmark_comparison(public_ev, private_ev, output, label):
     """Compare domains without combining their galleries or inferring a domain causal effect."""
-    from pettrace.figures import comparison_figure
+    from pettrace.evaluation.figures import comparison_figure
 
     output = Path(output)
     output.mkdir(parents=True, exist_ok=True)

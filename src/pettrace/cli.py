@@ -3,17 +3,17 @@
     make evaluate DATASET=v3 MODEL=models:/pettrace-embedder/1 PROTOCOL=zero-shot [REPORT=reports/e1_v3]
     python -m pettrace.cli --model /path/to/model/dir --dataset /path/to/dataset/dir
 
-The protocol, model identity and MLflow logging live in pettrace.evaluation (shared with the experiment
+The protocol, model identity and MLflow logging live in pettrace.evaluation.core (shared with the experiment
 notebooks, which are the canonical record of each experiment). --report also writes the figures
-and tables (pettrace.figures) and attaches them to the run.
+and tables (pettrace.evaluation.figures) and attaches them to the run.
 """
 
 import argparse
 import os
 import sys
 
-from pettrace import data
-from pettrace.evaluation import evaluate, load_model, log_run, report
+from pettrace.data import benchmark as data
+from pettrace.evaluation.core import evaluate, load_model, log_run, report
 
 
 def main() -> int:
@@ -34,7 +34,7 @@ def main() -> int:
     ev = evaluate(ds, model.pipeline, zero_shot=args.protocol == "zero-shot")
     print(report(ev.result))
     if args.report:
-        from pettrace.figures import save
+        from pettrace.evaluation.figures import save
 
         save(ev, model, args.report)
         print(f"report → {args.report}")

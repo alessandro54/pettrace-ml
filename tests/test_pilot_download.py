@@ -5,7 +5,7 @@ import zipfile
 
 import pytest
 
-from pettrace import pilot_download as download
+from pettrace.data import pilot as download
 
 
 class Response:

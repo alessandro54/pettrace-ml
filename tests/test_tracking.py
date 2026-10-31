@@ -7,7 +7,8 @@ from functools import partial
 
 import pytest
 
-from pettrace import evaluation, tracking
+from pettrace.evaluation import core as evaluation
+from pettrace import tracking
 
 
 ENCODER_SHA256 = "4773e649274ca8774c4a63d45f0438fe598ee7ba67e65def97537aa0eca9a576"
@@ -128,7 +129,7 @@ def test_ambiguous_runs_are_not_overwritten(publication):
 def test_shared_logger_resumes_without_creating_experiment(tmp_path, monkeypatch):
     import mlflow
     from unittest.mock import MagicMock
-    from pettrace.data import Dataset
+    from pettrace.data.benchmark import Dataset
 
     start = MagicMock()
     start.return_value.__enter__.return_value.info.run_id = "existing-run"
@@ -187,3 +188,19 @@ def test_source_identity_does_not_require_a_repository_in_the_working_directory(
     identity = tracking.source_identity()
     assert len(identity["source_sha256"]) == 64
     assert identity["package_version"]
+
+
+def test_source_identity_includes_nested_modules_and_embedded_release_provenance(tmp_path, monkeypatch):
+    package = tmp_path / "installed" / "pettrace"
+    nested = package / "training"
+    nested.mkdir(parents=True)
+    module = nested / "triplet.py"
+    module.write_text("seed = 42\n")
+    build = {"git_sha": "a" * 40, "git_dirty": False, "uv_lock_sha256": "b" * 64}
+    (package / "_build.json").write_text(json.dumps(build))
+    monkeypatch.setattr(tracking, "__file__", str(package / "tracking.py"))
+    first = tracking.source_identity()
+    assert first["git_sha"] == build["git_sha"] and first["git_dirty"] is False
+    assert first["build"]["uv_lock_sha256"] == build["uv_lock_sha256"]
+    module.write_text("seed = 43\n")
+    assert tracking.source_identity()["source_sha256"] != first["source_sha256"]

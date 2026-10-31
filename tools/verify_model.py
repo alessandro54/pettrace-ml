@@ -16,8 +16,8 @@ import sys
 
 import numpy as np
 
-from pettrace.golden import compare, fingerprint, golden_images
-from pettrace.pipeline import Pipeline
+from pettrace.models.golden import compare, fingerprint, golden_images
+from pettrace.models.pipeline import Pipeline
 
 
 def main() -> int:

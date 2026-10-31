@@ -11,7 +11,7 @@ PUBLICATION_TAG = "pettrace.publication_key"
 def production_context():
     """Read-only preflight against the existing experiment; never create an experiment."""
     import mlflow
-    from pettrace.evaluation import EXPERIMENT
+    from pettrace.evaluation.core import EXPERIMENT
 
     if mlflow.get_tracking_uri().rstrip("/") != PRODUCTION_URI:
         raise ValueError(f"Evaluation requires the production tracking server: {PRODUCTION_URI}")
@@ -35,7 +35,7 @@ def publish_evaluation(ev, model, report, source_sha256, *, experiment,
     """
     import mlflow
     from pettrace import __version__
-    from pettrace.evaluation import log_run
+    from pettrace.evaluation.core import log_run
 
     client, tracking_experiment = production_context()
     if mlflow.active_run() is not None:
@@ -95,15 +95,20 @@ def source_identity():
 
     package_dir = Path(__file__).resolve().parent
     digest = hashlib.sha256()
-    for path in sorted(package_dir.glob("*.py")):
-        digest.update(path.name.encode() + b"\0" + path.read_bytes())
+    for path in sorted(package_dir.rglob("*.py")):
+        digest.update(path.relative_to(package_dir).as_posix().encode() + b"\0" + path.read_bytes())
     commit, dirty = "unknown", "unknown"
-    if (package_dir.parent / ".git").exists():
+    build_path = package_dir / "_build.json"
+    build = json.loads(build_path.read_text()) if build_path.exists() else {}
+    repository = package_dir.parents[1]
+    if (repository / ".git").exists() and package_dir.parent.name == "src":
         try:
-            commit = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=package_dir.parent, text=True).strip()
-            dirty = bool(subprocess.check_output(["git", "status", "--porcelain"], cwd=package_dir.parent, text=True).strip())
+            commit = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=repository, text=True).strip()
+            dirty = bool(subprocess.check_output(["git", "status", "--porcelain"], cwd=repository, text=True).strip())
         except (OSError, subprocess.CalledProcessError):
             pass
+    elif build:
+        commit, dirty = build["git_sha"], build["git_dirty"]
     else:
         try:
             direct_url = distribution("pettrace-ml").read_text("direct_url.json")
@@ -112,7 +117,7 @@ def source_identity():
         except PackageNotFoundError:
             pass
     return {"source_sha256": digest.hexdigest(), "package_version": __version__,
-            "git_sha": commit, "git_dirty": dirty}
+            "git_sha": commit, "git_dirty": dirty, "build": build}
 
 
 def save_provenance(report, model):
@@ -131,6 +136,15 @@ def save_provenance(report, model):
             runtime["packages"][name] = importlib.metadata.version(name)
         except importlib.metadata.PackageNotFoundError:
             pass
+    if "torch" in runtime["packages"]:
+        import torch
+
+        runtime["training_runtime"] = {
+            "cuda": torch.version.cuda, "cudnn": torch.backends.cudnn.version(),
+            "cuda_available": torch.cuda.is_available(),
+            "devices": [torch.cuda.get_device_name(i) for i in range(torch.cuda.device_count())],
+            "deterministic_algorithms": torch.are_deterministic_algorithms_enabled(),
+        }
     path = Path(report) / "runtime.json"
     path.write_text(json.dumps(runtime, indent=2) + "\n")
     return runtime
