@@ -121,3 +121,31 @@ def test_retry_rejects_changed_snapshot_before_tracking_writes(tmp_path, monkeyp
     monkeypatch.setattr("pettrace.evaluation.core.load_model", lambda *a: pytest.fail("must validate first"))
     with pytest.raises(ValueError, match="pinned E1"):
         e1.resume_publication(tmp_path)
+
+
+@pytest.mark.parametrize("layout", ["bin", "local/bin"])
+def test_bootstrap_finds_uv_in_the_actual_prefix_layout(tmp_path, monkeypatch, layout):
+    directory = tmp_path / ".bootstrap"
+    executable = directory / layout / "uv"
+
+    def install(command, **kwargs):
+        assert command[command.index("--prefix") + 1] == str(directory)
+        assert command[-1] == f"uv=={run_e1.UV}"
+        executable.parent.mkdir(parents=True)
+        executable.write_bytes(b"uv fixture")
+        # A Python package named uv must not be mistaken for the executable.
+        (directory / "lib/uv").mkdir(parents=True)
+
+    monkeypatch.setattr(run_e1.subprocess, "run", install)
+    assert run_e1.bootstrap_uv(directory, {}) == str(executable)
+
+
+@pytest.mark.parametrize("layouts", [[], ["bin", "local/bin"]])
+def test_bootstrap_rejects_missing_or_ambiguous_executable(tmp_path, monkeypatch, layouts):
+    for layout in layouts:
+        folder = tmp_path / layout
+        folder.mkdir(parents=True)
+        (folder / "uv").write_bytes(b"uv fixture")
+    monkeypatch.setattr(run_e1.subprocess, "run", lambda *a, **k: None)
+    with pytest.raises(RuntimeError, match="Expected one installed uv executable"):
+        run_e1.bootstrap_uv(tmp_path, {})

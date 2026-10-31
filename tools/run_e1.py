@@ -32,6 +32,16 @@ def download(name, destination, inventory):
     destination.write_bytes(contents)
 
 
+def bootstrap_uv(directory, env):
+    subprocess.run([sys.executable, "-m", "pip", "--isolated", "install", "--quiet", "--no-deps",
+                    "--ignore-installed", "--prefix", str(directory), f"uv=={UV}"], env=env, check=True)
+    # System Python can put prefix scripts in local/bin instead of bin (Colab/Debian).
+    binaries = [path for path in directory.rglob("uv") if path.is_file() and path.parent.name == "bin"]
+    if len(binaries) != 1:
+        raise RuntimeError(f"Expected one installed uv executable under {directory}; found {binaries}")
+    return str(binaries[0])
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--work-dir", required=True, type=Path, help="New directory, or existing one for --resume")
@@ -51,10 +61,7 @@ def main():
         for name in ("requirements-evaluation.txt", "e1_clip_zero_shot.ipynb", "release.json"):
             download(name, work / name, inventory)
         print(f"Preparing Python {PYTHON} + PetTrace {RELEASE} in {work}", flush=True)
-        bootstrap = work / ".bootstrap"
-        subprocess.run([sys.executable, "-m", "pip", "--isolated", "install", "--quiet", "--no-deps",
-                        "--ignore-installed", "--prefix", str(bootstrap), f"uv=={UV}"], env=env, check=True)
-        uv = str(bootstrap / "bin/uv")
+        uv = bootstrap_uv(work / ".bootstrap", env)
         env["UV_PYTHON_INSTALL_DIR"] = str(work / ".python")
         subprocess.run([uv, "--no-config", "venv", "--managed-python", "--python", PYTHON,
                         str(work / ".venv")], env=env, check=True)
