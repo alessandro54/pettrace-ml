@@ -181,3 +181,31 @@ def test_bootstrap_kernel_does_not_load_the_host_colab_profile(tmp_path, monkeyp
     saved = nbformat.read(work / "e1.executed.ipynb", as_version=4)
     assert "isolated kernel executed" in saved.cells[0].outputs[0].text
     assert "google.colab._kernel.Kernel" not in result.stderr
+
+
+@pytest.mark.parametrize("name", ["ipython_config.py", "ipython_kernel_config.py"])
+def test_private_kernel_class_overrides_system_colab_config(tmp_path, name):
+    import sys
+
+    global_config = tmp_path / "system-ipython"
+    global_config.mkdir()
+    (global_config / name).write_text(
+        'c = get_config()\nc.IPKernelApp.kernel_class = "google.colab._kernel.Kernel"\n')
+    work = tmp_path / "execution"
+    work.mkdir()
+    # Point the actual IPython loader at a fixture instead of changing /etc on the test host.
+    code = ("import sys; from IPython.core import application; "
+            "application.SYSTEM_CONFIG_DIRS = [sys.argv.pop(1)]; application.ENV_CONFIG_DIRS = []; "
+            "from ipykernel.kernelapp import IPKernelApp; "
+            "app = IPKernelApp.instance(); app.initialize(); "
+            "assert app.kernel_class.__module__ == 'ipykernel.ipkernel'; "
+            "print('standard kernel initialized')")
+    command = [sys.executable, "-I", "-c", code, str(global_config), "--IPKernelApp.quiet=False"]
+    env = run_e1.clean_environment(work)
+    before = subprocess.run(command, env=env, capture_output=True, text=True, timeout=30)
+    assert before.returncode != 0 and "google.colab._kernel.Kernel" in before.stderr
+    run_e1.prepare_kernel_profile(work)
+    after = subprocess.run(command, env=env, capture_output=True, text=True, timeout=30)
+    assert after.returncode == 0, after.stderr
+    assert "standard kernel initialized" in after.stdout
+    assert "google.colab._kernel.Kernel" in (global_config / name).read_text()

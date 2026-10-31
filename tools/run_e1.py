@@ -44,6 +44,15 @@ def bootstrap_uv(directory, env):
     return str(binaries[0])
 
 
+def prepare_kernel_profile(work):
+    profile = work / ".ipython/profile_default"
+    profile.mkdir(parents=True, exist_ok=True)
+    # IPython still reads system-wide config; the private profile has higher priority.
+    config = 'c = get_config()\nc.IPKernelApp.kernel_class = "ipykernel.ipkernel.IPythonKernel"\n'
+    for name in ("ipython_config.py", "ipython_kernel_config.py"):
+        (profile / name).write_text(config)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--work-dir", required=True, type=Path, help="New directory, or existing one for --resume")
@@ -72,6 +81,7 @@ def main():
         subprocess.run([uv, "--no-config", "pip", "check", "--python", str(python)], env=env, check=True)
     elif not python.is_file():
         raise SystemExit("The isolated environment is missing; resume requires the original work directory.")
+    prepare_kernel_profile(work)
     command = [str(python), "-I", "-m", "pettrace.experiments.e1", "--work-dir", str(work)]
     if args.env_file:
         command.extend(["--env-file", str(args.env_file.resolve())])
