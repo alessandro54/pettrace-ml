@@ -13,14 +13,16 @@ from pettrace.evaluation.research import PUBLIC_REPO, PUBLIC_COMMIT
 from tools import run_e1
 
 
-def test_bootstrap_drops_host_python_and_jupyter_configuration(monkeypatch):
+def test_bootstrap_drops_host_python_and_jupyter_configuration(tmp_path, monkeypatch):
     for key in ("PYTHONPATH", "PYTHONHOME", "JUPYTER_PATH", "IPYTHONDIR", "UV_PROJECT_ENVIRONMENT", "VIRTUAL_ENV"):
         monkeypatch.setenv(key, "/host/packages")
     monkeypatch.setenv("HF_TOKEN", "secret-test-value")
-    env = run_e1.clean_environment()
+    env = run_e1.clean_environment(tmp_path)
     assert "/host/packages" not in env.values()
     assert env["HF_TOKEN"] == "secret-test-value"
     assert env["PYTHONNOUSERSITE"] == "1"
+    assert env["IPYTHONDIR"] == str(tmp_path / ".ipython")
+    assert env["JUPYTER_NO_CONFIG"] == "1"
 
 
 def test_download_rejects_wrong_release_checksum(tmp_path, monkeypatch):
@@ -149,3 +151,33 @@ def test_bootstrap_rejects_missing_or_ambiguous_executable(tmp_path, monkeypatch
     monkeypatch.setattr(run_e1.subprocess, "run", lambda *a, **k: None)
     with pytest.raises(RuntimeError, match="Expected one installed uv executable"):
         run_e1.bootstrap_uv(tmp_path, {})
+
+
+def test_bootstrap_kernel_does_not_load_the_host_colab_profile(tmp_path, monkeypatch):
+    import os
+    import sys
+
+    host_profile = tmp_path / "host-ipython/profile_default"
+    host_profile.mkdir(parents=True)
+    (host_profile / "ipython_kernel_config.py").write_text(
+        'c = get_config()\nc.IPKernelApp.kernel_class = "google.colab._kernel.Kernel"\n')
+    monkeypatch.setenv("IPYTHONDIR", str(host_profile.parent))
+    work = tmp_path / "execution"
+    work.mkdir()
+    notebook = nbformat.v4.new_notebook(cells=[nbformat.v4.new_code_cell(
+        'from IPython import get_ipython\n'
+        'assert type(get_ipython().kernel).__module__ == "ipykernel.ipkernel"\n'
+        'print("isolated kernel executed")')])
+    nbformat.write(notebook, work / "e1_clip_zero_shot.ipynb")
+    # The same installed interpreter rejects the host's Colab-only kernel class.
+    host = subprocess.run([sys.executable, "-I", "-m", "ipykernel_launcher", "--show-config-json"],
+                          env=dict(os.environ), capture_output=True, text=True, timeout=30)
+    assert host.returncode != 0 and "google.colab._kernel.Kernel" in host.stderr
+    result = subprocess.run([sys.executable, "-I", "-c",
+                             "import sys; from pettrace.experiments.e1 import execute_notebook; "
+                             "execute_notebook(sys.argv[1])", str(work)],
+                            env=run_e1.clean_environment(work), capture_output=True, text=True, timeout=60)
+    assert result.returncode == 0, result.stderr
+    saved = nbformat.read(work / "e1.executed.ipynb", as_version=4)
+    assert "isolated kernel executed" in saved.cells[0].outputs[0].text
+    assert "google.colab._kernel.Kernel" not in result.stderr

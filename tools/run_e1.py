@@ -14,11 +14,13 @@ UV = "0.11.22"
 BASE = f"https://github.com/alessandro54/pettrace-ml/releases/download/v{RELEASE}"
 
 
-def clean_environment():
+def clean_environment(work):
     env = {key: value for key, value in os.environ.items()
            if not key.startswith(("PYTHON", "JUPYTER", "IPYTHON", "PIP_", "UV_"))
            and key not in {"VIRTUAL_ENV", "CONDA_PREFIX"}}
-    env.update(PYTHONNOUSERSITE="1", PYTHONHASHSEED="0", MPLBACKEND="Agg",
+    # Clearing IPYTHONDIR alone falls back to Colab's default profile under the user's home.
+    env.update(IPYTHONDIR=str(work / ".ipython"), JUPYTER_NO_CONFIG="1",
+               PYTHONNOUSERSITE="1", PYTHONHASHSEED="0", MPLBACKEND="Agg",
                HF_HUB_DISABLE_PROGRESS_BARS="1", MLFLOW_ENABLE_ARTIFACTS_PROGRESS_BAR="false",
                MLFLOW_DISABLE_AGENT_HINT="1")
     return env
@@ -49,7 +51,7 @@ def main():
     parser.add_argument("--resume", action="store_true", help="Retry publication only, without repeating inference")
     args = parser.parse_args()
     work = args.work_dir.resolve()
-    env = clean_environment()
+    env = clean_environment(work)
     python = work / ".venv/bin/python"
     if not args.resume:
         work.mkdir(parents=True, exist_ok=False)
