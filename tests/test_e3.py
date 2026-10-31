@@ -2,6 +2,7 @@
 # ruff: noqa: E402 -- skip the optional training suite before importing its dependencies.
 
 import json
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -58,6 +59,9 @@ def test_fit_checkpoints_trained_weights_and_rejects_test_and_identity_leakage(t
     config = Config(epochs=2, steps_per_epoch=2, identities_per_batch=2, images_per_identity=2)
     trained, result = fit(features, rows, tmp_path, config, device="cpu")
     assert result["best_epoch"] >= 1
+    assert result["history"][-1]["training.optimizer_steps"] == 4
+    assert result["history"][-1]["training.examples_seen"] == 16
+    assert 4 <= result["history"][-1]["training.unique_photos_seen"] <= 16
     assert (tmp_path / "head.pt").exists()
     assert len(json.loads((tmp_path / "history.json").read_text())) == 2
     assert torch.allclose(trained(torch.from_numpy(features)).norm(dim=1), torch.ones(len(rows)), atol=1e-5)
@@ -122,7 +126,7 @@ def test_composed_encoder_export_is_compatible_with_unchanged_serving_pipeline(t
     encoder = TinyFrozenEncoder().eval()
     torch.onnx.export(encoder, torch.randn(2, 3, 8, 8), str(base / "encoder.onnx"),
                       input_names=["pixel_values"], output_names=["embedding"],
-                      dynamic_axes={"pixel_values": {0: "batch"}, "embedding": {0: "batch"}}, opset_version=17)
+                      dynamic_axes={"pixel_values": {0: "batch"}, "embedding": {0: "batch"}}, opset_version=17, dynamo=False)
     spec = {"steps": [
         {"op": "clip_preprocess", "resize_shortest_edge": 8, "center_crop": [8, 8],
          "resample": "bicubic", "rescale_factor": 1 / 255, "mean": [0, 0, 0], "std": [1, 1, 1]},
@@ -171,3 +175,39 @@ def test_mpdd_never_uses_original_test_for_checkpoint_selection(tmp_path):
     curated, _ = audit_and_split(rows, tmp_path / "curated")
     assert all(r["split"] == "test" for r in curated if int(r["animal"].split(":")[-1]) >= 10)
     assert {r["split"] for r in curated if int(r["animal"].split(":")[-1]) < 10} == {"train", "val"}
+
+
+def test_feature_cache_only_embeds_new_images_across_volumes(tmp_path, monkeypatch):
+    from PIL import Image
+    from types import SimpleNamespace
+    from pettrace.data.curation import sha256
+    from pettrace.training.features import feature_cache
+
+    monkeypatch.setattr("pettrace.evaluation.core.file_hashes", lambda folder: {"encoder.onnx": str(folder)})
+    calls = []
+
+    def embed(images):
+        calls.append(len(images))
+        return np.tile(np.eye(1, 512, dtype=np.float32), (len(images), 1))
+
+    pipeline = SimpleNamespace(spec={"frozen": True}, embed=embed)
+    rows = []
+    for i in range(10):
+        path = tmp_path / f"{i}.png"
+        Image.new("RGB", (8, 8), (i * 20, 10, 10)).save(path)
+        rows.append({"path": str(path), "sha256": sha256(path), "animal": str(i), "species": "cat", "split": "train"})
+    cache = tmp_path / "features"
+    a, first = feature_cache(pipeline, rows[:2], cache, "base")
+    b, second = feature_cache(pipeline, rows[:5], cache, "base")
+    c, third = feature_cache(pipeline, rows, cache, "base")
+    assert calls == [2, 3, 5]
+    assert len({first, second, third}) == 3
+    np.testing.assert_array_equal(a, b[:2])
+    np.testing.assert_array_equal(b, c[:5])
+    feature_cache(pipeline, list(reversed(rows)), cache, "base")
+    assert calls == [2, 3, 5]
+    feature_cache(pipeline, rows[:2], cache, "different-model")
+    assert calls[-1] == 2
+    Path(rows[0]["path"]).write_bytes(b"changed")
+    with pytest.raises(ValueError, match="Image changed"):
+        feature_cache(pipeline, rows, cache, "base")

@@ -145,6 +145,7 @@ def fit(features, rows, output, config=None, device=None, callback=None):
     optimizer = torch.optim.AdamW(head.parameters(), lr=config.learning_rate, weight_decay=config.weight_decay)
     rng = np.random.default_rng(config.seed)
     history, best, best_epoch, stale = [], -1.0, 0, 0
+    optimizer_steps, examples_seen, unique_seen = 0, 0, set()
     selected = sorted(set(species))
     output = Path(output)
     output.mkdir(parents=True, exist_ok=True)
@@ -162,11 +163,16 @@ def fit(features, rows, output, config=None, device=None, callback=None):
             loss.backward()
             torch.nn.utils.clip_grad_norm_(head.parameters(), 5.0)
             optimizer.step()
+            optimizer_steps += 1
+            examples_seen += len(idx)
+            unique_seen.update(int(i) for i in idx)
             losses.append(float(loss.detach()))
             active.append(fraction)
         score, _ = validation_score(head, features[val], vr, device)
         record = {"epoch": epoch, "train.loss": float(np.mean(losses)),
-                  "train.active_triplets": float(np.mean(active)), "val.macro_species_mAP": score}
+                  "train.active_triplets": float(np.mean(active)), "val.macro_species_mAP": score,
+                  "training.optimizer_steps": optimizer_steps, "training.examples_seen": examples_seen,
+                  "training.unique_photos_seen": len(unique_seen)}
         history.append(record)
         if callback:
             callback(record)

@@ -233,3 +233,30 @@ def test_notebook_force_refresh_ignores_stale_environment_and_colab_secrets(monk
     assert os.environ["MLFLOW_TRACKING_PASSWORD"] == "new-fixture-password"
     assert os.environ["HF_TOKEN"] == "unrelated-fixture-token"
     assert requests == ["MLFLOW_TRACKING_USERNAME: ", "MLFLOW_TRACKING_PASSWORD: "]
+
+
+def test_volume_reuses_cleaning_and_preserves_fixed_v1_splits(tmp_path, monkeypatch):
+    from dataclasses import replace
+    from pettrace.data import preparation, volume
+    from pettrace.data.sources import discover_body_ids
+
+    config = setup_pipeline(tmp_path, monkeypatch)
+    reference = prepare(config)
+    monkeypatch.setattr("pettrace.evaluation.research.PUBLIC_FINGERPRINT", reference.fingerprint)
+    rows, sources = [], []
+    for source, root in config.source_roots.items():
+        found, _ = discover_body_ids(root, source)
+        rows.extend(found)
+        sources.append({"ref": volume.CAPACITY[source]["ref"], "sampled_photos": len(found)})
+    monkeypatch.setattr(preparation, "acquire_candidates", lambda config: (rows, {"sources": sources, "skipped_paths": []}))
+    previous_inferences = FakeDetector.calls
+    expanded = prepare(replace(config, source_percent=20, reference_dataset=str(reference.root)))
+    assert FakeDetector.calls == previous_inferences
+    def signature(items):
+        return {(r["animal"], r["sha256"], r["split"]) for r in items if r["split"] in {"val", "test"}}
+    assert signature(expanded.rows) == signature(reference.rows)
+    reserved = {r["animal"] for r in reference.rows if r["split"] in {"val", "test"}}
+    assert not reserved & {r["animal"] for r in expanded.rows if r["split"] == "train"}
+    for counts in expanded.summary["processing"].values():
+        assert counts["train_photos"] + counts["excluded_photos"] == counts["processed_photos"]
+        assert sum(counts["exclusion_reasons"].values()) == counts["excluded_photos"]

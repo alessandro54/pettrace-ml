@@ -54,6 +54,8 @@ class PrepareConfig:
     detector_dir: str
     output_root: str | None = None
     source_roots: dict = field(default_factory=dict)
+    source_percent: int | None = None
+    reference_dataset: str | None = None
     identities_per_species: int = 300
     photos_per_identity: int = 10
     minimum_photos: int = 4
@@ -85,6 +87,28 @@ def acquire_candidates(config):
     if set(config.source_roots) - set(SOURCES):
         raise ValueError("Unknown source root")
     for source in SOURCES:
+        if config.source_percent is not None:
+            from pettrace.data.volume import acquire_volume
+            if config.source_roots:
+                raise ValueError("Source-volume acquisition requires verified archive receipts, not manual roots")
+            source_root, receipt = acquire_volume(
+                root, source, percent=config.source_percent, seed=config.seed, allow_download=config.allow_download,
+                workers=config.download_workers, max_network_bytes=config.max_network_bytes)
+            found, ignored = discover_body_ids(source_root, source)
+            chosen = receipt["file_sha256"]
+            found = [r for r in found if Path(r["path"]).relative_to(source_root).as_posix() in chosen]
+            by_path = defaultdict(list)
+            for row in found:
+                by_path[row["path"]].append(row)
+            found = [items[0] for items in by_path.values() if len({r["animal"] for r in items}) == 1]
+            # Discovery can include metadata for cached photographs from a larger volume.
+            labelled = {r["path"] for r in found}
+            for name in chosen:
+                if Path(name).suffix.lower() in {".jpg", ".jpeg", ".png"} and str(source_root / name) not in labelled:
+                    skipped.append({"path": str(source_root / name), "source": source, "reason": "missing_or_ambiguous_identity"})
+            rows.extend(found)
+            sources.append(receipt)
+            continue
         supplied = config.source_roots.get(source)
         if supplied:
             source_root = Path(supplied).resolve()
@@ -103,6 +127,8 @@ def acquire_candidates(config):
         rows.extend(found)
         skipped.extend(ignored)
         sources.append(receipt)
+    if config.source_percent is not None:
+        return rows, {"sources": sources, "skipped_paths": skipped, "candidate_files": len(rows)}
     selected = select_pilot(rows, identities_per_species=config.identities_per_species,
                             photos_per_identity=config.photos_per_identity, minimum_photos=config.minimum_photos,
                             seed=config.seed)
@@ -248,7 +274,7 @@ def _samples(rows, root, *, per_species, seed):
     directory = root / "samples"
     directory.mkdir()
     for number, animal in enumerate(selected):
-        photos = groups[animal]
+        photos = groups[animal][:8]
         canvas = Image.new("RGB", (960, 35 + ((len(photos) + 3) // 4) * 265), "white")
         draw = ImageDraw.Draw(canvas)
         draw.text((8, 8), animal, fill="black")
@@ -279,8 +305,17 @@ def prepare(config):
     model_hash = sha256(_safe_file(model_root, step["file"]))
     if model_hash != config.expected_detector_sha256:
         raise ValueError("Detector hash does not match the configured frozen artifact")
+    reference_rows = []
+    if config.source_percent is not None:
+        if config.source_percent not in (20, 50, 100) or not config.reference_dataset:
+            raise ValueError("Source volumes require 20/50/100 and the immutable v1 reference dataset")
+        from pettrace.evaluation.research import PUBLIC_FINGERPRINT
+        reference = load_prepared(config.reference_dataset)
+        if reference.fingerprint != PUBLIC_FINGERPRINT:
+            raise ValueError("Reference must be the immutable public v1 dataset")
+        reference_rows = [r for r in reference.rows if r["split"] in {"val", "test"}]
     selected, sources = acquire_candidates(config)
-    review_path = Path(config.data_root).resolve() / f"pilot-seed{config.seed}" / "review.csv"
+    review_path = Path(config.data_root).resolve() / f"{'pilot' if config.source_percent is None else 'source-'+str(config.source_percent)}-seed{config.seed}" / "review.csv"
     write_review(selected, review_path)
     with review_path.open(newline="") as stream:
         review = list(csv.DictReader(stream))
@@ -289,8 +324,8 @@ def prepare(config):
     package_root = Path(__file__).resolve().parents[1]
     implementation = {name: sha256(package_root / name) for name in
                       ("data/preparation.py", "data/sources.py", "data/screening.py", "data/curation.py",
-                       "data/pilot.py", "models/pipeline.py")}
-    inputs = {"config": settings, "detector_step": step, "implementation": implementation,
+                       "data/pilot.py", "data/volume.py", "data/source_capacity_v1.json", "models/pipeline.py")}
+    inputs = {"reference_rows": [{k: r[k] for k in MANIFEST_FIELDS if k != "path"} for r in reference_rows], "config": settings, "detector_step": step, "implementation": implementation,
               "runtime": {"numpy": np.__version__, "onnxruntime": ort.__version__, "pillow": pillow_version},
               "detector_spec_sha256": sha256(model_root / "pipeline.yaml"),
               "review_sha256": sha256(review_path), "photos": [{k: r[k] for k in ("path", "source", "species", "animal", "sha256")} for r in review],
@@ -306,9 +341,14 @@ def prepare(config):
     detector = Detector(str(model_root), step)
     if sha256(_safe_file(model_root, step["file"])) != model_hash:
         raise ValueError("Detector changed while loading")
+    held_ids = {r["animal"] for r in reference_rows}
+    held_hashes = {r["sha256"] for r in reference_rows}
+    reserved = {r["path"]: "reserved_public_identity_or_image" for r in review
+                if r["animal"] in held_ids or r["sha256"] in held_hashes}
     exclusions, screening = screen_animals(
-        selected, detector, Path(config.data_root) / "animal-screening-cache", detector_sha256=model_hash,
+        [r for r in selected if r["path"] not in reserved], detector, Path(config.data_root) / "animal-screening-cache", detector_sha256=model_hash,
         confidence=config.confidence, iou=config.nms_iou)
+    exclusions.update(reserved)
     # Detect concurrent review edits before applying filtering decisions.
     if sha256(review_path) != inputs["review_sha256"]:
         raise ValueError("Review changed during preparation; rerun to use the new decisions")
@@ -317,6 +357,9 @@ def prepare(config):
         retained, audit = curate_review(review_path, folder, seed=config.seed, minimum_photos=config.minimum_photos,
                                         review_policy=config.review_policy, excluded_animals=config.excluded_animals,
                                         excluded_paths=exclusions)
+        if reference_rows:
+            # Reuse curation unchanged; only the split assignment is fixed for the volume study.
+            retained = [{**r, "split": "train"} for r in retained] + reference_rows
         counts = _validate_rows(retained, config.minimum_photos)
         materialized = []
         for row in retained:
@@ -354,6 +397,20 @@ def prepare(config):
                    "retained_identities": len({r["animal"] for r in retained}), "counts": counts,
                    "exclusion_reasons": dict(Counter(row["reason"] for row in excluded_rows)),
                    "review_policy": config.review_policy, "limitation": audit["limitation"] + " " + screening["limitation"]}
+        if config.source_percent is not None:
+            from pettrace.data.volume import CAPACITY
+            summary["processing"] = {}
+            for source, capacity in CAPACITY.items():
+                sampled = next(r["sampled_photos"] for r in sources["sources"] if r["ref"] == capacity["ref"])
+                train_count = sum(r["source"] == source and r["split"] == "train" for r in retained)
+                reasons = Counter(r["reason"] for r in excluded_rows if r["species"] == capacity["species"])
+                reasons["missing_or_ambiguous_identity"] += sum(r["source"] == source for r in sources["skipped_paths"])
+                if train_count + sum(reasons.values()) != sampled:
+                    raise ValueError("Every sampled photo must have a training or exclusion outcome")
+                summary["processing"][source] = {"requested_pct": config.source_percent,
+                    "source_photos": capacity["photos"], "sampled_photos": sampled, "processed_photos": sampled,
+                    "train_photos": train_count, "excluded_photos": sampled-train_count, "exclusion_reasons": dict(reasons),
+                    "note": "Processing includes metadata/held-out rejection before image filtering; v1 val/test are reused separately."}
         (folder / "summary.json").write_text(_json(summary))
         (folder / "sources.json").write_text(_json(sources))
         (folder / "animal-screening.json").write_text(_json(screening))
@@ -386,6 +443,9 @@ def main():
     parser.add_argument("--dog-root")
     parser.add_argument("--cat-root")
     parser.add_argument("--allow-download", action="store_true")
+    parser.add_argument("--source-percent", type=int, choices=(20, 50, 100))
+    parser.add_argument("--reference-dataset", help="Verified public v1 prepared root for fixed validation/test")
+    parser.add_argument("--max-network-gib", type=int, default=3)
     parser.add_argument("--identities-per-species", type=int, default=300)
     parser.add_argument("--photos-per-identity", type=int, default=10)
     parser.add_argument("--seed", type=int, default=42)
@@ -395,6 +455,8 @@ def main():
     sources = {name: root for name, root in (("dogs-world", args.dog_root), ("lcw", args.cat_root)) if root}
     result = prepare(PrepareConfig(data_root=args.data_root, detector_dir=str(detector_dir), output_root=args.output_root,
                                    source_roots=sources, allow_download=args.allow_download,
+                                   source_percent=args.source_percent, reference_dataset=args.reference_dataset,
+                                   max_network_bytes=args.max_network_gib * 2**30,
                                    identities_per_species=args.identities_per_species,
                                    photos_per_identity=args.photos_per_identity, seed=args.seed, download_workers=args.download_workers))
     print(_json({"path": str(result.root), "fingerprint": result.fingerprint, "summary": result.summary}))

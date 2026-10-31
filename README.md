@@ -229,14 +229,11 @@ The separate command `python tools/run_e1.py --work-dir reports/my-e1 --env-file
 retains the historical isolated Python 3.11.15 workflow with the published v0.2.2 notebook.
 Notebooks are reserved for experiments and preprocessing.
 
-For E3 (its previous runtime workflow remains in place):
-
-1. Open the E3 notebook. Use a GPU runtime for E3; a T4 is sufficient for the current MLP configuration.
-2. Run the first installation cell in a fresh runtime. It installs **v0.2.1** and all dependencies from the release's hashed requirements file, without resolving GitHub `main`.
-3. Restart the kernel, then continue from the package-verification cell. It verifies the package version and displays the embedded source commit and lockfile hash.
-4. Keep Python, CUDA/GPU and effective runtime versions with the results. Hosted Colab runtimes can differ from the reference environment; locks do not guarantee bit-identical GPU results.
-5. Execute the three phases and publish both evaluation domains to MLflow. Do not reinstall packages during an active run.
-6. Save the executed notebook. From VS Code, the remote kernel cannot read the notebook file open on the local machine; use the attachment tool after saving it locally when applicable.
+For E3, use the [20/50/100 workflow](docs/e3_colab.md): one shared, incremental
+preparation pipeline, fixed v1 held-out identities, and frozen E1/E2 run artifacts as
+controls. The new v0.2.3 wheel and hashed Linux/Python 3.13 training profile are built
+locally before release publication; the setup cell explains which files to upload.
+Each volume trains a fresh MLP while reusing verified photographs, detections and embeddings.
 
 Package tests validate implementation, not empirical E1/E2/E3 results. Preserved notebook outputs belong to their recorded runtime and code, not automatically to the new release.
 

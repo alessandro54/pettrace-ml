@@ -48,14 +48,15 @@ This profile excludes notebook infrastructure supplied by Colab. Restart only if
 changed loaded packages, then continue from verification; research cells display results directly
 (see [E1 execution](e1_colab.md) and [E2 execution](e2_colab.md)). The historical `tools/run_e1.py` remains a separate
 Python 3.11.15 reference workflow.
-The E3 and preparation notebooks still install v0.2.1's hashed requirements into the selected kernel.
-Restart the kernel after installation, then run from the package verification cell onward.
+E3 and source-volume preparation require the new v0.2.3 wheel plus `requirements/e3-runtime.txt`
+(Linux/Python 3.13, PyTorch 2.9.1, ONNX 1.19.1). Until that release is published, upload the built
+wheel and checksums to Colab as described in [E3 execution](e3_colab.md). Restart only if setup requests it.
 Do not replace packages in the middle of a training run. A new experiment must create a new
 report directory; retry publication in the original session without retraining.
 
 Colab's hosted Python, GPU and NVIDIA driver are managed externally. Its environment may
 contain additional packages. E1's launcher fixes Python 3.11.15; E2 and data preparation support Python 3.11–3.13;
-E3 training requires Python 3.11–3.12 with the locked PyTorch version. Use the reference interpreter in a dedicated environment for
+The current E3 Colab profile requires Linux/Python 3.13; the historical repository export profile remains separate. Use the reference interpreter in a dedicated environment for
 closer reproduction. Do not silently upgrade dependencies to accommodate a different runtime.
 
 The locked PyTorch 2.5.1 Linux distribution uses CUDA 12.4 runtime dependencies; macOS uses

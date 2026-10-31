@@ -8,7 +8,7 @@ Los tres cuadernos documentan una secuencia de investigación de tesis sobre rec
 |---|---|---|---|
 | [E1](e1_clip_zero_shot.ipynb) | CLIP ViT-B/32 sin localización previa | Ninguno | Referencia descriptiva y azar uniforme entre identidades |
 | [E2](e2_yolo_crop_zero_shot.ipynb) | Recorte YOLOv8n antes del mismo CLIP | Ninguno | E1 recalculado con las mismas consultas y galerías |
-| E3: [20%](e3_mlp_head_triplet_20.ipynb), [50%](e3_mlp_head_triplet_50.ipynb), [100%](e3_mlp_head_triplet_100.ipynb) | MLP 512→256→512 sobre E2 congelado | Solo la MLP | E1 y E2 recalculados con las mismas consultas y galerías |
+| E3: [20%](e3_mlp_head_triplet_20.ipynb), [50%](e3_mlp_head_triplet_50.ipynb), [100%](e3_mlp_head_triplet_100.ipynb) | MLP 512→256→512 sobre E2 congelado | Solo la MLP | E1/E2 congelados, leídos de sus runs publicados |
 
 E4 (adaptación del encoder) y E5 (información textual) son líneas futuras. No se presentan como experimentos ejecutados ni se les atribuyen resultados.
 
@@ -53,7 +53,7 @@ Los resultados describen una muestra pequeña y una sola semilla de E3. No se re
 
 ## Conservación y reproducción
 
-E1 y E2 se ejecutan celda a celda en el kernel de Colab: instala la release v0.2.2 y el perfil de ejecución con hashes, conservando las herramientas de Colab, y continúa desde la verificación (reinicia solo si setup lo solicita) (véase [la guía](../docs/e1_colab.md)). Las tablas y figuras aparecen en el propio notebook. E2 comparte el perfil de ejecución de E1; véase [su guía](../docs/e2_colab.md). E3 mantiene su instalación de v0.2.1. Las credenciales se obtienen del entorno, Colab Secrets o campos ocultos; una `.env` local no se transfiere automáticamente. `runtime.json` conserva el entorno real de cada corrida.
+E1 y E2 se ejecutan celda a celda en el kernel de Colab: instala la release v0.2.2 y el perfil de ejecución con hashes, conservando las herramientas de Colab, y continúa desde la verificación (reinicia solo si setup lo solicita) (véase [la guía](../docs/e1_colab.md)). Las tablas y figuras aparecen en el propio notebook. E2 comparte el perfil de ejecución de E1; véase [su guía](../docs/e2_colab.md). E3 usa su perfil separado de entrenamiento v0.2.3. Las credenciales se obtienen del entorno, Colab Secrets o campos ocultos; una `.env` local no se transfiere automáticamente. `runtime.json` conserva el entorno real de cada corrida.
 
 Cada nueva corrida crea `reports/eN_v4/<fecha-id>`. Conserva `experiment-design.json`, `summary.json`, `scores.json`, `analysis.json`, `findings.md`, figuras y procedencia. E3 añade manifiesto/auditoría, configuración, historia/checkpoint, curvas, cobertura y modelo ONNX. Las salidas históricas del notebook se preservan al editar el método: las celdas nuevas o modificadas deben ejecutarse para producir evidencia actualizada.
 
@@ -67,7 +67,7 @@ Las fotos privadas no se incorporan a la presentación de resultados; se emplean
 
 Para E1 ejecuta la instalación de su notebook en una sesión nueva y continúa desde la verificación; reinicia solo si cambió una biblioteca ya cargada. Usa el wheel **v0.2.2** y `requirements/e1-runtime.txt` con hashes, sin reinstalar IPython ni el kernel. El setup no ejecuta el experimento. Python 3.11–3.13 está admitido; el entorno histórico aislado usa Python 3.11.15. [La guía](../docs/e1_colab.md) describe resultados, límites y recuperación.
 
-El notebook E3 instala la release **v0.2.1** con dependencias exportadas de `uv.lock` y verificación de hashes. Ejecuta la primera celda en un runtime limpio, reinicia el kernel y continúa desde la verificación del paquete. Esa celda muestra el commit y hash del lockfile incluidos en el wheel. Véase [instalación y releases](../docs/releases.md).
+E3 requiere el nuevo wheel **v0.2.3**, perfil de entrenamiento Linux/Python 3.13 y hashes. Instala el wheel construido y el perfil como indica [la guía E3](../docs/e3_colab.md); la publicación de esa release es un paso separado. Reinicia solo si cambió una biblioteca cargada. Véase [instalación y releases](../docs/releases.md).
 
 El código está en `src/pettrace/`, organizado por datos, modelos, entrenamiento y evaluación. E1/E2 no entrenan; E3 requiere GPU y entrena su MLP en la fase 2. La migración de imports conserva las salidas históricas: no constituye otra ejecución ni publica métricas nuevas.
 
@@ -79,7 +79,7 @@ en total. `dataset.sampled_pct` registra adquisición y `dataset.train_pct` mant
 su denominador de 694.594 fotos originales, contando solo train. Fotos e identidades
 por split/especie se publican en ambos runs MLflow.
 
-La preparación ampliada está pendiente; los notebooks rechazan el piloto v1 como
+El procesamiento real de la muestra ampliada está pendiente; la implementación compartida ya admite 20/50/100 con cachés incrementales; los notebooks rechazan el piloto v1 como
 si fuese un 20%. La validación y el test públicos v1 quedan fijos. Las salidas
 conservadas en E3 20 son del piloto histórico, no resultados del nuevo volumen.
 Véanse [cuotas, requisitos y ejecución](../docs/e3_colab.md).

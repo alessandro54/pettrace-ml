@@ -16,10 +16,8 @@ def cell(cell_id, pct=20):
 
 
 def coverage_functions():
-    nodes = [n for n in ast.parse(cell("e3-dataset-coverage")).body if isinstance(n, ast.FunctionDef)]
-    namespace = {"Path": Path}
-    exec(compile(ast.Module(body=nodes, type_ignores=[]), "volume", "exec"), namespace)
-    return namespace["source_sample_metrics"], namespace["dataset_coverage"]
+    from pettrace.data.volume import source_sample_metrics, dataset_coverage
+    return source_sample_metrics, dataset_coverage
 
 
 def sample_receipts(pct):
@@ -134,7 +132,7 @@ def test_both_domains_receive_training_volume_and_final_receipts(tmp_path, monke
     source = cell("e3-28").split("# Dataset coverage is published with every E3 run.")[1]
     source = source.split("if REGISTER_E3:")[0]
     exec(source, {"mlflow": mlflow, "json": json, "asdict": asdict, "config": Config(),
-        "train_summary": {"history": [{"epoch": 1, "train.loss": .1, "train.active_triplets": .2, "val.macro_species_mAP": .3}], "best_epoch": 1, "best_val_mAP": .3},
+        "train_summary": {"history": [{"epoch": 1, "train.loss": .1, "train.active_triplets": .2, "val.macro_species_mAP": .3, "training.optimizer_steps": 1, "training.examples_seen": 32, "training.unique_photos_seen": 32}], "best_epoch": 1, "best_val_mAP": .3},
         "prepared": SimpleNamespace(fingerprint="prepared"), "training_source": {"commit": "pinned"},
         "coverage_metrics": {"dataset.sample_requested_pct": 20, "dataset.sampled_pct": 19.999,
                              "dataset.train_pct": 12, "dataset.train_photos": 100, "dataset.train_identities": 10},

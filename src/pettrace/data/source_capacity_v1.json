@@ -1,0 +1,18 @@
+{
+  "dogs-world": {
+    "ref": "lextoumbourou/dogs-world",
+    "version": 1,
+    "species": "dog",
+    "archive_index_sha256": "03bc00eadabd3bf762ee147f6385a189699611f427c2db42f10e3e187cee799e",
+    "photos": 313671,
+    "scope": "original archive image entries before filtering"
+  },
+  "lcw": {
+    "ref": "dseidli/lcwlabeled-cats-in-the-wild",
+    "version": 1,
+    "species": "cat",
+    "archive_index_sha256": "9270a12f33b30500b1e59e87604d9dfba4b7ca9004c424de4dae58dabf8ca833",
+    "photos": 380923,
+    "scope": "original archive image entries before filtering"
+  }
+}

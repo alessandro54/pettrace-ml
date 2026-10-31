@@ -16,46 +16,67 @@ Una foto adquirida puede quedar excluida por etiqueta ambigua, duplicación, det
 o insuficientes fotos por identidad. El 100% adquirido no significa que todo sirva
 para entrenar.
 
-## Estado y preparación necesaria
+## Preparación progresiva y reutilizable
 
-**La muestra ampliada del 20% todavía no está preparada ni publicada.** El pipeline
-actual de `datasets/prepare_training.ipynb` adquiere un piloto acotado por identidades,
-con un prefijo de metadatos para perros; no implementa por sí solo estas cuotas.
-No basta con renombrar v1 o cambiar la constante del notebook.
+Usa **un solo** notebook, [`datasets/prepare_training.ipynb`](../datasets/prepare_training.ipynb),
+y cambia únicamente `SOURCE_SAMPLE_PCT` entre 20, 50 y 100. El código compartido está
+en `pettrace.data.preparation` y `pettrace.data.volume`; no hay tres algoritmos de limpieza.
 
-La preparación ampliada debe muestrear desde los índices completos de ambas fuentes,
-con semilla y orden reproducibles, y mantener muestras anidadas 20 ⊆ 50 ⊆ 100. Debe
-conservar en `sources.json` los recibos de adquisición (`ref`, `version`,
-`archive_index_sha256`, `extraction_pending: false`, `file_sha256` por ruta original).
-Se cuentan imágenes bajo `images/` en perros y `CatFullDataset/` en gatos, con las
-extensiones del importador `.jpg`, `.jpeg`, `.png`; los metadatos no cuentan como fotos.
-Esos recibos deben formar parte del inventario verificado de `prepared.json`.
-El notebook comprueba cada cuota y que las fotos de train pertenezcan a la muestra.
+El orden SHA-256 de las rutas originales con semilla 42 define muestras anidadas
+20 ⊆ 50 ⊆ 100, antes de mirar etiquetas o calidad. Se verifican los índices completos
+de ambas fuentes. Los metadatos de perros se recorren completos, sin el prefijo del piloto.
+Fotos sin identidad válida siguen contando como procesadas y reciben un descarte;
+no se sustituyen por otra foto para mejorar artificialmente la muestra.
 
-Antes de construir train/val, la preparación debe reservar **todas las identidades**
-de validación y test de `pettrace-training@v1`. La validación conserva exactamente
-sus 273 fotos y 60 identidades; el test público conserva sus 277 fotos y 60 identidades.
-Las fotos adicionales de esas identidades no pasan a train. Los notebooks rechazan
-solapamiento de train/val con el test v1 por identidad o hash, y validación distinta.
-La limpieza vive en `datasets/`, no en estos experimentos.
+**Mantén `DATA_ROOT` en almacenamiento persistente** al cambiar de sesión Colab:
 
-## Ejecución
+- `source-cache/` reutiliza fotos y metadatos verificados por CRC/SHA-256.
+- `animal-screening-cache/` reutiliza detecciones por imagen, modelo, configuración y runtime.
+- `feature-cache/` reutiliza embeddings E2 por imagen, artefactos y runtime, independientemente del volumen.
 
-Configura una versión preparada ampliada mediante `HF_TRAINING_DATASET_VERSION`,
-`HF_TRAINING_DATASET_REVISION` (commit inmutable) y
-`HF_TRAINING_DATASET_FINGERPRINT`. Para una copia local verificada, usa
-`HF_TRAINING_DATASET_REPO=""` y `E3_PREPARED_DATASET`. No se inventan commits ni
-fingerprints para versiones aún inexistentes.
+20→50 añade 30 puntos porcentuales de fotos y 50→100 añade 50. Se reaudita el conjunto
+para detectar duplicados/conflictos nuevos y se reconstruyen los manifiestos; la
+caché evita repetir las inferencias costosas, no las comprobaciones de integridad.
+Los conjuntos adquiridos son anidados; los retenidos pueden cambiar al detectar
+conflictos. Una caché de otro modelo/runtime se mantiene separada.
 
-Empieza por E3 20 en una GPU T4. Estos notebooks conservan el entorno de entrenamiento
-v0.2.1: **Python 3.11–3.12, PyTorch 2.5.1**. No están adaptados al kernel Python 3.13
-de la corrida interactiva E2. Instala desde la primera celda, reinicia y continúa
-con la verificación. Las credenciales van en entorno, Colab Secrets o campos ocultos.
+Se reutilizan exactamente las fotos/identidades de validación y test públicos v1.
+Sus identidades y hashes se excluyen antes de formar el nuevo train. Se reutilizan
+el mismo filtro YOLO, limpieza, deduplicación y mínimo de cuatro fotos por identidad.
+La preparación solo se marca completa si cada foto muestreada tiene un resultado:
+train o exclusión con motivo. Publicar datasets en HF sigue separado y opcional.
+Las versiones propuestas son `v2.20`, `v2.50`, `v2.100`; no existen hasta prepararlas/publicarlas.
 
-Las tres variantes mantienen semilla 42, arquitectura, P×K=8×4, AdamW, margen 0,2,
-100 pasos por época, hasta 30 épocas y paciencia 7. Una época no equivale a recorrer
-todas las fotos. El checkpoint se selecciona por mAP macro de validación pública;
-los tests público y PetTrace se evalúan por separado después de fijarlo.
+## Paquete y ejecución
+
+El nuevo código requiere **pettrace-ml v0.2.3**. Construye el paquete desde un commit
+limpio con `python tools/build_release.py`. Hasta publicar esa release, coloca en
+el runtime de Colab el wheel, `SHA256SUMS` y una copia de
+[`requirements/e3-runtime.txt`](../requirements/e3-runtime.txt) llamada
+`requirements-e3-runtime.txt`. Los notebooks verifican sus hashes; no descargan una
+release inexistente ni importan código de GitHub `main`.
+
+El perfil E3 fija Linux/Python 3.13, PyTorch 2.9.1 y ONNX 1.19.1. Conserva los pins
+numéricos de evaluación de E1/E2, sin reinstalar IPython o el kernel. Reinicia solo
+si setup detecta que reemplazó una biblioteca ya cargada. El runtime histórico del
+piloto era distinto; sus métricas no acreditan resultados con este nuevo perfil.
+
+Después de preparar una versión, configura `HF_TRAINING_DATASET_VERSION`,
+`HF_TRAINING_DATASET_REVISION` (commit) y `HF_TRAINING_DATASET_FINGERPRINT`, o usa
+`HF_TRAINING_DATASET_REPO=""` y `E3_PREPARED_DATASET` para su copia local verificada.
+Empieza por E3 20 en una GPU T4. Las credenciales van en entorno, Secrets o campos ocultos.
+
+Los tres notebooks mantienen las fases de E1/E2: datos, representación/entrenamiento
+y evaluación/análisis. Comparten semilla 42, arquitectura, P×K=8×4, AdamW, margen 0,2,
+100 pasos por época, hasta 30 épocas y paciencia 7. Cada MLP **empieza desde cero**:
+continuar pesos del 20 en el 50 confundiría volumen con entrenamiento adicional.
+Una época no equivale a recorrer todas las fotos. MLflow registra pasos, ejemplos
+procesados y fotos distintas vistas por el optimizador.
+
+**E1/E2 están congelados.** E3 lee sus métricas/per-query publicados, verifica
+modelo, snapshot, protocolo y consultas, y guarda los IDs y hashes de los artefactos
+usados como controles. No vuelve a evaluar ni publicar E1/E2. El extractor E2 sí
+produce las representaciones congeladas necesarias para entrenar la MLP.
 
 ## Volumen reportado
 
@@ -63,6 +84,8 @@ los tests público y PetTrace se evalúan por separado después de fijarlo.
 |---|---|
 | `dataset.sample_requested_pct` | 20, 50 o 100 solicitado de cada fuente |
 | `dataset.sampled_photos` / `dataset.sampled_pct` | Fotos adquiridas antes de limpieza / porcentaje de fuentes |
+| `dataset.processed_photos` / `dataset.processed_pct` | Fotos con procesamiento terminado, incluida exclusión temprana por etiquetas |
+| `dataset.excluded_photos` | Fotos adquiridas que no entraron a train, con motivos en el reporte |
 | `dataset.train_photos` / `dataset.train_identities` | Volumen disponible para ajustar pesos después de limpieza y split |
 | `dataset.train_pct` | 100 × fotos de train / 694.594 fotos originales |
 | `dataset.val_photos` / `dataset.val_identities` | Validación usada para seleccionar el checkpoint |

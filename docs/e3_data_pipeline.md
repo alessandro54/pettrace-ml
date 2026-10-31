@@ -35,7 +35,7 @@ La preparación requiere únicamente el detector ONNX de E2 y su especificación
 
 Se prepara el dataset desde un terminal y se coloca la carpeta completa de la versión en el runtime de entrenamiento, conservando `images/` y los manifiestos. Si el comando se ejecuta en ese mismo entorno, no es necesario transferir la carpeta. La preparación se ejecuta en el notebook de datos o por CLI; los notebooks experimentales consumen el resultado.
 
-Los experimentos de volumen son [E3 20](../notebooks/e3_mlp_head_triplet_20.ipynb), [E3 50](../notebooks/e3_mlp_head_triplet_50.ipynb) y [E3 100](../notebooks/e3_mlp_head_triplet_100.ipynb). El piloto actual no cubre esas fracciones de las fuentes. La adquisición debe ampliarse antes; véanse [las cuotas y el contrato de evidencia](e3_colab.md). Cada experimento carga la versión ampliada por commit y fingerprint o mediante `E3_PREPARED_DATASET`, verifica adquisición y entrenamiento por separado, y mantiene validación/test v1 fijos.
+Los experimentos de volumen son [E3 20](../notebooks/e3_mlp_head_triplet_20.ipynb), [E3 50](../notebooks/e3_mlp_head_triplet_50.ipynb) y [E3 100](../notebooks/e3_mlp_head_triplet_100.ipynb). El modo `source_percent` procesa índices completos con muestras anidadas y reutiliza el mismo filtrado del piloto; véanse [las cuotas y el contrato de evidencia](e3_colab.md). Cada experimento carga la versión ampliada por commit y fingerprint o mediante `E3_PREPARED_DATASET`, verifica adquisición y entrenamiento por separado, y mantiene validación/test v1 fijos.
 
 ## Comando independiente
 
@@ -84,3 +84,17 @@ El modo exploratorio conserva etiquetas del publicador sin declararlas verificad
 ## Actualizar una descarga iniciada con el descargador secuencial
 
 Interrumpir solo la celda de preparación, conservar el runtime y los archivos, y ejecutar nuevamente el notebook actualizado desde la celda de instalación del paquete. El arranque detecta el descargador antiguo, actualiza el paquete y recarga los módulos; la preparación siguiente verifica y reutiliza los archivos ya guardados. No se debe borrar la raíz de datos para cambiar el número de conexiones. La lectura del índice ZIP y, para perros, del prefijo de metadatos, puede repetirse al reanudar una adquisición incompleta.
+
+## Cachés compartidas entre volúmenes
+
+`PrepareConfig(source_percent=20, reference_dataset=...)` activa la adquisición por
+porcentaje de fotos originales. Los valores 50/100 reutilizan `data_root` y el mismo
+orden de muestreo; no cambies raíz o semilla para esta comparación. El CLI expone
+`--source-percent`, `--reference-dataset` y `--max-network-gib`. El límite de red se
+respeta incluso durante una descarga interrumpida; aumentarlo no cambia la muestra.
+
+Las descargas y detecciones se cachean por foto; la limpieza conjunta vuelve a
+auditar conflictos/duplicados. Los splits reservados de v1 no se reasignan. La
+evidencia `summary.processing` distingue adquisición, procesamiento completo y
+fotos elegibles para train. No se presenta una preparación sintética de tests como
+una descarga real del 20%.

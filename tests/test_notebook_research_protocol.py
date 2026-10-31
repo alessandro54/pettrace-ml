@@ -27,8 +27,9 @@ def test_notebook_python_support_matches_dependency_profile(path, version):
                  if isinstance(n, ast.If) and "version_info" in ast.unparse(n.test))
     code = compile(ast.Module(body=[guard], type_ignores=[]), str(path), "exec")
     namespace = {"sys": SimpleNamespace(version_info=version, version=".".join(map(str, version)))}
-    upper = (3, 13) if "requirements-e3" in source else (3, 14)
-    if (3, 11) <= version < upper:
+    supported = version == (3, 13) if "requirements-e3-runtime" in source else (3, 11) <= version < (3, 14)
+    namespace["sys"].platform = "linux"
+    if supported:
         exec(code, namespace)
     else:
         with pytest.raises(RuntimeError, match="Python"):
