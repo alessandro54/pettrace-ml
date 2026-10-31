@@ -185,7 +185,8 @@ def log_run(ev: Evaluation, model: Model, experiment: str = "", artifacts: str |
         mlflow.set_experiment(EXPERIMENT)
     name = run_name or f"{experiment + ' · ' if experiment else ''}{model.model_version or 'model'} on {ds.name}"
     with mlflow.start_run(run_name=name, experiment_id=tracking_experiment_id, run_id=run_id) as run:
-        mlflow.log_input(MetaDataset(HTTPDatasetSource(ds.url), name=ds.name, digest=ds.fingerprint), context="evaluation")
+        # MLflow's input digest is limited to 36 characters; retain the full hash in parameters.
+        mlflow.log_input(MetaDataset(HTTPDatasetSource(ds.url), name=ds.name, digest=ds.fingerprint[:32]), context="evaluation")
         mlflow.log_params({
             "model.uri": model.uri, "model.model_version": model.model_version,
             "model.registry_version": model.registry_version,

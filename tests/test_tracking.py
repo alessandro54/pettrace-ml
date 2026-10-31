@@ -149,7 +149,7 @@ def test_shared_logger_resumes_without_creating_experiment(tmp_path, monkeypatch
     monkeypatch.setattr(mlflow, "set_experiment", set_experiment)
     for method in ("log_input", "log_params", "set_tags", "log_metrics", "log_artifact", "log_artifacts"):
         monkeypatch.setattr(mlflow, method, Mock())
-    ds = Dataset("private/pettrace-reid", "v4", "commit", "digest", str(tmp_path))
+    ds = Dataset("private/pettrace-reid", "v4", "commit", "a" * 64, str(tmp_path))
     ev = SimpleNamespace(dataset=ds, protocol="zero-shot",
                          result={"test": {"global": {"queries": 2}}, "test_threshold": {}})
     model = SimpleNamespace(uri="models:/pettrace-embedder/1", model_version="clip-vit-b32@v1",
@@ -158,6 +158,8 @@ def test_shared_logger_resumes_without_creating_experiment(tmp_path, monkeypatch
     set_experiment.assert_not_called()
     assert start.call_args.kwargs["experiment_id"] == "3"
     assert start.call_args.kwargs["run_id"] == "existing-run"
+    assert mlflow.log_input.call_args.args[0].digest == "a" * 32
+    assert mlflow.log_params.call_args.args[0]["dataset.fingerprint"] == "a" * 64
 
 
 def test_attachment_skips_old_run_when_publication_disabled(tmp_path, monkeypatch):
