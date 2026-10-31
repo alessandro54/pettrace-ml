@@ -68,9 +68,9 @@ protocol; moving it does not make their results interchangeable.
 From a clean, committed checkout with uv **0.11.22**:
 
 ```bash
-uv sync --locked --group dev --extra notebooks --extra training
-uv run --locked python -m pytest -q
-uv run --locked ruff check .
+uv sync --locked --group dev --group notebooks --extra notebooks --extra training
+uv run --no-sync python -m pytest -q
+uv run --no-sync ruff check .
 uv run --no-sync python tools/build_release.py
 ```
 

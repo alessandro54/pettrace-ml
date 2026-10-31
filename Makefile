@@ -47,7 +47,7 @@ mlflow-smoke:
 	$(DOCKER) $(IMAGE) tools/mlflow_smoke.py
 
 test:
-	uv run --locked --group dev python -m pytest -q
+	uv run --locked --group dev --group notebooks --extra notebooks python -m pytest -q
 
 test-e3:
 	uv run --locked --group dev --extra training python -m pytest -q tests/test_e3.py
