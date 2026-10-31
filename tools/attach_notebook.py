@@ -2,7 +2,7 @@
 
     python tools/attach_notebook.py notebooks/e1_clip_zero_shot.ipynb      # run by `make notebook`
 
-Interactive E1: supply --run-id PRIVATE --public-run-id PUBLIC, optionally --env-file .env.
+Interactive E1/E2: supply --run-id PRIVATE --public-run-id PUBLIC, with --experiment E2 for E2, optionally --env-file .env.
 Other notebooks declare metadata.pettrace.report and write run.json there.
 Save the notebook after execution so the attachment includes its final outputs.
 """
@@ -18,8 +18,10 @@ from tempfile import TemporaryDirectory
 import mlflow
 
 
-def attach_e1(notebook, private_run, public_run):
-    """Archive a saved interactive E1 in both completed runs without reevaluating."""
+def attach_experiment(notebook, private_run, public_run, experiment="E1"):
+    """Archive a saved interactive experiment in both completed runs without reevaluating."""
+    if experiment not in {"E1", "E2"}:
+        raise ValueError("Only E1 and E2 are supported")
     from pettrace.experiments.e1 import PRIVATE_COMMIT, notebook_artifacts
     from pettrace.evaluation.research import PUBLIC_COMMIT
     from pettrace.tracking import production_context
@@ -31,7 +33,7 @@ def attach_e1(notebook, private_run, public_run):
     if (not code or any(cell.get("execution_count") is None for cell in code)
             or any(out.get("output_type") == "error" for cell in code for out in cell.get("outputs", []))
             or not all(run in outputs for run in (private_run, public_run))):
-        raise ValueError("Save the executed E1 notebook with both publication links and no cell errors")
+        raise ValueError("Save the executed notebook with both publication links and no cell errors")
     for name in ("HF_TOKEN", "MLFLOW_TRACKING_PASSWORD"):
         secret = os.environ.get(name, "")
         if secret and secret.encode() in contents:
@@ -39,13 +41,13 @@ def attach_e1(notebook, private_run, public_run):
     client, _ = production_context()
     for run_id, commit in ((public_run, PUBLIC_COMMIT), (private_run, PRIVATE_COMMIT)):
         run = client.get_run(run_id)
-        if (run.info.status != "FINISHED" or run.data.tags.get("experiment") != "E1"
+        if (run.info.status != "FINISHED" or run.data.tags.get("experiment") != experiment
                 or run.data.params.get("dataset.commit") != commit):
-            raise ValueError(f"Not a completed E1 run for the expected dataset: {run_id}")
+            raise ValueError(f"Not a completed {experiment} run for the expected dataset: {run_id}")
     with TemporaryDirectory() as tmp:
         work = Path(tmp)
-        (work / "e1.executed.ipynb").write_bytes(contents)
-        attachment = notebook_artifacts(work)
+        (work / f"{experiment.lower()}.executed.ipynb").write_bytes(contents)
+        attachment = notebook_artifacts(work) if experiment == "E1" else notebook_artifacts(work, experiment=experiment)
         manifest = json.loads((attachment / "manifest.json").read_text())
         # Preflight both destinations before overwriting any evidence.
         for run_id in (public_run, private_run):
@@ -67,7 +69,7 @@ def attach_e1(notebook, private_run, public_run):
                 data = downloaded.read_bytes()
                 if data != (attachment / name).read_bytes():
                     raise RuntimeError(f"Uploaded notebook verification failed: {run_id}/{name}")
-                if name.startswith("e1.executed.ipynb.part"):
+                if name.startswith(f"{experiment.lower()}.executed.ipynb.part"):
                     digest.update(data)
             if digest.hexdigest() != manifest["sha256"]:
                 raise RuntimeError("Reconstructed notebook checksum mismatch")
@@ -80,25 +82,26 @@ def attach_e1(notebook, private_run, public_run):
             remote = client.download_artifacts(run_id, "report/publication.json", str(dest))
             if json.loads(Path(remote).read_text()) != receipt:
                 raise RuntimeError(f"Publication receipt verification failed: {run_id}")
-            print(f"Archived and verified E1 notebook and receipt: {run_id}")
+            print(f"Archived and verified {experiment} notebook and receipt: {run_id}")
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("notebook")
-    parser.add_argument("--run-id", help="Private E1 run; requires --public-run-id")
-    parser.add_argument("--public-run-id", help="Public E1 run; requires --run-id")
+    parser.add_argument("--experiment", choices=("E1", "E2"), default="E1")
+    parser.add_argument("--run-id", help="Private run; requires --public-run-id")
+    parser.add_argument("--public-run-id", help="Public run; requires --run-id")
     parser.add_argument("--env-file")
     args = parser.parse_args()
     if bool(args.run_id) != bool(args.public_run_id):
-        parser.error("Provide both E1 run IDs")
+        parser.error("Provide both run IDs")
     if args.env_file:
         from pettrace.experiments.e1 import credentials
         credentials(args.env_file)
     if args.run_id:
         from pettrace.tracking import PRODUCTION_URI
         mlflow.set_tracking_uri(PRODUCTION_URI)
-        attach_e1(args.notebook, args.run_id, args.public_run_id)
+        attach_experiment(args.notebook, args.run_id, args.public_run_id, experiment=args.experiment)
         return 0
     nb_path = args.notebook
     meta = json.load(open(nb_path))["metadata"].get("pettrace", {})

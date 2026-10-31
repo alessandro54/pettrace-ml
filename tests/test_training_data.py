@@ -117,7 +117,7 @@ def test_private_hub_release_is_idempotent_inventory_only_and_loads_by_commit(tm
         load_training(expected_fingerprint="0" * 64, cache_dir=tmp_path / "cache")
     # Exercise the experiment's real Hub input branch, without credentials or fitting a model.
     from pettrace.data.curation import sha256
-    notebook = json.loads((Path(__file__).parents[1] / "notebooks/e3_mlp_head_triplet.ipynb").read_text())
+    notebook = json.loads((Path(__file__).parents[1] / "notebooks/e3_mlp_head_triplet_20.ipynb").read_text())
     cell = next(c for c in notebook["cells"] if c["id"] == "e3-load-prepared")
     report = tmp_path / "report"
     report.mkdir()

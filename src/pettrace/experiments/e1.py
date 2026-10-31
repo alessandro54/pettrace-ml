@@ -172,20 +172,23 @@ def execute_notebook(work):
             manager.shutdown_kernel(now=True)
 
 
-def notebook_artifacts(work):
+def notebook_artifacts(work, experiment="E1"):
     """Keep exact notebook bytes while respecting the tracking proxy's upload size limit."""
     work = Path(work)
-    contents = (work / "e1.executed.ipynb").read_bytes()
+    if experiment not in {"E1", "E2"}:
+        raise ValueError("Notebook archival supports E1 and E2")
+    filename = f"{experiment.lower()}.executed.ipynb"
+    contents = (work / filename).read_bytes()
     folder = work / "notebook-artifact"
     folder.mkdir(exist_ok=True)
     parts = []
     for index, offset in enumerate(range(0, len(contents), 512 * 1024)):
-        name = f"e1.executed.ipynb.part{index:04d}"
+        name = f"{filename}.part{index:04d}"
         chunk = contents[offset:offset + 512 * 1024]
         (folder / name).write_bytes(chunk)
         parts.append({"file": name, "sha256": hashlib.sha256(chunk).hexdigest()})
     (folder / "manifest.json").write_text(json.dumps({
-        "file": "e1.executed.ipynb", "sha256": hashlib.sha256(contents).hexdigest(), "parts": parts}, indent=2))
+        "file": filename, "sha256": hashlib.sha256(contents).hexdigest(), "parts": parts}, indent=2))
     (folder / "restore_notebook.py").write_text('''from pathlib import Path
 import hashlib
 import json
@@ -210,7 +213,7 @@ if output.exists() and output.read_bytes() != data:
     raise FileExistsError("Refusing to replace a different notebook")
 output.write_bytes(data)
 print(output)
-''')
+'''.replace('e1.executed.ipynb', filename))
     return folder
 
 

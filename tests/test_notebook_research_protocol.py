@@ -66,7 +66,7 @@ def test_mutated_tag_stops_before_any_download(name):
 
 
 def test_e3_identity_macro_does_not_weight_by_photo_count(tmp_path):
-    code = next("".join(c["source"]) for c in cells(ROOT / "notebooks/e3_mlp_head_triplet.ipynb")
+    code = next("".join(c["source"]) for c in cells(ROOT / "notebooks/e3_mlp_head_triplet_20.ipynb")
                 if c["id"] == "e3-identity-findings")
 
     def evaluation(ranks):

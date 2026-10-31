@@ -7,7 +7,7 @@ import pytest
 
 from pettrace.experiments.e1 import PRIVATE_COMMIT
 from pettrace.evaluation.research import PUBLIC_COMMIT
-from tools.attach_notebook import attach_e1
+from tools.attach_notebook import attach_experiment
 
 
 class ArtifactClient:
@@ -15,11 +15,12 @@ class ArtifactClient:
         self.artifacts = {}
         self.corrupt = False
         self.status = "FINISHED"
+        self.experiment = "E1"
         self.writes = []
 
     def get_run(self, run_id):
         return SimpleNamespace(info=SimpleNamespace(status=self.status), data=SimpleNamespace(
-            tags={"experiment": "E1"}, params={"dataset.commit": PUBLIC_COMMIT if run_id == "public" else PRIVATE_COMMIT}))
+            tags={"experiment": self.experiment}, params={"dataset.commit": PUBLIC_COMMIT if run_id == "public" else PRIVATE_COMMIT}))
 
     def list_artifacts(self, run_id, folder):
         return [SimpleNamespace(path=path) for rid, path in self.artifacts if rid == run_id and path.startswith(folder)]
@@ -49,10 +50,12 @@ def archive(tmp_path, monkeypatch):
     return client, notebook
 
 
-def test_archive_both_runs_receipts_and_exact_notebook(archive):
+@pytest.mark.parametrize("experiment", ["E1", "E2"])
+def test_archive_both_runs_receipts_and_exact_notebook(archive, experiment):
     client, notebook = archive
     original = notebook.read_bytes()
-    attach_e1(notebook, "private", "public")
+    client.experiment = experiment
+    attach_experiment(notebook, "private", "public", experiment)
     for rid in ("public", "private"):
         manifest = json.loads(client.artifacts[rid, "notebook/manifest.json"])
         parts = [client.artifacts[rid, "notebook/" + p["file"]] for p in manifest["parts"]]
@@ -62,7 +65,7 @@ def test_archive_both_runs_receipts_and_exact_notebook(archive):
         assert receipt["published"] and receipt["run_id"] == rid
     assert json.loads(client.artifacts["private", "report/publication.json"])["public_run_id"] == "public"
     saved = dict(client.artifacts)
-    attach_e1(notebook, "private", "public")
+    attach_experiment(notebook, "private", "public", experiment)
     assert client.artifacts == saved
     assert notebook.read_bytes() == original
 
@@ -71,7 +74,7 @@ def test_archive_rejects_incomplete_run_before_upload(archive):
     client, notebook = archive
     client.status = "FAILED"
     with pytest.raises(ValueError, match="completed E1"):
-        attach_e1(notebook, "private", "public")
+        attach_experiment(notebook, "private", "public")
     assert not client.writes
 
 
@@ -79,10 +82,10 @@ def test_archive_detects_corrupt_download_and_can_retry(archive):
     client, notebook = archive
     client.corrupt = True
     with pytest.raises(RuntimeError, match="verification failed"):
-        attach_e1(notebook, "private", "public")
+        attach_experiment(notebook, "private", "public")
     assert not any(path == "report/publication.json" for _, path in client.writes)
     client.corrupt = False
-    attach_e1(notebook, "private", "public")
+    attach_experiment(notebook, "private", "public")
     assert ("private", "report/publication.json") in client.artifacts
 
 
@@ -90,15 +93,16 @@ def test_archive_preserves_existing_different_notebook(archive):
     client, notebook = archive
     client.artifacts["private", "notebook/manifest.json"] = json.dumps({"sha256": "different"}).encode()
     with pytest.raises(ValueError, match="different notebook"):
-        attach_e1(notebook, "private", "public")
+        attach_experiment(notebook, "private", "public")
     assert not client.writes
 
 
-def test_notebook_uploads_final_receipts_for_both_domains(tmp_path):
+@pytest.mark.parametrize("notebook_name,cell_id", [("e1_clip_zero_shot", "38c87fe3"), ("e2_yolo_crop_zero_shot", "e2-publication")])
+def test_notebook_uploads_final_receipts_for_both_domains(tmp_path, notebook_name, cell_id):
     import ast
 
-    notebook = json.loads((Path(__file__).parents[1] / "notebooks/e1_clip_zero_shot.ipynb").read_text())
-    source = "".join(next(c for c in notebook["cells"] if c["id"] == "38c87fe3")["source"])
+    notebook = json.loads((Path(__file__).parents[1] / f"notebooks/{notebook_name}.ipynb").read_text())
+    source = "".join(next(c for c in notebook["cells"] if c["id"] == cell_id)["source"])
     loop = next(n for n in ast.parse(source).body if isinstance(n, ast.For) and "published_id" in ast.unparse(n.target))
     client = ArtifactClient()
     public = tmp_path / "public_test"
@@ -109,3 +113,10 @@ def test_notebook_uploads_final_receipts_for_both_domains(tmp_path):
          {"production_client": client, "public_run_id": "public", "run_id": "private", "REPORT": tmp_path, "PUBLIC_REPORT": public})
     assert len(client.artifacts) == 2
     assert all(json.loads(data)["published"] for data in client.artifacts.values())
+
+
+def test_archive_e2_rejects_frozen_e1_runs(archive):
+    client, notebook = archive
+    with pytest.raises(ValueError, match="completed E2"):
+        attach_experiment(notebook, "private", "public", "E2")
+    assert not client.writes

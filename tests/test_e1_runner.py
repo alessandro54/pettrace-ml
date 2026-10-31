@@ -16,19 +16,21 @@ from tools import run_e1
 
 
 def notebook_cell(cell_id):
-    notebook = nbformat.read(Path(__file__).parents[1] / "notebooks/e1_clip_zero_shot.ipynb", as_version=4)
+    name = "e2_yolo_crop_zero_shot" if cell_id.startswith("e2-") else "e1_clip_zero_shot"
+    notebook = nbformat.read(Path(__file__).parents[1] / f"notebooks/{name}.ipynb", as_version=4)
     return next(c.source for c in notebook.cells if c.id == cell_id)
 
 
+@pytest.mark.parametrize("experiment", ["e1", "e2"])
 @pytest.mark.parametrize("failure", [None, "checksum", "install"])
-def test_interactive_setup_installs_verified_lock_and_requests_restart(tmp_path, monkeypatch, capsys, failure):
+def test_interactive_setup_installs_verified_lock_and_requests_restart(tmp_path, monkeypatch, capsys, failure, experiment):
     import hashlib
     from io import BytesIO
     from urllib import request
 
     monkeypatch.chdir(tmp_path)
     locked = b"fixture==1.0 --hash=sha256:abc\n"
-    code = notebook_cell("e1-setup")
+    code = notebook_cell(f"{experiment}-setup")
     digest = next(n.comparators[0].value for n in ast.walk(ast.parse(code))
                   if isinstance(n, ast.Compare) and isinstance(n.left, ast.Call)
                   and isinstance(n.left.func, ast.Attribute) and n.left.func.attr == "hexdigest")
@@ -53,7 +55,8 @@ def test_interactive_setup_installs_verified_lock_and_requests_restart(tmp_path,
     assert len(commands) == (0 if failure == "checksum" else 1)
 
 
-def test_setup_requests_restart_only_for_changed_loaded_packages(tmp_path, monkeypatch, capsys):
+@pytest.mark.parametrize("experiment", ["e1", "e2"])
+def test_setup_requests_restart_only_for_changed_loaded_packages(tmp_path, monkeypatch, capsys, experiment):
     from importlib import metadata
     from io import BytesIO
     from urllib import request
@@ -66,12 +69,12 @@ def test_setup_requests_restart_only_for_changed_loaded_packages(tmp_path, monke
     monkeypatch.setattr(metadata, "version", lambda name: next(versions))
     monkeypatch.setattr(subprocess, "run", lambda *a, **k: SimpleNamespace(returncode=0))
     namespace = {}
-    exec(notebook_cell("e1-setup"), namespace)
-    assert namespace["_E1_RESTART_REQUIRED"] == ["fixture-loaded"]
+    exec(notebook_cell(f"{experiment}-setup"), namespace)
+    assert namespace[f"_{experiment.upper()}_RESTART_REQUIRED"] == ["fixture-loaded"]
     assert "Restart this session once" in capsys.readouterr().out
     # Re-running installation must not forget that old objects remain in memory.
-    exec(notebook_cell("e1-setup"), namespace)
-    assert namespace["_E1_RESTART_REQUIRED"] == ["fixture-loaded"]
+    exec(notebook_cell(f"{experiment}-setup"), namespace)
+    assert namespace[f"_{experiment.upper()}_RESTART_REQUIRED"] == ["fixture-loaded"]
 
 
 def test_e1_runtime_lock_excludes_notebook_infrastructure():
@@ -166,13 +169,15 @@ def test_hub_retry_respects_service_wait_and_does_not_retry_bad_credentials(monk
         assert not retry.is_retry("POST", 429, has_retry_after=True)
 
 
-def test_notebook_attachment_round_trips_exact_bytes_and_detects_corruption(tmp_path):
+@pytest.mark.parametrize("experiment", ["E1", "E2"])
+def test_notebook_attachment_round_trips_exact_bytes_and_detects_corruption(tmp_path, experiment):
     original = b"notebook-evidence" * 100000
-    (tmp_path / "e1.executed.ipynb").write_bytes(original)
-    folder = e1.notebook_artifacts(tmp_path)
+    filename = f"{experiment.lower()}.executed.ipynb"
+    (tmp_path / filename).write_bytes(original)
+    folder = e1.notebook_artifacts(tmp_path, experiment)
     assert all(p.stat().st_size <= 512 * 1024 for p in folder.iterdir())
     subprocess.run([e1.sys.executable, str(folder / "restore_notebook.py")], check=True, capture_output=True)
-    assert (folder / "e1.executed.ipynb").read_bytes() == original
+    assert (folder / filename).read_bytes() == original
     next(folder.glob("*.part*")).write_bytes(b"corrupted")
     result = subprocess.run([e1.sys.executable, str(folder / "restore_notebook.py")], capture_output=True, text=True)
     assert result.returncode != 0 and "checksum mismatch" in result.stderr

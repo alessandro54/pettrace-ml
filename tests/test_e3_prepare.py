@@ -88,7 +88,7 @@ def test_pipeline_creates_portable_snapshot_reuses_it_and_preserves_pending_deci
     assert all(Path(row["path"]).is_relative_to(dataset.root) for row in dataset.rows)
     assert all(len({r["split"] for r in dataset.rows if r["animal"] == row["animal"]}) == 1 for row in dataset.rows)
     # Exercise the actual training-notebook input cell without private access or model fitting.
-    notebook = json.loads((Path(__file__).parents[1] / "notebooks/e3_mlp_head_triplet.ipynb").read_text())
+    notebook = json.loads((Path(__file__).parents[1] / "notebooks/e3_mlp_head_triplet_20.ipynb").read_text())
     cell = next(c for c in notebook["cells"] if c["id"] == "e3-load-prepared")
     report = tmp_path / "training-report"
     report.mkdir()

@@ -35,7 +35,7 @@ La preparación requiere únicamente el detector ONNX de E2 y su especificación
 
 Se prepara el dataset desde un terminal y se coloca la carpeta completa de la versión en el runtime de entrenamiento, conservando `images/` y los manifiestos. Si el comando se ejecuta en ese mismo entorno, no es necesario transferir la carpeta. La preparación se ejecuta en el notebook de datos o por CLI; los notebooks experimentales consumen el resultado.
 
-Después se abre [e3_mlp_head_triplet.ipynb](../notebooks/e3_mlp_head_triplet.ipynb) y se fija `E3_PREPARED_DATASET` a esa carpeta. El experimento encuentra la versión compartida `datasets/build/pettrace-training/v1.json`, conserva compatibilidad con `datasets/public/e3-body/prepared/latest.json` y permite cargar una versión HF por commit. El experimento verifica el dataset y registra su fingerprint antes de entrenar.
+Los experimentos de volumen son [E3 20](../notebooks/e3_mlp_head_triplet_20.ipynb), [E3 50](../notebooks/e3_mlp_head_triplet_50.ipynb) y [E3 100](../notebooks/e3_mlp_head_triplet_100.ipynb). El piloto actual no cubre esas fracciones de las fuentes. La adquisición debe ampliarse antes; véanse [las cuotas y el contrato de evidencia](e3_colab.md). Cada experimento carga la versión ampliada por commit y fingerprint o mediante `E3_PREPARED_DATASET`, verifica adquisición y entrenamiento por separado, y mantiene validación/test v1 fijos.
 
 ## Comando independiente
 

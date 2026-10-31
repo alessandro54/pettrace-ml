@@ -12,7 +12,7 @@ The experiments investigate incremental changes to a shared visual retrieval pip
 |---|---|---|---|
 | [E1 — Frozen representation](notebooks/e1_clip_zero_shot.ipynb) | How well does a pretrained visual encoder retrieve individual pets without domain adaptation? | Image without animal localization → CLIP ViT-B/32 → 512-dimensional, L2-normalized embedding. No parameter updates. | Reference evaluation published on PetTrace v4. |
 | [E2 — Animal localization](notebooks/e2_yolo_crop_zero_shot.ipynb) | How does localizing the animal affect retrieval with the same encoder? | YOLOv8n → highest-confidence cat/dog box with a 10% margin → the same frozen CLIP encoder. The image is retained when no valid box is available. | Reference evaluation published on PetTrace v4, including a recalculated E1 baseline. |
-| [E3 — Metric adaptation](notebooks/e3_mlp_head_triplet.ipynb) | Does a projection trained on public identities transfer to private PetTrace identities? | Frozen E2 → MLP 512→256→512 → L2 normalization. Only the MLP is trained with batch-hard triplet loss. | First training/evaluation completed; recorded results are below. Its saved publication output still indicates publication was disabled during that run. |
+| E3 — [20%](notebooks/e3_mlp_head_triplet_20.ipynb) / [50%](notebooks/e3_mlp_head_triplet_50.ipynb) / [100%](notebooks/e3_mlp_head_triplet_100.ipynb) | Does a projection trained on public identities transfer to private PetTrace identities? | Frozen E2 → MLP 512→256→512 → L2 normalization. Only the MLP is trained with batch-hard triplet loss. | Historical pilot results are below. The new 20/50/100% source samples require expanded data preparation before training. |
 | E4 — Encoder adaptation | What additional benefit might adapting the visual encoder provide? | Proposed LoRA-based adaptation. | Future research; no completed experiment is claimed. |
 | E5 — Text-assisted retrieval | Can a sighting description improve visual candidate ranking? | Proposed integration of textual information or re-ranking. | Future research; no completed experiment is claimed. |
 
@@ -105,7 +105,9 @@ Dataset coverage measures experiment scale against a fixed source denominator, i
 dataset.train_pct = 100 × training photographs / original source image entries
 ```
 
-For the first E3 run:
+The new E3 20/50/100 notebooks refer to acquisition fractions of **each original source**, before cleaning. They record `dataset.sample_requested_pct` and `dataset.sampled_pct` separately from `dataset.train_pct`; actual training photo and identity counts are published in both domains. The 20% sample (138,918 photos) is not prepared yet; see [the E3 guide](docs/e3_colab.md).
+
+For the historical E3 pilot:
 
 | Metric | Value |
 |---|---:|
@@ -217,19 +219,19 @@ The distribution is `pettrace-ml`, while the import package is `pettrace`. The r
 
 ### Google Colab / VS Code
 
-For **E1**, open [the experiment notebook](notebooks/e1_clip_zero_shot.ipynb) in a fresh runtime,
+For **E1 or E2**, open [E1](notebooks/e1_clip_zero_shot.ipynb) or [E2](notebooks/e2_yolo_crop_zero_shot.ipynb) in a fresh runtime,
 run setup and continue from environment verification. Restart the same session only if
 setup reports changed packages that were already loaded; it preserves Colab’s notebook infrastructure.
 The remaining cells run interactively: results appear below their code, and the final cell
-publishes both domains to MLflow. See [setup and recovery](docs/e1_colab.md).
+publishes both domains to MLflow. See [E1 setup and recovery](docs/e1_colab.md) or [E2 execution](docs/e2_colab.md).
 
 The separate command `python tools/run_e1.py --work-dir reports/my-e1 --env-file .env`
 retains the historical isolated Python 3.11.15 workflow with the published v0.2.2 notebook.
 Notebooks are reserved for experiments and preprocessing.
 
-For E2/E3 (their previous runtime workflow remains in place):
+For E3 (its previous runtime workflow remains in place):
 
-1. Open the selected E2 or E3 notebook. Use a GPU runtime for E3; a T4 is sufficient for the current MLP configuration.
+1. Open the E3 notebook. Use a GPU runtime for E3; a T4 is sufficient for the current MLP configuration.
 2. Run the first installation cell in a fresh runtime. It installs **v0.2.1** and all dependencies from the release's hashed requirements file, without resolving GitHub `main`.
 3. Restart the kernel, then continue from the package-verification cell. It verifies the package version and displays the embedded source commit and lockfile hash.
 4. Keep Python, CUDA/GPU and effective runtime versions with the results. Hosted Colab runtimes can differ from the reference environment; locks do not guarantee bit-identical GPU results.

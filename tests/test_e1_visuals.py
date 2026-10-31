@@ -6,14 +6,16 @@ from types import SimpleNamespace
 import matplotlib
 matplotlib.use("Agg")
 import numpy as np
+import pytest
 from PIL import Image, ImageOps
 
 from pettrace.evaluation.metrics import retrieval
 from pettrace.models.pipeline import Pipeline
 
 
-def source(cell_id):
-    path = Path(__file__).parents[1] / "notebooks/e1_clip_zero_shot.ipynb"
+def source(cell_id, experiment="e1"):
+    notebook_name = "e1_clip_zero_shot" if experiment == "e1" else "e2_yolo_crop_zero_shot"
+    path = Path(__file__).parents[1] / f"notebooks/{notebook_name}.ipynb"
     notebook = json.loads(path.read_text())
     return "".join(next(c for c in notebook["cells"] if c["id"] == cell_id)["source"])
 
@@ -44,7 +46,8 @@ def test_visual_preprocessing_is_inverse_of_actual_tensor(tmp_path):
     assert (tmp_path / "preprocessing-cat.png").is_file()
 
 
-def test_visual_retrieval_handles_ties_singletons_and_separate_species(tmp_path):
+@pytest.mark.parametrize("experiment", ["e1", "e2"])
+def test_visual_retrieval_handles_ties_singletons_and_separate_species(tmp_path, experiment):
     import matplotlib.pyplot as plt
 
     photos, vectors = [], []
@@ -63,7 +66,7 @@ def test_visual_retrieval_handles_ties_singletons_and_separate_species(tmp_path)
     ev = SimpleNamespace(photos=photos, embeddings=embeddings, result={"test": metrics})
     namespace = {"public_ev": ev, "public_ds": SimpleNamespace(commit="pinned"), "PUBLIC_REPORT": tmp_path,
                  "PILImage": Image, "ImageOps": ImageOps, "json": json, "plt": plt, "display": lambda fig: None}
-    exec(source("e1-retrieval-visual"), namespace)
+    exec(source(f"{experiment}-retrieval-visual", experiment), namespace)
     manifest = json.loads((tmp_path / "retrieval-examples.json").read_text())
     examples = manifest["examples"]
     assert [e["query"] for e in examples] == [0, 2, 5, 7]
@@ -77,12 +80,13 @@ def test_visual_retrieval_handles_ties_singletons_and_separate_species(tmp_path)
         assert (tmp_path / example["figure"]).is_file()
     # No errors is a valid result; never fabricate a failure panel.
     ev.result["test"]["per_query"] = [r for r in metrics["per_query"] if r["rank"] == 1]
-    exec(source("e1-retrieval-visual"), namespace)
+    exec(source(f"{experiment}-retrieval-visual", experiment), namespace)
     manifest = json.loads((tmp_path / "retrieval-examples.json").read_text())
     assert len(manifest["examples"]) == 2
 
 
-def test_photo_upload_previews_fit_limit_preserve_originals_and_retry(tmp_path):
+@pytest.mark.parametrize("experiment,panel_name,manifest_name", [("e1", "retrieval-cat-error", "retrieval-examples"), ("e2", "retrieval-cat-error", "retrieval-examples"), ("e2", "preprocessing-cat-crop", "preprocessing-examples")])
+def test_photo_upload_previews_fit_limit_preserve_originals_and_retry(tmp_path, experiment, panel_name, manifest_name):
     import ast
 
     report = tmp_path / "run"
@@ -90,25 +94,25 @@ def test_photo_upload_previews_fit_limit_preserve_originals_and_retry(tmp_path):
     public.mkdir(parents=True)
     # Noise exercises the size bound instead of relying on compressible solid fixtures.
     pixels = np.random.default_rng(7).integers(0, 256, (1200, 3600, 3), dtype=np.uint8)
-    panel = public / "retrieval-cat-error.png"
+    panel = public / f"{panel_name}.png"
     Image.fromarray(pixels).save(panel)
     original = panel.read_bytes()
     assert len(original) > 1024 * 1024
-    manifest = public / "retrieval-examples.json"
+    manifest = public / f"{manifest_name}.json"
     manifest.write_text(json.dumps({"examples": [{"figure": panel.name, "rank": 3}]}))
     metrics = public / "summary.json"
     metrics.write_text('{"mAP": 0.5}')
     chart = public / "cmc.png"
     Image.new("RGB", (12, 12), "white").save(chart)
     chart_bytes = chart.read_bytes()
-    tree = ast.parse(source("38c87fe3"))
+    tree = ast.parse(source("38c87fe3" if experiment == "e1" else "e2-publication", experiment))
     stop = next(i for i, node in enumerate(tree.body) if isinstance(node, ast.Assign)
                 and any(isinstance(t, ast.Name) and t.id == "experiment_design" for t in node.targets))
     code = compile(ast.Module(body=tree.body[:stop], type_ignores=[]), "publication-preview", "exec")
     namespace = {"LOG_TO_MLFLOW": True, "REPORT": report, "PUBLIC_REPORT": public,
                  "PILImage": Image, "json": json}
     exec(code, namespace)
-    preview = public / "retrieval-cat-error.jpg"
+    preview = public / f"{panel_name}.jpg"
     assert preview.stat().st_size <= 512 * 1024
     assert not panel.exists()
     assert (tmp_path / "run-original-figures" / panel.name).read_bytes() == original

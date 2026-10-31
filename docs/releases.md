@@ -43,12 +43,12 @@ directory, then run `sha256sum --check SHA256SUMS` (macOS: `shasum -a 256 -c SHA
 
 ## Colab and Jupyter
 
-E1 installs the v0.2.2 wheel with the immutable `requirements/e1-runtime.txt` profile in Python 3.11–3.13.
+E1 and E2 install the v0.2.2 wheel with the immutable `requirements/e1-runtime.txt` profile in Python 3.11–3.13.
 This profile excludes notebook infrastructure supplied by Colab. Restart only if setup detects
 changed loaded packages, then continue from verification; research cells display results directly
-(see [E1 execution](e1_colab.md)). The historical `tools/run_e1.py` remains a separate
+(see [E1 execution](e1_colab.md) and [E2 execution](e2_colab.md)). The historical `tools/run_e1.py` remains a separate
 Python 3.11.15 reference workflow.
-The E2/E3 and preparation notebooks still install v0.2.1's hashed requirements into the selected kernel.
+The E3 and preparation notebooks still install v0.2.1's hashed requirements into the selected kernel.
 Restart the kernel after installation, then run from the package verification cell onward.
 Do not replace packages in the middle of a training run. A new experiment must create a new
 report directory; retry publication in the original session without retraining.
