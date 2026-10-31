@@ -41,6 +41,9 @@ The runner checkpoints notebook outputs after each cell and on failure. The orig
 and its historical outputs are preserved. Each domain publishes to MLflow, and the runner attaches
 the executed notebook and environment evidence to both runs. The top-level `publication.json`
 exists only after both runs are finished and attachments have succeeded.
+The tracking proxy limits request sizes, so the MLflow `notebook/` artifact contains parts of at
+most 512 KiB, a checksum manifest and `restore_notebook.py`. Download that directory and run
+`python restore_notebook.py` to reconstruct the exact original notebook. The local file remains whole.
 
 If publication fails after evaluation, correct credentials/connectivity and run:
 

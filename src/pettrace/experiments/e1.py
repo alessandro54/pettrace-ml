@@ -172,6 +172,48 @@ def execute_notebook(work):
             manager.shutdown_kernel(now=True)
 
 
+def notebook_artifacts(work):
+    """Keep exact notebook bytes while respecting the tracking proxy's upload size limit."""
+    work = Path(work)
+    contents = (work / "e1.executed.ipynb").read_bytes()
+    folder = work / "notebook-artifact"
+    folder.mkdir(exist_ok=True)
+    parts = []
+    for index, offset in enumerate(range(0, len(contents), 512 * 1024)):
+        name = f"e1.executed.ipynb.part{index:04d}"
+        chunk = contents[offset:offset + 512 * 1024]
+        (folder / name).write_bytes(chunk)
+        parts.append({"file": name, "sha256": hashlib.sha256(chunk).hexdigest()})
+    (folder / "manifest.json").write_text(json.dumps({
+        "file": "e1.executed.ipynb", "sha256": hashlib.sha256(contents).hexdigest(), "parts": parts}, indent=2))
+    (folder / "restore_notebook.py").write_text('''from pathlib import Path
+import hashlib
+import json
+
+root = Path(__file__).resolve().parent
+manifest = json.loads((root / "manifest.json").read_text())
+if manifest["file"] != "e1.executed.ipynb":
+    raise ValueError("Unexpected notebook filename")
+chunks = []
+for part in manifest["parts"]:
+    if Path(part["file"]).name != part["file"]:
+        raise ValueError("Invalid notebook part filename")
+    data = (root / part["file"]).read_bytes()
+    if hashlib.sha256(data).hexdigest() != part["sha256"]:
+        raise ValueError("Notebook part checksum mismatch")
+    chunks.append(data)
+data = b"".join(chunks)
+if hashlib.sha256(data).hexdigest() != manifest["sha256"]:
+    raise ValueError("Notebook checksum mismatch")
+output = root / manifest["file"]
+if output.exists() and output.read_bytes() != data:
+    raise FileExistsError("Refusing to replace a different notebook")
+output.write_bytes(data)
+print(output)
+''')
+    return folder
+
+
 def finish(work):
     from pettrace.tracking import production_context
 
@@ -181,12 +223,16 @@ def finish(work):
     receipt = json.loads(reports[0].read_text())
     if not receipt.get("published") or not receipt.get("public_run_id"):
         raise RuntimeError("Both evaluation domains must be published before E1 is complete")
+    attachment = notebook_artifacts(work)
+    files = ["manifest.json", "restore_notebook.py"] + [
+        part["file"] for part in json.loads((attachment / "manifest.json").read_text())["parts"]]
     client, experiment = production_context()
     for run_id, folder in ((receipt["public_run_id"], reports[0].parent / "public_test"),
                            (receipt["run_id"], reports[0].parent)):
         if client.get_run(run_id).info.status != "FINISHED":
             raise RuntimeError(f"MLflow run {run_id} is incomplete")
-        client.log_artifact(run_id, str(work / "e1.executed.ipynb"), artifact_path="notebook")
+        for name in files:
+            client.log_artifact(run_id, str(attachment / name), artifact_path="notebook")
         client.log_artifact(run_id, str(folder / "publication.json"), artifact_path="report")
         for name in ("release.json", "requirements-evaluation.txt", "execution.json"):
             client.log_artifact(run_id, str(work / name), artifact_path="execution")

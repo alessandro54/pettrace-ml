@@ -1,6 +1,7 @@
 """Isolation and failure recovery for the release's E1 entry point."""
 
 import json
+import subprocess
 from types import SimpleNamespace
 
 import nbformat
@@ -49,6 +50,18 @@ def test_hub_retry_respects_service_wait_and_does_not_retry_bad_credentials(monk
         assert retry.is_retry("GET", 429, has_retry_after=True)
         assert not retry.is_retry("GET", 401)
         assert not retry.is_retry("POST", 429, has_retry_after=True)
+
+
+def test_notebook_attachment_round_trips_exact_bytes_and_detects_corruption(tmp_path):
+    original = b"notebook-evidence" * 100000
+    (tmp_path / "e1.executed.ipynb").write_bytes(original)
+    folder = e1.notebook_artifacts(tmp_path)
+    assert all(p.stat().st_size <= 512 * 1024 for p in folder.iterdir())
+    subprocess.run([e1.sys.executable, str(folder / "restore_notebook.py")], check=True, capture_output=True)
+    assert (folder / "e1.executed.ipynb").read_bytes() == original
+    next(folder.glob("*.part*")).write_bytes(b"corrupted")
+    result = subprocess.run([e1.sys.executable, str(folder / "restore_notebook.py")], capture_output=True, text=True)
+    assert result.returncode != 0 and "checksum mismatch" in result.stderr
 
 
 def test_kernel_uses_selected_python_and_retains_failure_evidence(tmp_path):
