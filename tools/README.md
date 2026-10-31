@@ -10,7 +10,7 @@ import or execute these files. Install `pettrace-ml` before running them, or use
 | `verify_model.py` | Check a downloaded model's golden fingerprint |
 | `attach_notebook.py` | Attach a saved executed notebook to its published run |
 | `mlflow_smoke.py` | Check tracking connectivity |
-| `build_release.py` | Build a clean versioned wheel, lock exports and checksums |
+| `build_release.py` | Build the versioned wheel and source distribution with embedded provenance and checksums |
 | `run_e1.py` | Bootstrap the released E1 notebook in isolated Python 3.11.15; retry publication with `--resume` |
 | `sync_experiments.py` | Refresh `experiments.yaml` from MLflow without modifying runs |
 | `archive/squash_dataset.py` | Historical one-off dataset maintenance; not part of experiment execution |

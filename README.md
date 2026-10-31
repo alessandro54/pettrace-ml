@@ -213,7 +213,7 @@ make lint
 
 Set credentials directly in the local `.env`, runtime environment, Colab Secrets, or hidden prompts. Do not put tokens or passwords in notebook source. A local `.env` is not automatically transferred to Colab. Dataset access needs `HF_TOKEN`; model acquisition and result publication need the configured MLflow credentials.
 
-The distribution is `pettrace-ml`, while the import package is `pettrace`. The reference interpreter is Python 3.11.15; the locked training/notebook environment supports Python 3.11–3.12. [`uv.lock`](uv.lock) fixes dependency resolution. See [versioned releases](docs/releases.md) for installing the published wheel together with its hashed dependencies.
+The distribution is `pettrace-ml`, while the import package is `pettrace`. The reference interpreter is Python 3.11.15; the locked training/notebook environment supports Python 3.11–3.12. [`uv.lock`](uv.lock) fixes dependency resolution. See [versioned releases](docs/releases.md) for installing the package or recreating the locked environment from its Git tag. Package releases contain the wheel, source distribution and checksums; experiment launchers remain in the versioned repository.
 
 ### Google Colab / VS Code
 

@@ -1,6 +1,6 @@
 [project]
 name = "pettrace-ml"
-version = "0.2.2"
+version = "0.2.3"
 description = "PetTrace re-identification experiments: evaluation harness, model registration, notebooks and reports"
 readme = "README.md"
 license = "MIT"

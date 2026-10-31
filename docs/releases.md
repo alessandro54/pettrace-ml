@@ -1,26 +1,42 @@
-# Versioned package and experiment environments
+# Package releases
 
-Release `v0.2.2` adds an isolated E1 launcher to the package structure introduced in v0.2.1.
-See [E1 execution](e1_colab.md). This does not claim new experimental results or change the research
-protocol. Existing notebook outputs remain historical evidence.
+Starting with `v0.2.3`, a release distributes the **pettrace-ml package**:
+
+- `pettrace_ml-<version>-py3-none-any.whl`: the installable package.
+- `pettrace_ml-<version>.tar.gz`: the Python source distribution.
+- `SHA256SUMS`: checksums for those two files.
+
+GitHub also provides two automatic repository archives. Documentation, notebooks, launchers and
+the environment lockfile remain in the repository at the matching version tag. Build provenance
+is embedded in the package; the source distribution also includes `uv.lock` and `.python-version`.
+
+The E1 launcher remains pinned to its verified `v0.2.2` environment. That release's assets remain
+available for existing users. See [E1 execution](e1_colab.md). The packaging change does not change
+the experiment protocol or establish new experimental results.
 
 ## Install a release
 
-Use a fresh virtual environment with Python **3.11.15**, the reference interpreter in
-`.python-version`. The release asset `python-version.txt` records this interpreter without a hidden filename. Download `requirements-e3.txt` from the matching GitHub Release:
+To install the package, use a fresh virtual environment:
 
 ```bash
-uv python install 3.11.15
-uv venv --python 3.11.15 .venv
-curl --fail --location --output requirements-e3.txt \
-  https://github.com/alessandro54/pettrace-ml/releases/download/v0.2.2/requirements-e3.txt
-uv pip install --python .venv/bin/python --require-hashes -r requirements-e3.txt
-uv pip check --python .venv/bin/python
+python3 -m venv .venv
+.venv/bin/python -m pip install \
+  https://github.com/alessandro54/pettrace-ml/releases/download/v0.2.3/pettrace_ml-0.2.3-py3-none-any.whl
 ```
 
-The requirements include the exact release wheel URL and hash, as well as all transitive
-dependencies exported from `uv.lock`. Use `requirements-evaluation.txt` for E1/E2 without
-the training extra. Installing the wheel alone does **not** apply the lockfile.
+This resolves dependencies within the package's declared ranges. Installing a wheel does **not**
+apply `uv.lock`. For the locked development/training environment, use uv **0.11.22** and the
+matching repository tag:
+
+```bash
+git clone --branch v0.2.3 --depth 1 https://github.com/alessandro54/pettrace-ml.git
+cd pettrace-ml
+uv python install 3.11.15
+uv sync --locked --python 3.11.15 --group dev --group notebooks --extra notebooks --extra training
+```
+
+For reproducing E1, use its dedicated launcher below; installing the latest package alone does
+not reproduce an experiment's recorded environment, data and model.
 
 To verify downloaded release assets, download `SHA256SUMS` and the listed assets into one
 directory, then run `sha256sum --check SHA256SUMS` (macOS: `shasum -a 256 -c SHA256SUMS`).
@@ -54,7 +70,7 @@ src/pettrace/
   models/        # ONNX inference, golden checks, CLIP export reference
   training/      # frozen feature cache and triplet learning/export
   evaluation/    # shared evaluator, metrics, figures and research comparisons
-  experiments/   # explicitly separate legacy orchestration protocol
+  experiments/   # isolated E1 execution and separate legacy orchestration protocol
   tracking.py    # publication and runtime/source provenance
   cli.py         # evaluation command
 ```
@@ -74,10 +90,9 @@ uv run --no-sync ruff check .
 uv run --no-sync python tools/build_release.py
 ```
 
-The builder creates `dist/v0.2.2/` with the wheel, source distribution, lockfile,
-hashed requirements, Python version, build provenance, E1 launcher, a research notebook copy without
-historical outputs, and checksums. It refuses to replace
-an existing release directory. The wheel embeds its source commit and lockfile hash;
+The builder creates `dist/v0.2.3/` with the wheel, source distribution and `SHA256SUMS`.
+It refuses to replace an existing release directory. The package embeds its version,
+source commit, lockfile hash, reference Python and build-tool version in `pettrace/_build.json`;
 `source_identity()` hashes every Python module, including nested packages.
 
 Publish those files under the matching Git tag after checking the installed wheel. Never
