@@ -211,5 +211,7 @@ def log_run(ev: Evaluation, model: Model, experiment: str = "", artifacts: str |
                 json.dump(ev.result, f, indent=2, default=float)
             mlflow.log_artifact(path)
         if artifacts:
-            mlflow.log_artifacts(artifacts, artifact_path="report")
+            from pettrace.artifact_upload import log_report_artifacts
+
+            log_report_artifacts(artifacts, artifact_path="report")
         return run.info.run_id
