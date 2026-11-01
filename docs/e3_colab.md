@@ -18,7 +18,10 @@ para entrenar.
 
 ## Preparación progresiva y reutilizable
 
-Usa **un solo** notebook, [`datasets/prepare_training.ipynb`](../datasets/prepare_training.ipynb),
+Para una nueva preparación usa [`datasets/prepare_training_v2.ipynb`](../datasets/prepare_training_v2.ipynb)
+con el wheel local `0.2.5.dev3` (ver [instalación y cachés](../datasets/README.md)).
+`prepare_training.ipynb` conserva la corrida anterior: no ejecutes ambos a la vez sobre Drive.
+La preparación comparte el algoritmo de limpieza,
 y cambia únicamente `SOURCE_SAMPLE_PCT` entre 20, 50 y 100. El código compartido está
 en `pettrace.data.preparation` y `pettrace.data.volume`; no hay tres algoritmos de limpieza.
 
@@ -128,3 +131,14 @@ Los embeddings se respaldan entre lotes y los reportes durante/al terminar el
 entrenamiento y al publicar. Una sola sesión puede escribir en cada carpeta de
 caché compartida. Una interrupción brusca recupera el último respaldo confirmado,
 no el estado del optimizador. Ver [detalle y límites](../datasets/README.md#drive-y-recuperación-entre-sesiones-paquete-v024).
+
+### Reintento de publicación tras HTTP 413
+
+En un kernel que ya entrenó con v0.2.4, subir `src/pettrace/artifact_upload.py`
+a `/content/artifact_upload.py` y ejecutar únicamente la última celda actualizada.
+No reinstalar ni reiniciar: el helper adapta solo el transporte de artefactos y
+el publicador conserva la clave del run para reanudarlo. Los JSON locales permanecen
+intactos. En MLflow, los JSON grandes se guardan como partes gzip de hasta 512 KiB
+y un `<nombre>.transport.json` con tamaños, orden y hashes SHA-256. Para recuperar
+el original, concatenar las partes en ese orden, descomprimir gzip y verificar el
+hash original del manifiesto. Los modelos y demás archivos conservan sus rutas.

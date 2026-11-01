@@ -10,6 +10,8 @@ import time
 from pathlib import Path, PurePosixPath
 from uuid import uuid4
 
+from pettrace.data.verification import sha256 as verified_sha256
+
 
 def _sha(path):
     with Path(path).open('rb') as stream:
@@ -43,6 +45,7 @@ class DriveBackup:
             raise ValueError('Backups and working directories must be separate')
         self.interval, self.block_bytes = interval, block_bytes
         self._saved = {}
+        self._pending_paths = set()
         self._last = time.monotonic()
 
     def _target(self, name):
@@ -66,13 +69,16 @@ class DriveBackup:
                 raise ValueError('Invalid checkpoint receipt')
             receipts[receipt_path.name] = receipt
             for name, info in receipt['files'].items():
-                self._target(name)
-                if only is None or _safe(name).parts[0] in only:
+                label = _safe(name).parts[0]
+                if label not in self.roots:
+                    raise ValueError('Unknown checkpoint root')
+                if only is None or label in only:
+                    self._target(name)
                     latest[name] = (receipt_path.name, info)
         needed = {}
         for name, (receipt_name, info) in latest.items():
             target = self._target(name)
-            if not target.is_file() or target.stat().st_size != info['size'] or _sha(target) != info['sha256']:
+            if not target.is_file() or target.stat().st_size != info['size'] or verified_sha256(target) != info['sha256']:
                 needed.setdefault(receipt_name, set()).add(name)
         for receipt_name, names in needed.items():
             receipt = receipts[receipt_name]
@@ -114,33 +120,58 @@ class DriveBackup:
         stat = path.stat()
         return stat.st_size, stat.st_mtime_ns
 
-    def __call__(self, *, force=False):
-        if not force and time.monotonic() - self._last < self.interval:
-            return
-        pending, size = [], 0
-        for label, root in self.roots.items():
-            if not root.exists():
-                continue
-            for path in sorted(root.rglob('*')):
-                relative = path.relative_to(root)
-                # Incomplete outputs, Hub internals and SQLite journals are not snapshots.
-                if any(p.startswith('.') for p in relative.parts) or path.name.endswith(('.partial', '-wal', '-shm', '-journal')):
-                    continue
+    def __call__(self, *, force=False, paths=None):
+        """Back up supplied files/subtrees, or scan all roots when paths is omitted.
+
+        Paths accumulate until the next checkpoint; context exit always scans all
+        roots so exceptions and callers without change tracking remain recoverable.
+        """
+        if paths is not None:
+            for path in paths:
+                path = Path(path).absolute()
+                match = next(((label, root) for label, root in self.roots.items() if path.is_relative_to(root)), None)
+                if match is None:
+                    raise ValueError('Checkpoint path is outside its roots')
+                label, root = match
+                if path != root:
+                    self._target(f'{label}/{path.relative_to(root).as_posix()}')
                 if path.is_symlink():
                     raise ValueError('Checkpoint roots must contain regular files, not symlinks')
-                if not path.is_file():
+                self._pending_paths.add(path)
+        if not force and time.monotonic() - self._last < self.interval:
+            return
+        def candidates():
+            for label, root in self.roots.items():
+                if not root.exists():
                     continue
-                name = f'{label}/{relative.as_posix()}'
-                signature = self._signature(path)
-                if self._saved.get(name) == signature:
-                    continue
-                pending.append((name, path, signature))
-                size += signature[0]
-                if size >= self.block_bytes:
-                    self._save_block(pending)
-                    pending, size = [], 0
+                selected = {root} if paths is None else {p for p in self._pending_paths if p.is_relative_to(root)}
+                for path in sorted(selected):
+                    if any(parent in selected for parent in path.parents):
+                        continue
+                    yield from ((label, p) for p in (path.rglob('*') if path.is_dir() else [path]))
+
+        pending, size = [], 0
+        for label, path in candidates():
+            relative = path.relative_to(self.roots[label])
+            # Incomplete outputs, Hub internals and SQLite journals are not snapshots.
+            if any(p.startswith('.') for p in relative.parts) or path.name.endswith(('.partial', '-wal', '-shm', '-journal')):
+                continue
+            name = f'{label}/{relative.as_posix()}'
+            if path.is_symlink():
+                raise ValueError('Checkpoint roots must contain regular files, not symlinks')
+            if not path.is_file():
+                continue
+            signature = self._signature(path)
+            if self._saved.get(name) == signature:
+                continue
+            pending.append((name, path, signature))
+            size += signature[0]
+            if size >= self.block_bytes:
+                self._save_block(pending)
+                pending, size = [], 0
         if pending:
             self._save_block(pending)
+        self._pending_paths.clear()
         self._last = time.monotonic()
 
     def _save_block(self, files):

@@ -84,3 +84,83 @@ def test_stage_archive_reuses_copy_and_detects_changed_source(tmp_path):
     source.write_bytes(b'changed')
     stage_archive(source, target)
     assert target.read_bytes() == b'changed'
+
+
+def test_scoped_checkpoints_accumulate_until_due_and_full_exit_catches_other_files(tmp_path, monkeypatch):
+    from pettrace.data import checkpoints
+
+    root, drive = tmp_path / 'local', tmp_path / 'drive'
+    root.mkdir()
+    tracked, untracked = root / 'photo', root / 'review.csv'
+    tracked.write_bytes(b'photo')
+    untracked.write_text('review')
+    now = [0]
+    monkeypatch.setattr(checkpoints.time, 'monotonic', lambda: now[0])
+    backup = DriveBackup({'data': root}, drive, interval=300)
+    backup(paths=[tracked])
+    assert not list(drive.glob('*.json'))
+    now[0] = 301
+    backup(paths=[])
+    receipt = json.loads(next(drive.glob('*.json')).read_text())
+    assert set(receipt['files']) == {'data/photo'}
+    backup(force=True)
+    restored = tmp_path / 'restored'
+    DriveBackup({'data': restored}, drive).restore()
+    assert (restored / 'review.csv').read_text() == 'review'
+    assert (restored / 'photo').read_bytes() == b'photo'
+
+
+def test_scoped_checkpoint_does_not_scan_raw_and_retries_failed_backup(tmp_path, monkeypatch):
+    from pathlib import Path
+    root, drive = tmp_path / 'local', tmp_path / 'drive'
+    cache = root / 'cache'
+    cache.mkdir(parents=True)
+    (cache / 'result.json').write_text('{}')
+    (root / 'raw').mkdir()
+    backup = DriveBackup({'data': root}, drive, interval=0)
+    walk = Path.rglob
+    scanned = []
+
+    def scan(path, pattern):
+        scanned.append(path)
+        return walk(path, pattern)
+
+    monkeypatch.setattr(Path, 'rglob', scan)
+    save = backup._save_block
+    with monkeypatch.context() as patch:
+        patch.setattr(backup, '_save_block', lambda _: (_ for _ in ()).throw(OSError('Drive unavailable')))
+        with pytest.raises(OSError, match='Drive unavailable'):
+            backup(paths=[cache])
+    assert not list(drive.glob('*.json'))
+    backup(paths=[])
+    assert scanned == [cache, cache]
+    assert list(drive.glob('*.json'))
+    assert backup._save_block == save
+    with pytest.raises(ValueError, match='outside'):
+        backup(paths=[tmp_path / 'outside'])
+    (cache / '.env').write_text('secret')
+    (cache / 'escape').symlink_to(tmp_path / 'outside')
+    with pytest.raises(ValueError, match='escapes|symlinks'):
+        backup(paths=[cache])
+
+
+def test_prepared_only_restore_does_not_resolve_raw_paths(tmp_path, monkeypatch):
+    data, prepared, drive = (tmp_path / name for name in ('data', 'prepared', 'drive'))
+    data.mkdir()
+    prepared.mkdir()
+    (data / 'photo.jpg').write_bytes(b'raw')
+    (prepared / 'manifest.csv').write_text('refined')
+    DriveBackup({'data': data, 'prepared': prepared}, drive, block_bytes=1)(force=True)
+    fresh = DriveBackup({'data': tmp_path / 'new-data', 'prepared': tmp_path / 'new-prepared'}, drive)
+    resolved = []
+    target = fresh._target
+
+    def resolve(name):
+        resolved.append(name)
+        return target(name)
+
+    monkeypatch.setattr(fresh, '_target', resolve)
+    fresh.restore(only={'prepared'})
+    assert resolved and all(name.startswith('prepared/') for name in resolved)
+    assert not (tmp_path / 'new-data').exists()
+    assert (tmp_path / 'new-prepared/manifest.csv').read_text() == 'refined'

@@ -129,13 +129,21 @@ def publish_training(path, *, repo_id=REPO, version="v1"):
 
 
 def load_training(*, repo_id=REPO, version="v1", revision=None, expected_fingerprint=None, cache_dir=None):
-    """Resolve once, download by commit, then verify the portable prepared snapshot."""
+    """Verify an already pinned local snapshot, or resolve/download before verification."""
     _check(repo_id, version)
+    destination = Path(cache_dir or os.environ.get("PETTRACE_TRAINING_CACHE", "datasets/build/hub-training"))
+    destination = destination.resolve() / repo_id.replace("/", "--")
+    if revision and re.fullmatch(r"[0-9a-f]{40}", revision) and expected_fingerprint:
+        cached = destination / revision / "versions" / version
+        if (cached / "prepared.json").is_file():
+            prepared = load_prepared(cached)
+            if prepared.fingerprint != expected_fingerprint:
+                raise ValueError("Training dataset fingerprint does not match the requested release")
+            return prepared, _receipt(repo_id, version, revision, prepared.fingerprint)
     commit = HfApi().dataset_info(repo_id, revision=revision or version).sha
     if not re.fullmatch(r"[0-9a-f]{40}", commit):
         raise ValueError("HF did not resolve the training dataset to a commit")
-    destination = Path(cache_dir or os.environ.get("PETTRACE_TRAINING_CACHE", "datasets/build/hub-training"))
-    destination = destination.resolve() / repo_id.replace("/", "--") / commit
+    destination = destination / commit
     # local_dir materializes regular files; Hub's symlink cache cannot be a portable snapshot root.
     root = snapshot_download(repo_id, repo_type="dataset", revision=commit, local_dir=str(destination),
                              allow_patterns=[f"versions/{version}/**"])

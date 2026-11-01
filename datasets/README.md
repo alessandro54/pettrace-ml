@@ -9,7 +9,9 @@ Esta carpeta contiene el pipeline de datos compartido. Los notebooks de `noteboo
 
 ## Pipeline común
 
-Ejecutar [prepare_training.ipynb](prepare_training.ipynb) en el entorno donde se preparan los datos. Usa Dogs of the World y LCW, con adquisición acotada o extracciones existentes. Aplica:
+Para nuevas sesiones usar [prepare_training_v2.ipynb](prepare_training_v2.ipynb) con el wheel local
+`0.2.5.dev3`. [prepare_training.ipynb](prepare_training.ipynb) conserva la corrida anterior y sus salidas.
+Ambos usan Dogs of the World y LCW y el mismo algoritmo de limpieza. Aplica:
 
 1. Verificación de archivos y hashes.
 2. YOLO y NMS: exactamente un perro o gato de la especie esperada.
@@ -26,6 +28,7 @@ El modo exploratorio no exige aprobar cada imagen. Las etiquetas del publicador 
 ```text
 datasets/
   prepare_training.ipynb       # Pipeline compartido, versionado en Git
+  prepare_training_v2.ipynb    # Transporte incremental; valida CUDA antes del lote
   public/e3-body/              # Fuentes y cachés existentes, fuera de Git
   build/pettrace-training/
     <fingerprint>/            # Imágenes y manifiestos de una versión preparada
@@ -34,6 +37,76 @@ datasets/
 ```
 
 La descarga usa cuatro conexiones por defecto (`DOWNLOAD_WORKERS`), con progreso, velocidad y ETA. Al reanudar verifica por CRC y omite las fotos ya válidas. El paralelismo no cambia la selección de identidades ni obliga a borrar la raíz existente.
+
+La v2 primero restaura solo `prepared`: si la versión solicitada existe, verifica sus hashes y
+la reutiliza sin ZIP, adquisición ni YOLO. Si falta, restaura la caché completa y copia únicamente
+los ZIP cuya adquisición aún no está completa. La copia de un ZIP necesario sigue siendo completa.
+La extracción local usa cuatro trabajadores por lotes de hasta 1.000 fotos; CRC y SHA256 de
+cada foto reutilizada se calculan sobre la misma lectura. Los respaldos de adquisición reciben
+los archivos escritos; en CUDA solo reciben los resultados del bloque recién terminado, sin recorrer
+toda la caché. El modo CPU conserva el recorrido acotado a `animal-screening-cache`. Al terminar o
+fallar con una excepción se revisan todas las raíces. Los TAR y recibos anteriores son compatibles.
+Las verificaciones de integridad no se omiten y la limpieza conjunta se vuelve a auditar.
+El reporte `animal-screening.json` incluye `timings_seconds` de planificación, validación, lectura de
+caché CPU, screening CUDA y respaldos. Los tiempos de screening excluyen los respaldos y no incluyen
+la curación posterior ni el respaldo final.
+
+Medición local del respaldo (2026-11-01): 20.000 JSON sin cambios y 100 nuevos, tres repeticiones
+alternando el orden; medianas de 0,346 s recorriendo la caché y 0,029 s enviando solo archivos terminados.
+Ambas rutas guardaron el mismo inventario. Es una prueba de E/S local, no una medición de Drive, GPU
+ni del tiempo total de preparación.
+
+La v2 comparte un índice de verificaciones en memoria (`pettrace.data.verification`) durante cada
+preparación. Guarda `ruta → (dispositivo, inode, tamaño, mtime, ctime, SHA256)`: una firma igual reutiliza
+el hash ya calculado; un cambio obliga a leer el archivo otra vez. Las comparaciones contra el manifiesto
+siguen ejecutándose. El índice se descarta al terminar, también si hay un error; no se confía en firmas
+de otro kernel. Los hashes de archivos transferidos y bloques de Drive se siguen calculando íntegros.
+Este índice supone disco local sin escritores concurrentes: no detecta corrupción silenciosa que no
+altere metadatos durante la misma ejecución. Una nueva sesión realiza una verificación nueva.
+
+Medición local del índice (2026-11-01): 400 archivos de 256 KiB y seis etapas de comprobación,
+tres repeticiones alternadas. Lecturas: 2.400 → 400; bytes leídos: aproximadamente 600 → 100 MiB;
+mediana: 0,325 → 0,064 s. Los hashes coincidieron en todas las etapas. Esta mejora mide únicamente
+la verificación local, no inferencia ni el proceso completo en Colab.
+
+Una referencia de HF ya completa, fijada por commit y fingerprint, se verifica localmente sin consultas
+HTTP ni solicitud de credenciales. Las referencias por etiqueta sin commit fijo siguen resolviéndose
+en HF; un snapshot local corrupto se rechaza.
+
+La orquestación está en el paquete, no en el notebook:
+
+```python
+from pettrace.data.workflow import TrainingPreparation
+
+job = TrainingPreparation(drive_root="/content/drive/MyDrive/PetTrace", work_dir="/content",
+                          source_percent=50, screening_provider="cuda")
+prepared = job.restore()   # Solo refined; devuelve None si todavía falta.
+prepared = job.prepare()   # Reutiliza refined o amplía la caché y prepara la versión.
+# job.publish()           # Publicación HF explícita e independiente.
+```
+
+Drive debe estar montado previamente. Las credenciales se leen del entorno, Colab Secrets o campos
+ocultos. `prepare()` también funciona sin llamar antes a `restore()`. El modo CPU sigue disponible
+con `screening_provider="cpu"`; el notebook v2 exige CUDA y no cae silenciosamente a CPU.
+
+La GPU usa el [plugin oficial CUDA 12 v0.3.0](https://github.com/microsoft/onnxruntime/releases/tag/plugin-ep-cuda/v0.3.0),
+verificado por SHA256, sin reemplazar ONNX Runtime 1.31.0. Se comprueba la asignación de las convoluciones
+a CUDA y hasta 32 imágenes (16 por especie) contra CPU antes de procesar el lote pendiente. Deben coincidir
+cantidad, clase y orden de detecciones, con tolerancias de 1e-4 en puntuación y 0,1 píxeles en cajas;
+también debe mejorar el tiempo mediano de screening. Son criterios de esta investigación, no una garantía
+de equivalencia sobre todo el dataset. Los tiempos incluyen preprocesamiento y NMS, sin lectura del disco.
+El diagnóstico queda en `animal-screening-cache/cuda/<clave>/gpu-validation.json` incluso si falla.
+Las detecciones CPU previas se reutilizan sin reescribir; CUDA tiene caché separada y el reporte distingue
+su procedencia. Se requiere Linux x86_64, Python 3.13 y el perfil E3 con Torch/CUDA 12.8.
+
+Subir `dist/v0.2.5.dev3/pettrace_ml-0.2.5.dev3-py3-none-any.whl`, `SHA256SUMS` y
+`requirements/e3-runtime.txt` (como `requirements-e3-runtime.txt`) a una sesión nueva.
+Es una compilación local de desarrollo, no una release publicada. No correr ambas preparaciones
+a la vez contra la misma carpeta de Drive ni actualizar la sesión que sigue procesando.
+Para migrar en la misma VM: interrumpir una vez, esperar el respaldo, instalar el wheel y reiniciar
+solo el kernel cuando se solicite. No eliminar el runtime ni sus archivos locales.
+La procedencia registra los cambios de implementación; las versiones refinadas existentes no se
+sobrescriben. No se ha medido la aceleración con las bases completas en Colab.
 
 La ruta histórica `public/e3-body` se conserva para reutilizar las descargas existentes. Los snapshots generados sirven a E3 y a futuros experimentos; no dependen de volver a adquirir las fuentes. Un nombre local como `v1` no se mueve a otro fingerprint.
 

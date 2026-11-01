@@ -5,7 +5,6 @@ CatIndividualImages identity is its numeric directory. Breed labels are never id
 """
 
 import csv
-import hashlib
 import json
 import random
 from collections import Counter, defaultdict
@@ -13,16 +12,10 @@ from pathlib import Path
 
 from PIL import Image, ImageChops, ImageOps, ImageStat
 
+from pettrace.data.verification import sha256
+
 EXTENSIONS = {".jpg", ".jpeg", ".png"}
 TEST_DIRS = {"query", "gallery", "test", "bounding_box_test"}
-
-
-def sha256(path):
-    h = hashlib.sha256()
-    with open(path, "rb") as f:
-        for block in iter(lambda: f.read(1 << 20), b""):
-            h.update(block)
-    return h.hexdigest()
 
 
 def discover(root, source, species):

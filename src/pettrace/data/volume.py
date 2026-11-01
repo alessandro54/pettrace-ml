@@ -6,8 +6,10 @@ import os
 from pathlib import Path
 import zipfile
 import zlib
+from concurrent.futures import ThreadPoolExecutor
 
 from pettrace.data.curation import EXTENSIONS, sha256
+from pettrace.data.checkpoints import DriveBackup
 from pettrace.data.pilot import RangeFile, _payload, _photo_windows, _safe_name
 from pettrace.data.sources import SOURCES
 
@@ -51,6 +53,15 @@ def acquire_volume(root, source, *, percent, seed=42, allow_download=False, work
     spec = SOURCES[source]
     receipt = {**spec, "mode": "source-photo-volume", "config": config, "extraction_pending": True}
     receipt_path.write_text(json.dumps(receipt, indent=2))
+    changed = [receipt_path]
+
+    def save_progress():
+        if isinstance(checkpoint, DriveBackup):
+            checkpoint(paths=changed)
+        elif checkpoint:
+            checkpoint()
+        changed.clear()
+
     auth = ((os.environ["KAGGLE_USERNAME"], os.environ["KAGGLE_KEY"])
             if os.environ.get("KAGGLE_USERNAME") and os.environ.get("KAGGLE_KEY") else None)
     url = f"https://www.kaggle.com/api/v1/datasets/download/{spec['ref']}?datasetVersionNumber={spec['version']}"
@@ -78,8 +89,9 @@ def acquire_volume(root, source, *, percent, seed=42, allow_download=False, work
                     raw = _payload(archive, info, maximum=2 << 20)
                     target.parent.mkdir(parents=True, exist_ok=True)
                     target.write_bytes(raw)
+                    changed.append(target)
                 if checkpoint and metadata_number % 1000 == 0:
-                    checkpoint()
+                    save_progress()
                 metadata = json.loads(raw)
                 relative = metadata.get("path")
                 if isinstance(relative, str):
@@ -87,35 +99,77 @@ def acquire_volume(root, source, *, percent, seed=42, allow_download=False, work
                     if image in names:
                         hashes[info.filename] = hashlib.sha256(raw).hexdigest()
         selected.sort(key=lambda i: i.header_offset)
-        missing = [i for i in selected if not (directory / i.filename).is_file()
-                   or (directory / i.filename).stat().st_size != i.file_size
-                   or zlib.crc32((directory / i.filename).read_bytes()) != i.CRC]
-        windows = _photo_windows(remote, missing, workers) if remote is not None else (info for info in missing)
-        try:
-            for number, info in enumerate(selected, 1):
-                target = directory / _safe_name(info.filename)
-                if not target.is_file() or target.stat().st_size != info.file_size or zlib.crc32(target.read_bytes()) != info.CRC:
-                    assert next(windows).filename == info.filename
-                    target.parent.mkdir(parents=True, exist_ok=True)
-                    partial = target.with_suffix(target.suffix + ".partial")
-                    partial.write_bytes(_payload(archive, info))
-                    partial.replace(target)
-                hashes[info.filename] = sha256(target)
-                if number % 1000 == 0 or number == len(selected):
-                    stage = "extracción local" if remote is None else "descarga y verificación"
-                    print(f"\r{source} · {stage}: {number}/{len(selected)} fotos", end="\n" if number == len(selected) else "", flush=True)
-                    if checkpoint:
-                        checkpoint()
-        finally:
-            windows.close()
+        reused, extracted = 0, 0
+
+        def cached_digest(info):
+            target = directory / _safe_name(info.filename)
+            if target.is_file() and target.stat().st_size == info.file_size:
+                raw = target.read_bytes()
+                if zlib.crc32(raw) == info.CRC:
+                    return hashlib.sha256(raw).hexdigest()
+            return None
+
+        def extract(info):
+            target = directory / _safe_name(info.filename)
+            raw = _payload(archive, info)  # ZipFile verifies CRC; hash the same bytes before writing.
+            target.parent.mkdir(parents=True, exist_ok=True)
+            partial = target.with_suffix(target.suffix + ".partial")
+            partial.write_bytes(raw)
+            partial.replace(target)
+            return hashlib.sha256(raw).hexdigest()
+
+        def local_photo(info):
+            digest = cached_digest(info)
+            return (digest, True) if digest is not None else (extract(info), False)
+
+        def record(info, digest, cached):
+            nonlocal reused, extracted
+            hashes[info.filename] = digest
+            if cached:
+                reused += 1
+            else:
+                extracted += 1
+                changed.append(directory / info.filename)
+
+        def progress(number):
+            save_progress()
+            if number % 10000 == 0 or number == len(selected):
+                print(f"{source}: {number}/{len(selected)} fotos · caché {reused} · nuevas {extracted}", flush=True)
+
+        if remote is None:
+            # Bounded batches keep ZIP decompression concurrent without queuing the full archive.
+            with ThreadPoolExecutor(max_workers=workers) as pool:
+                for start in range(0, len(selected), 1000):
+                    batch = selected[start:start + 1000]
+                    for info, (digest, cached) in zip(batch, pool.map(local_photo, batch)):
+                        record(info, digest, cached)
+                    progress(start + len(batch))
+        else:
+            missing = []
+            for info in selected:
+                digest = cached_digest(info)
+                if digest is None:
+                    missing.append(info)
+                else:
+                    record(info, digest, True)
+            windows = _photo_windows(remote, missing, workers)
+            try:
+                for number, info in enumerate(selected, 1):
+                    if info.filename not in hashes:
+                        assert next(windows).filename == info.filename
+                        record(info, extract(info), False)
+                    if number % 1000 == 0 or number == len(selected):
+                        progress(number)
+            finally:
+                windows.close()
         receipt.update(archive_index_sha256=signature.hexdigest(), file_sha256=hashes,
                        source_photos=CAPACITY[source]["photos"], sampled_photos=len(selected),
                        network_bytes=remote.transferred if remote is not None else 0, extraction_pending=False)
     temporary = receipt_path.with_suffix(".tmp")
     temporary.write_text(json.dumps(receipt, indent=2))
     temporary.replace(receipt_path)
-    if checkpoint:
-        checkpoint()
+    changed.append(receipt_path)
+    save_progress()
     return directory, receipt
 
 

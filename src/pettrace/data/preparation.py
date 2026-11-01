@@ -22,6 +22,7 @@ from pettrace.data.screening import screen_animals
 from pettrace.data.pilot import acquire_pilot
 from pettrace.models.pipeline import Detector
 from pettrace.data.curation import sha256
+from pettrace.data.verification import verification_session
 
 DETECTOR_SHA256 = "da8f9b9ebea5157cdcefa7bea9fd782249ebdf119f917c07d64e5b41942b9c9d"
 BASE_MODEL = "models:/pettrace-embedder/2"
@@ -71,6 +72,7 @@ class PrepareConfig:
     nms_iou: float = 0.5
     visual_sample_per_species: int = 4
     expected_detector_sha256: str = DETECTOR_SHA256
+    screening_provider: str = "cpu"
 
 
 @dataclass
@@ -294,10 +296,13 @@ def _samples(rows, root, *, per_species, seed):
         {"seed": seed, "per_species": per_species, "sample": records, "scope": "Visual sample; identity not verified."}))
 
 
+@verification_session()
 def prepare(config, *, checkpoint=None):
     """Acquire → verify → YOLO → curate → copy portable images → publish a completed dataset locally."""
     if config.minimum_photos < 4 or config.visual_sample_per_species < 1:
         raise ValueError("E3 requires at least four distinct photos and a positive visual sample size")
+    if config.screening_provider not in {"cpu", "cuda"}:
+        raise ValueError("Screening provider must be cpu or cuda")
     model_root = Path(config.detector_dir).resolve()
     spec = yaml.safe_load((model_root / "pipeline.yaml").read_text())
     steps = [step for step in spec["steps"] if step["op"] == "detect_crop" and step.get("enabled")]
@@ -327,7 +332,9 @@ def prepare(config, *, checkpoint=None):
     package_root = Path(__file__).resolve().parents[1]
     implementation = {name: sha256(package_root / name) for name in
                       ("data/preparation.py", "data/sources.py", "data/screening.py", "data/curation.py",
-                       "data/pilot.py", "data/volume.py", "data/source_capacity_v1.json", "models/pipeline.py")}
+                       "data/pilot.py", "data/volume.py", "data/verification.py", "data/source_capacity_v1.json", "models/pipeline.py")}
+    if config.screening_provider == "cuda":
+        implementation["data/screening_gpu.py"] = sha256(package_root / "data/screening_gpu.py")
     inputs = {"reference_rows": [{k: r[k] for k in MANIFEST_FIELDS if k != "path"} for r in reference_rows], "config": settings, "detector_step": step, "implementation": implementation,
               "runtime": {"numpy": np.__version__, "onnxruntime": ort.__version__, "pillow": pillow_version},
               "detector_spec_sha256": sha256(model_root / "pipeline.yaml"),
@@ -348,9 +355,18 @@ def prepare(config, *, checkpoint=None):
     held_hashes = {r["sha256"] for r in reference_rows}
     reserved = {r["path"]: "reserved_public_identity_or_image" for r in review
                 if r["animal"] in held_ids or r["sha256"] in held_hashes}
-    exclusions, screening = screen_animals(
-        [r for r in selected if r["path"] not in reserved], detector, Path(config.data_root) / "animal-screening-cache", detector_sha256=model_hash,
-        confidence=config.confidence, iou=config.nms_iou, checkpoint=checkpoint)
+    from functools import partial
+    from pettrace.data.checkpoints import DriveBackup
+    screening_checkpoint = (partial(checkpoint, paths=[Path(config.data_root) / "animal-screening-cache"])
+                            if isinstance(checkpoint, DriveBackup) else checkpoint)
+    screen = screen_animals
+    if config.screening_provider == "cuda":
+        from pettrace.data.screening_gpu import screen_cuda
+        screen = partial(screen_cuda, model_file=_safe_file(model_root, step["file"]))
+        screening_checkpoint = checkpoint  # CUDA tracks completed cache files instead of scanning the directory.
+    exclusions, screening = screen(
+        [r for r in review if r["path"] not in reserved], detector, Path(config.data_root) / "animal-screening-cache", detector_sha256=model_hash,
+        confidence=config.confidence, iou=config.nms_iou, checkpoint=screening_checkpoint)
     exclusions.update(reserved)
     # Detect concurrent review edits before applying filtering decisions.
     if sha256(review_path) != inputs["review_sha256"]:
@@ -433,7 +449,9 @@ def prepare(config, *, checkpoint=None):
         load_prepared(folder)
         folder.replace(destination)
     _atomic_json(output_root / "latest.json", {"fingerprint": fingerprint, "path": destination.name})
-    if checkpoint:
+    if isinstance(checkpoint, DriveBackup):
+        checkpoint(paths=[destination, output_root / "latest.json", review_path])
+    elif checkpoint:
         checkpoint()
     return load_prepared(destination)
 

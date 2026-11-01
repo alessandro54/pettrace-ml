@@ -47,7 +47,7 @@ def test_preparation_download_is_quiet_and_waits_out_hub_quota(monkeypatch, caps
 
 
 @pytest.mark.parametrize("path", [p for p in NOTEBOOKS if not p.name.startswith("e1_")]
-                         + [ROOT / "datasets/prepare_training.ipynb"], ids=lambda p: p.stem)
+                         + sorted((ROOT / "datasets").glob("prepare_training*.ipynb")), ids=lambda p: p.stem)
 @pytest.mark.parametrize("version", [(3, 10), (3, 11), (3, 12), (3, 13), (3, 14)])
 def test_notebook_python_support_matches_dependency_profile(path, version):
     source = next("".join(c["source"]) for c in cells(path)
@@ -116,3 +116,17 @@ def test_e3_identity_macro_does_not_weight_by_photo_count(tmp_path):
     assert analysis["macro_rank1"]["E3"] == 0.5
     assert analysis["per_animal"][0]["rank1_delta_e3_e2"] == 1.0
     assert analysis["per_animal"][1]["rank1_delta_e3_e2"] == -1.0
+
+
+def test_preparation_v2_delegates_to_package_and_keeps_unexecuted_outputs():
+    contents = cells(ROOT / "datasets/prepare_training_v2.ipynb")
+    for cell in contents:
+        if cell['cell_type'] == 'code':
+            ast.parse(''.join(cell['source']))
+            assert cell['execution_count'] is None and cell['outputs'] == []
+    source = next(''.join(c['source']) for c in contents if 'prepared = preparation.prepare(' in ''.join(c['source']))
+    prepared = SimpleNamespace(fingerprint='verified')
+    workflow = SimpleNamespace(prepare=lambda **kw: prepared, version_path='v2.50.json')
+    namespace = {'preparation': workflow, 'perf_counter': lambda: 0, 'os': SimpleNamespace(environ={})}
+    exec(source, namespace)
+    assert namespace['prepared'] is prepared

@@ -260,3 +260,26 @@ def test_volume_reuses_cleaning_and_preserves_fixed_v1_splits(tmp_path, monkeypa
     for counts in expanded.summary["processing"].values():
         assert counts["train_photos"] + counts["excluded_photos"] == counts["processed_photos"]
         assert sum(counts["exclusion_reasons"].values()) == counts["excluded_photos"]
+
+
+def test_cuda_preparation_retains_cpu_detections_and_filter_outcomes(tmp_path, monkeypatch):
+    from itertools import cycle
+    from pettrace.data import screening_gpu
+
+    config = setup_pipeline(tmp_path, monkeypatch)
+    baseline = prepare(config)
+    cache = Path(config.data_root) / 'animal-screening-cache'
+    original = {p.name: p.read_bytes() for p in cache.glob('*.json')}
+    times = cycle((0, .02, 1, 1.005))
+    monkeypatch.setattr(screening_gpu, 'perf_counter', lambda: next(times))
+    monkeypatch.setattr(screening_gpu, 'cuda_detector', lambda *a: (FakeDetector('', {}), {'provider': 'CUDAExecutionProvider'}))
+    accelerated = prepare(replace(config, screening_provider='cuda'))
+    assert accelerated.fingerprint != baseline.fingerprint
+    fields = ('sha256', 'animal', 'species', 'split')
+    assert sorted(tuple(r[f] for f in fields) for r in accelerated.rows) == sorted(tuple(r[f] for f in fields) for r in baseline.rows)
+    report = json.loads((accelerated.root / 'animal-screening.json').read_text())
+    assert report['gpu_validation']['passed']
+    assert {r['execution_provider'] for r in report['records']} == {'CPUExecutionProvider'}
+    assert original == {p.name: p.read_bytes() for p in cache.glob('*.json')}
+    inputs = json.loads((accelerated.root / 'prepared.json').read_text())['inputs']
+    assert 'data/screening_gpu.py' in inputs['implementation']

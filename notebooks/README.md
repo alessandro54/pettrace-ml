@@ -14,7 +14,7 @@ E4 (adaptación del encoder) y E5 (información textual) son líneas futuras. No
 
 ## Tres fases de la investigación
 
-1. **Preparación y preprocesamiento de datos.** `datasets/prepare_training.ipynb` realiza adquisición, filtros, deduplicación y splits. Los experimentos cargan y verifican los snapshots preparados; no repiten su limpieza. PetTrace v4 procede de su flujo privado de curación/exportación.
+1. **Preparación y preprocesamiento de datos.** `datasets/prepare_training_v2.ipynb` realiza adquisición, filtros, deduplicación y splits, con cachés compartidas con `prepare_training.ipynb` (corrida anterior). Los experimentos cargan y verifican los snapshots preparados; no repiten su limpieza. PetTrace v4 procede de su flujo privado de curación/exportación.
 2. **Representación y entrenamiento.** Se verifica el modelo y se calculan representaciones. E1/E2 mantienen todos los pesos congelados. E3 entrena la MLP y selecciona su checkpoint únicamente con validación pública; muestra curvas de pérdida y validación.
 3. **Evaluación y análisis de resultados.** Cada condición se evalúa por separado en el test público de v1 y PetTrace v4. Incluye tablas por especie, Rank-1/Rank-2/mAP, CMC, matrices de confusión, diagnósticos por identidad, discusión, referencias y publicación obligatoria en MLflow.
 

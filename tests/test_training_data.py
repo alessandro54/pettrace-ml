@@ -184,3 +184,27 @@ def test_incomplete_hub_upload_does_not_create_a_version_tag(tmp_path, monkeypat
     monkeypatch.setattr(hub, "list_repo_files", real_inventory)
     assert publish_training(dataset.root)["version"] == "v1"
     assert "v1" in hub.tags
+
+
+def test_pinned_local_snapshot_needs_no_hub_queries_and_still_checks_contents(tmp_path, monkeypatch):
+    from pettrace.data.versions import REPO
+    from pettrace.data.verification import verification_session
+    dataset = prepare(setup_pipeline(tmp_path, monkeypatch))
+    commit = 'c' * 40
+    cache = tmp_path / 'cache'
+    target = cache / REPO.replace('/', '--') / commit / 'versions/v1'
+    shutil.copytree(dataset.root, target)
+    monkeypatch.setattr('pettrace.data.versions.HfApi', lambda: pytest.fail('Pinned local reference must not query HF'))
+    monkeypatch.setattr('pettrace.data.versions.snapshot_download', lambda *a, **kw: pytest.fail('No repeated download'))
+    kwargs = dict(revision=commit, expected_fingerprint=dataset.fingerprint, cache_dir=cache)
+    with verification_session() as index:
+        loaded, receipt = load_training(**kwargs)
+        reads = index.reads
+        assert load_training(**kwargs)[0].fingerprint == dataset.fingerprint
+        assert index.reads == reads and index.hits > 0
+        assert receipt['commit'] == commit
+        with pytest.raises(ValueError, match='fingerprint'):
+            load_training(**{**kwargs, 'expected_fingerprint': '0' * 64})
+        Path(loaded.rows[0]['path']).write_bytes(b'corrupt')
+        with pytest.raises(ValueError, match='artifact changed'):
+            load_training(**kwargs)

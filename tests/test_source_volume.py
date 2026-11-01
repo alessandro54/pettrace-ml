@@ -104,3 +104,53 @@ def test_local_zip_matches_remote_selection_and_checkpoints(tmp_path, monkeypatc
     monkeypatch.setitem(volume.CAPACITY, source, {**volume.CAPACITY[source], "archive_index_sha256": "changed"})
     with pytest.raises(ValueError, match="index changed"):
         volume.acquire_volume(tmp_path / "other", source, percent=100, archive_path=archive)
+
+
+@pytest.mark.parametrize('source', ['dogs-world', 'lcw'])
+@pytest.mark.parametrize('workers', [1, 4])
+def test_local_expansion_reads_cached_photos_once_and_extracts_only_added(tmp_path, monkeypatch, source, workers):
+    from pathlib import Path
+    blob, signature = archive_fixture(source)
+    monkeypatch.setitem(volume.CAPACITY, source, {**volume.CAPACITY[source], 'photos': 10,
+                                                'archive_index_sha256': signature})
+    archive = tmp_path / 'source.zip'
+    archive.write_bytes(blob)
+    root = tmp_path / 'data'
+    directory, before = volume.acquire_volume(root, source, percent=20, archive_path=archive, workers=workers)
+    photo_names = {n for n in before['file_sha256'] if n.endswith('.jpg')}
+    reads, extracted = [], []
+    read, payload = Path.read_bytes, volume._payload
+
+    def read_once(path):
+        if path.suffix == '.jpg':
+            reads.append(path.relative_to(directory).as_posix())
+        return read(path)
+
+    def extract(z, info, **kwargs):
+        if info.filename.endswith('.jpg'):
+            extracted.append(info.filename)
+        return payload(z, info, **kwargs)
+
+    monkeypatch.setattr(Path, 'read_bytes', read_once)
+    monkeypatch.setattr(volume, '_payload', extract)
+    _, after = volume.acquire_volume(root, source, percent=50, archive_path=archive, workers=workers)
+    assert sorted(reads) == sorted(photo_names)  # No second CRC pass or hash reread.
+    assert len(extracted) == 3 and not photo_names.intersection(extracted)
+    assert all(after['file_sha256'][n] == digest for n, digest in before['file_sha256'].items())
+    for name, digest in after['file_sha256'].items():
+        assert hashlib.sha256(read(directory / name)).hexdigest() == digest
+
+
+def test_local_expansion_repairs_corrupted_cached_photo(tmp_path, monkeypatch):
+    blob, signature = archive_fixture('lcw')
+    monkeypatch.setitem(volume.CAPACITY, 'lcw', {**volume.CAPACITY['lcw'], 'photos': 10,
+                                              'archive_index_sha256': signature})
+    archive = tmp_path / 'source.zip'
+    archive.write_bytes(blob)
+    root = tmp_path / 'data'
+    directory, before = volume.acquire_volume(root, 'lcw', percent=20, archive_path=archive)
+    name, digest = next(iter(before['file_sha256'].items()))
+    path = directory / name
+    path.write_bytes(b'x' * path.stat().st_size)  # Same size; CRC must detect the change.
+    _, after = volume.acquire_volume(root, 'lcw', percent=50, archive_path=archive)
+    assert hashlib.sha256(path.read_bytes()).hexdigest() == digest == after['file_sha256'][name]
