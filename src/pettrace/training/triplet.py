@@ -174,8 +174,6 @@ def fit(features, rows, output, config=None, device=None, callback=None):
                   "training.optimizer_steps": optimizer_steps, "training.examples_seen": examples_seen,
                   "training.unique_photos_seen": len(unique_seen)}
         history.append(record)
-        if callback:
-            callback(record)
         if score > best:
             best, best_epoch, stale = score, epoch, 0
             torch.save({"state_dict": copy.deepcopy(head.cpu().state_dict()), "config": asdict(config),
@@ -184,6 +182,8 @@ def fit(features, rows, output, config=None, device=None, callback=None):
         else:
             stale += 1
         (output / "history.json").write_text(json.dumps(history, indent=2))
+        if callback:
+            callback(record)
         print(record, flush=True)
         if stale >= config.patience:
             break

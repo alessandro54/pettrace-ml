@@ -1,4 +1,5 @@
 """Nested source-photo acquisition; filtering remains in preparation.prepare."""
+from contextlib import nullcontext
 import hashlib
 import json
 import os
@@ -25,7 +26,8 @@ def photo_sample(infos, source, percent, seed):
     return photos[:len(photos) * percent // 100]
 
 
-def acquire_volume(root, source, *, percent, seed=42, allow_download=False, workers=4, max_network_bytes=3 << 30):
+def acquire_volume(root, source, *, percent, seed=42, allow_download=False, workers=4, max_network_bytes=3 << 30,
+                   archive_path=None, checkpoint=None):
     """Reuse range/CRC download machinery; never select an identity pilot or metadata prefix."""
     root = Path(root).resolve()
     directory = root / "source-cache" / source
@@ -41,7 +43,7 @@ def acquire_volume(root, source, *, percent, seed=42, allow_download=False, work
                 if not target.is_file() or sha256(target) != digest:
                     raise ValueError("Cached source photo/metadata changed")
             return directory, saved
-    if not allow_download:
+    if not allow_download and archive_path is None:
         raise ValueError("Source volume is not acquired; enable downloads in the separate preparation workflow")
     if not 1 <= workers <= 16:
         raise ValueError("Use 1 to 16 download workers")
@@ -52,7 +54,8 @@ def acquire_volume(root, source, *, percent, seed=42, allow_download=False, work
     auth = ((os.environ["KAGGLE_USERNAME"], os.environ["KAGGLE_KEY"])
             if os.environ.get("KAGGLE_USERNAME") and os.environ.get("KAGGLE_KEY") else None)
     url = f"https://www.kaggle.com/api/v1/datasets/download/{spec['ref']}?datasetVersionNumber={spec['version']}"
-    with RangeFile(url, auth=auth, max_network_bytes=max_network_bytes) as remote, zipfile.ZipFile(remote) as archive:
+    connection = nullcontext(None) if archive_path is not None else RangeFile(url, auth=auth, max_network_bytes=max_network_bytes)
+    with connection as remote, zipfile.ZipFile(archive_path if archive_path is not None else remote) as archive:
         infos = archive.infolist()
         signature = hashlib.sha256()
         for info in infos:
@@ -66,7 +69,7 @@ def acquire_volume(root, source, *, percent, seed=42, allow_download=False, work
         # Scan the complete metadata inventory. A missing/ambiguous label is a later exclusion,
         # never a reason to replace a randomly selected photograph with a different one.
         if source == "dogs-world":
-            for info in sorted(infos, key=lambda i: i.header_offset):
+            for metadata_number, info in enumerate(sorted(infos, key=lambda i: i.header_offset), 1):
                 if Path(info.filename).parent.name != "metadata" or not info.filename.endswith(".json"):
                     continue
                 target = directory / _safe_name(info.filename)
@@ -75,6 +78,8 @@ def acquire_volume(root, source, *, percent, seed=42, allow_download=False, work
                     raw = _payload(archive, info, maximum=2 << 20)
                     target.parent.mkdir(parents=True, exist_ok=True)
                     target.write_bytes(raw)
+                if checkpoint and metadata_number % 1000 == 0:
+                    checkpoint()
                 metadata = json.loads(raw)
                 relative = metadata.get("path")
                 if isinstance(relative, str):
@@ -85,7 +90,7 @@ def acquire_volume(root, source, *, percent, seed=42, allow_download=False, work
         missing = [i for i in selected if not (directory / i.filename).is_file()
                    or (directory / i.filename).stat().st_size != i.file_size
                    or zlib.crc32((directory / i.filename).read_bytes()) != i.CRC]
-        windows = _photo_windows(remote, missing, workers)
+        windows = _photo_windows(remote, missing, workers) if remote is not None else (info for info in missing)
         try:
             for number, info in enumerate(selected, 1):
                 target = directory / _safe_name(info.filename)
@@ -97,15 +102,20 @@ def acquire_volume(root, source, *, percent, seed=42, allow_download=False, work
                     partial.replace(target)
                 hashes[info.filename] = sha256(target)
                 if number % 1000 == 0 or number == len(selected):
-                    print(f"{source}: {number}/{len(selected)} photos verified", flush=True)
+                    stage = "extracción local" if remote is None else "descarga y verificación"
+                    print(f"\r{source} · {stage}: {number}/{len(selected)} fotos", end="\n" if number == len(selected) else "", flush=True)
+                    if checkpoint:
+                        checkpoint()
         finally:
             windows.close()
         receipt.update(archive_index_sha256=signature.hexdigest(), file_sha256=hashes,
                        source_photos=CAPACITY[source]["photos"], sampled_photos=len(selected),
-                       network_bytes=remote.transferred, extraction_pending=False)
+                       network_bytes=remote.transferred if remote is not None else 0, extraction_pending=False)
     temporary = receipt_path.with_suffix(".tmp")
     temporary.write_text(json.dumps(receipt, indent=2))
     temporary.replace(receipt_path)
+    if checkpoint:
+        checkpoint()
     return directory, receipt
 
 

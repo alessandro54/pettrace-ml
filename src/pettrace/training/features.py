@@ -13,7 +13,7 @@ from pettrace.data.curation import sha256
 from pettrace.models import pipeline
 
 
-def feature_cache(base_pipeline, rows, output, base_model_dir, batch=16):
+def feature_cache(base_pipeline, rows, output, base_model_dir, batch=16, *, checkpoint=None):
     from pettrace.evaluation.core import file_hashes
 
     if not rows or batch < 1:
@@ -58,6 +58,8 @@ def feature_cache(base_pipeline, rows, output, base_model_dir, batch=16):
                 cache.execute("INSERT OR REPLACE INTO embeddings VALUES (?, ?, ?)",
                               (rows[index]["sha256"], vector, hashlib.sha256(vector).hexdigest()))
             cache.commit()  # Completed batches survive an interrupted extraction.
+            if checkpoint:
+                checkpoint()
             if offset % (batch * 20) == 0:
                 print(f"New frozen embeddings: {offset+len(indices)}/{len(missing)}", flush=True)
     if not np.isfinite(features).all():

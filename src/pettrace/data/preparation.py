@@ -54,6 +54,7 @@ class PrepareConfig:
     detector_dir: str
     output_root: str | None = None
     source_roots: dict = field(default_factory=dict)
+    source_archives: dict = field(default_factory=dict)
     source_percent: int | None = None
     reference_dataset: str | None = None
     identities_per_species: int = 300
@@ -80,11 +81,11 @@ class PreparedDataset:
     summary: dict
 
 
-def acquire_candidates(config):
+def acquire_candidates(config, *, checkpoint=None):
     """Only bounded pilot acquisition; manual roots never trigger network access."""
     root = Path(config.data_root).resolve()
     rows, sources, skipped = [], [], []
-    if set(config.source_roots) - set(SOURCES):
+    if (set(config.source_roots) | set(config.source_archives)) - set(SOURCES):
         raise ValueError("Unknown source root")
     for source in SOURCES:
         if config.source_percent is not None:
@@ -93,7 +94,8 @@ def acquire_candidates(config):
                 raise ValueError("Source-volume acquisition requires verified archive receipts, not manual roots")
             source_root, receipt = acquire_volume(
                 root, source, percent=config.source_percent, seed=config.seed, allow_download=config.allow_download,
-                workers=config.download_workers, max_network_bytes=config.max_network_bytes)
+                workers=config.download_workers, max_network_bytes=config.max_network_bytes,
+                archive_path=config.source_archives.get(source), checkpoint=checkpoint)
             found, ignored = discover_body_ids(source_root, source)
             chosen = receipt["file_sha256"]
             found = [r for r in found if Path(r["path"]).relative_to(source_root).as_posix() in chosen]
@@ -292,7 +294,7 @@ def _samples(rows, root, *, per_species, seed):
         {"seed": seed, "per_species": per_species, "sample": records, "scope": "Visual sample; identity not verified."}))
 
 
-def prepare(config):
+def prepare(config, *, checkpoint=None):
     """Acquire → verify → YOLO → curate → copy portable images → publish a completed dataset locally."""
     if config.minimum_photos < 4 or config.visual_sample_per_species < 1:
         raise ValueError("E3 requires at least four distinct photos and a positive visual sample size")
@@ -314,13 +316,14 @@ def prepare(config):
         if reference.fingerprint != PUBLIC_FINGERPRINT:
             raise ValueError("Reference must be the immutable public v1 dataset")
         reference_rows = [r for r in reference.rows if r["split"] in {"val", "test"}]
-    selected, sources = acquire_candidates(config)
+    selected, sources = acquire_candidates(config, checkpoint=checkpoint)
     review_path = Path(config.data_root).resolve() / f"{'pilot' if config.source_percent is None else 'source-'+str(config.source_percent)}-seed{config.seed}" / "review.csv"
     write_review(selected, review_path)
     with review_path.open(newline="") as stream:
         review = list(csv.DictReader(stream))
     settings = asdict(config)
     settings.pop("output_root")
+    settings.pop("source_archives")  # Transport location does not change the source inventory.
     package_root = Path(__file__).resolve().parents[1]
     implementation = {name: sha256(package_root / name) for name in
                       ("data/preparation.py", "data/sources.py", "data/screening.py", "data/curation.py",
@@ -347,7 +350,7 @@ def prepare(config):
                 if r["animal"] in held_ids or r["sha256"] in held_hashes}
     exclusions, screening = screen_animals(
         [r for r in selected if r["path"] not in reserved], detector, Path(config.data_root) / "animal-screening-cache", detector_sha256=model_hash,
-        confidence=config.confidence, iou=config.nms_iou)
+        confidence=config.confidence, iou=config.nms_iou, checkpoint=checkpoint)
     exclusions.update(reserved)
     # Detect concurrent review edits before applying filtering decisions.
     if sha256(review_path) != inputs["review_sha256"]:
@@ -430,6 +433,8 @@ def prepare(config):
         load_prepared(folder)
         folder.replace(destination)
     _atomic_json(output_root / "latest.json", {"fingerprint": fingerprint, "path": destination.name})
+    if checkpoint:
+        checkpoint()
     return load_prepared(destination)
 
 

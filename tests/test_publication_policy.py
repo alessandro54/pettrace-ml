@@ -18,9 +18,12 @@ def test_notebook_publication_is_required_before_side_effects(filename):
     with pytest.raises(ValueError, match="mandatory"):
         exec(publication, {"LOG_TO_MLFLOW": False})
     # There is an unconditional publication call after the guard, not an opt-out branch.
+    statements = ast.parse(publication).body
+    statements = [child for node in statements
+                  for child in (node.body if isinstance(node, ast.With) else [node])]
     assert any(isinstance(n, ast.Assign) and isinstance(n.value, ast.Call)
                and isinstance(n.value.func, ast.Name) and n.value.func.id == "publish_evaluation"
-               for n in ast.parse(publication).body)
+               for n in statements)
 
 
 def test_cli_rejects_tracking_opt_out_before_loading_models(monkeypatch):

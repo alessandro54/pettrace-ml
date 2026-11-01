@@ -28,7 +28,7 @@ de ambas fuentes. Los metadatos de perros se recorren completos, sin el prefijo 
 Fotos sin identidad válida siguen contando como procesadas y reciben un descarte;
 no se sustituyen por otra foto para mejorar artificialmente la muestra.
 
-**Mantén `DATA_ROOT` en almacenamiento persistente** al cambiar de sesión Colab:
+**Mantén el respaldo de `DATA_ROOT` en Drive** al cambiar de sesión Colab:
 
 - `source-cache/` reutiliza fotos y metadatos verificados por CRC/SHA-256.
 - `animal-screening-cache/` reutiliza detecciones por imagen, modelo, configuración y runtime.
@@ -49,7 +49,7 @@ Las versiones propuestas son `v2.20`, `v2.50`, `v2.100`; no existen hasta prepar
 
 ## Paquete y ejecución
 
-El nuevo código requiere **pettrace-ml v0.2.3**. Construye el paquete desde un commit
+El nuevo código requiere **pettrace-ml v0.2.4**. Construye el paquete desde un commit
 limpio con `python tools/build_release.py`. Hasta publicar esa release, coloca en
 el runtime de Colab el wheel, `SHA256SUMS` y una copia de
 [`requirements/e3-runtime.txt`](../requirements/e3-runtime.txt) llamada
@@ -114,3 +114,17 @@ Los resultados serán descriptivos: una sola semilla, fotos dependientes por ide
 PetTrace v4 ya observado y sin garantía de igualdad bit a bit entre GPU. La metodología
 y referencias siguen junto a las celdas; la adquisición se documenta en
 [el pipeline de datos](e3_data_pipeline.md).
+
+### Persistencia con Drive (v0.2.4)
+
+Instalar el wheel v0.2.4 y sus checksums antes de una nueva corrida. Mantener el
+mismo perfil `requirements-e3-runtime.txt`; no hay dependencias nuevas. Los ZIP
+originales opcionales van en `MyDrive/PetTrace/raw/`. El notebook de preparación
+restaura y respalda el trabajo local mediante bloques verificados. E3 restaura
+las versiones preparadas `v2.20`, `v2.50` o `v2.100` cuando existen y no se ha
+seleccionado una versión HF explícita; conserva los controles públicos/privados.
+
+Los embeddings se respaldan entre lotes y los reportes durante/al terminar el
+entrenamiento y al publicar. Una sola sesión puede escribir en cada carpeta de
+caché compartida. Una interrupción brusca recupera el último respaldo confirmado,
+no el estado del optimizador. Ver [detalle y límites](../datasets/README.md#drive-y-recuperación-entre-sesiones-paquete-v024).

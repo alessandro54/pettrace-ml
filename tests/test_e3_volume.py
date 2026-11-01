@@ -2,6 +2,7 @@
 import ast
 from dataclasses import asdict, dataclass
 import json
+from textwrap import dedent
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -130,7 +131,7 @@ def test_both_domains_receive_training_volume_and_final_receipts(tmp_path, monke
     public.mkdir()
     (public / "publication.json").write_text(json.dumps({"published": True, "run_id": "public"}))
     source = cell("e3-28").split("# Dataset coverage is published with every E3 run.")[1]
-    source = source.split("if REGISTER_E3:")[0]
+    source = dedent(source.split("if REGISTER_E3:")[0])
     exec(source, {"mlflow": mlflow, "json": json, "asdict": asdict, "config": Config(),
         "train_summary": {"history": [{"epoch": 1, "train.loss": .1, "train.active_triplets": .2, "val.macro_species_mAP": .3, "training.optimizer_steps": 1, "training.examples_seen": 32, "training.unique_photos_seen": 32}], "best_epoch": 1, "best_val_mAP": .3},
         "prepared": SimpleNamespace(fingerprint="prepared"), "training_source": {"commit": "pinned"},

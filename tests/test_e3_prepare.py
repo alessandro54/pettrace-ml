@@ -248,7 +248,7 @@ def test_volume_reuses_cleaning_and_preserves_fixed_v1_splits(tmp_path, monkeypa
         found, _ = discover_body_ids(root, source)
         rows.extend(found)
         sources.append({"ref": volume.CAPACITY[source]["ref"], "sampled_photos": len(found)})
-    monkeypatch.setattr(preparation, "acquire_candidates", lambda config: (rows, {"sources": sources, "skipped_paths": []}))
+    monkeypatch.setattr(preparation, "acquire_candidates", lambda config, **kw: (rows, {"sources": sources, "skipped_paths": []}))
     previous_inferences = FakeDetector.calls
     expanded = prepare(replace(config, source_percent=20, reference_dataset=str(reference.root)))
     assert FakeDetector.calls == previous_inferences

@@ -67,7 +67,7 @@ def animal_boxes(detector, image, *, confidence=0.25, iou=0.5):
     return kept
 
 
-def screen_animals(rows, detector, cache, *, detector_sha256, confidence=0.25, iou=0.5):
+def screen_animals(rows, detector, cache, *, detector_sha256, confidence=0.25, iou=0.5, checkpoint=None):
     """Keep exactly one detected animal of the expected species; cache by bytes/model/code.
 
     Caller verifies the loaded detector's artifact hash. Original photos, labels and
@@ -128,6 +128,8 @@ def screen_animals(rows, detector, cache, *, detector_sha256, confidence=0.25, i
         records.append({**{field: row[field] for field in ("path", "source", "species", "animal")},
                         **result, "reason": reason})
         if number % 100 == 0 or number == len(rows):
+            if checkpoint:
+                checkpoint()
             print(f"YOLO animal screening: {number}/{len(rows)}", flush=True)
     report = {"config": config, "photos": len(rows), "counts": dict(Counter(r["reason"] for r in records)),
               "records": records,

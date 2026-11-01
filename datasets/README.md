@@ -63,3 +63,42 @@ El pipeline también permanece disponible como CLI (`pettrace-prepare-e3` o `mak
 Esta carpeta implementa la fase 1 del estudio: preparación y preprocesamiento. Las fuentes externas se citan en el notebook y en [references.bib](../docs/references.bib); filtros, muestreo y particiones son decisiones de esta investigación.
 
 La versión v1 ya publicada conserva 282 identidades de train, 60 de validación y 60 de test. E1/E2/E3 comparan el mismo **test reservado de 277 fotos** con PetTrace v4, manteniendo galerías separadas. No se modifica la versión para denominarlo 20 %: representa el 15,2 % de las fotos preparadas. Una vez observado, ese test no se presenta como una prueba nunca consultada ni se usa para seleccionar checkpoints.
+
+## Drive y recuperación entre sesiones (paquete v0.2.4)
+
+El notebook monta Drive con autorización del usuario. Los cálculos siguen en el
+disco local de Colab; `MyDrive/PetTrace/checkpoints/preparation` recibe archivos
+TAR incrementales y recibos SHA-256. Se respaldan fuentes extraídas, metadatos,
+detecciones, la referencia pública y los datasets preparados. Los ZIP originales
+son opcionales: `MyDrive/PetTrace/raw/dogs-world.zip` y `lcw.zip`, ambos versión 1.
+Se copian a `/content/pettrace-archives` antes de extraer; el índice fijado y los
+CRC se validan igual que en adquisición remota. No se confía solo en el nombre.
+
+Al iniciar, el notebook restaura bloques confirmados y valida sus hashes. Cada
+cinco minutos, en el siguiente punto de guardado de la adquisición o detección,
+se respaldan archivos nuevos o modificados, en bloques de aproximadamente
+512 MiB (un archivo individual puede superar ese tamaño). Un cierre normal o
+una excepción de Python fuerza otro respaldo. Si desaparece la VM, se conserva
+el último bloque confirmado; puede perderse el trabajo posterior. Si Drive falla,
+el error se propaga y la copia local permanece. No borrar el runtime antes de
+confirmar el respaldo.
+
+Usar una sola sesión escritora por carpeta de respaldos. No borrar ni renombrar
+bloques TAR o recibos JSON: una restauración requiere la cadena completa. Los
+archivos temporales, directorios ocultos y credenciales `.env` quedan fuera. La
+caché SQLite se copia con su API de backup, no mientras se escriben sus bytes.
+Mantener las mismas rutas locales entre sesiones: las revisiones de preparación
+incluyen rutas absolutas. La migración a otras rutas requiere revalidarlas.
+
+Los tres notebooks E3 recuperan únicamente el dataset preparado (no todas las
+fuentes), y reutilizan embeddings de `checkpoints/features`. Los reportes y el
+mejor checkpoint de entrenamiento se guardan en `checkpoints/runs/<run-id>`.
+Estos respaldos no sustituyen la publicación obligatoria en MLflow. El optimizador
+no se reanuda automáticamente tras perder un kernel; los embeddings sí se
+recuperan y cada nuevo entrenamiento conserva su inicialización independiente.
+
+Esto conserva la definición actual de 20/50/100% de fotos originales antes del
+filtrado. Procesar 100% y luego muestrear porcentajes del entrenamiento limpio es
+un cambio metodológico distinto; no se aplica silenciosamente al añadir Drive.
+La instalación v0.2.3 de una sesión activa no adquiere estas capacidades hasta
+instalar v0.2.4 y reiniciar. No hay respaldo retroactivo de una VM ya eliminada.

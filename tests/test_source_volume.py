@@ -85,3 +85,22 @@ def test_processing_must_be_complete_before_reporting_training(tmp_path, monkeyp
     processing["lcw"]["processed_photos"] = 3
     with pytest.raises(ValueError, match="processing"):
         volume.training_volume(prepared, 20, tmp_path)
+
+
+@pytest.mark.parametrize("source", ["dogs-world", "lcw"])
+def test_local_zip_matches_remote_selection_and_checkpoints(tmp_path, monkeypatch, source):
+    blob, signature = archive_fixture(source)
+    monkeypatch.setitem(volume.CAPACITY, source, {**volume.CAPACITY[source], "photos": 10,
+                                                "archive_index_sha256": signature})
+    archive = tmp_path / "source.zip"
+    archive.write_bytes(blob)
+    monkeypatch.setattr(volume, "RangeFile", lambda *a, **kw: pytest.fail("local ZIP must not access network"))
+    saved = []
+    _, receipt = volume.acquire_volume(tmp_path / "data", source, percent=100, archive_path=archive,
+                                      checkpoint=lambda: saved.append(True))
+    assert receipt["sampled_photos"] == 10
+    assert receipt["network_bytes"] == 0
+    assert saved
+    monkeypatch.setitem(volume.CAPACITY, source, {**volume.CAPACITY[source], "archive_index_sha256": "changed"})
+    with pytest.raises(ValueError, match="index changed"):
+        volume.acquire_volume(tmp_path / "other", source, percent=100, archive_path=archive)
