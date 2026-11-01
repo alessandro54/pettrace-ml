@@ -206,12 +206,11 @@ def test_detector_401_is_recoverable_but_permission_errors_are_preserved(tmp_pat
     assert permission.value.get_http_status_code() == 403
 
 
-def test_notebook_force_refresh_ignores_stale_environment_and_colab_secrets(monkeypatch):
+def test_preparation_force_refresh_ignores_stale_environment_and_colab_secrets(monkeypatch):
     import getpass
     import sys
 
-    notebook = json.loads((Path(__file__).parents[1] / "datasets/prepare_training.ipynb").read_text())
-    source = "".join(next(c for c in notebook["cells"] if c["id"] == "training-data-access")["source"])
+    from pettrace.data.workflow import configure_access
     requests = []
     answers = iter(["new-fixture-user", "new-fixture-password"])
     monkeypatch.setenv("MLFLOW_TRACKING_USERNAME", "old-fixture-user")
@@ -225,9 +224,7 @@ def test_notebook_force_refresh_ignores_stale_environment_and_colab_secrets(monk
         return next(answers)
 
     monkeypatch.setattr(getpass, "getpass", prompt)
-    namespace = {}
-    exec(compile(source, "credential-access", "exec"), namespace)
-    namespace["configure_access"](names=("MLFLOW_TRACKING_USERNAME", "MLFLOW_TRACKING_PASSWORD"), force=True)
+    configure_access(names=("MLFLOW_TRACKING_USERNAME", "MLFLOW_TRACKING_PASSWORD"), force=True)
     import os
     assert os.environ["MLFLOW_TRACKING_USERNAME"] == "new-fixture-user"
     assert os.environ["MLFLOW_TRACKING_PASSWORD"] == "new-fixture-password"

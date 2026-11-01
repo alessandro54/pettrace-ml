@@ -17,21 +17,30 @@ def cells(path):
     return json.loads(path.read_text())["cells"]
 
 
-def test_preparation_download_is_quiet_and_waits_out_hub_quota(monkeypatch, capsys):
+def test_preparation_download_is_quiet_and_waits_out_hub_quota(tmp_path, monkeypatch):
     import huggingface_hub
     from huggingface_hub.utils import are_progress_bars_disabled, enable_progress_bars
     from urllib3.response import HTTPResponse
+    from pettrace.data import workflow
 
-    source = next("".join(c["source"]) for c in cells(ROOT / "datasets/prepare_training.ipynb")
-                  if "def preparation_hub_session" in "".join(c["source"]))
+    job = workflow.TrainingPreparation(drive_root=tmp_path, work_dir=tmp_path / "work")
+    monkeypatch.setattr("pettrace.data.screening_gpu.check_cuda_environment", lambda: None)
+    monkeypatch.setattr(workflow, "stage_archive", lambda source, target: target)
+    monkeypatch.setattr(workflow, "configure_access", lambda **kw: None)
     factories = []
     monkeypatch.setattr(huggingface_hub, "configure_http_backend",
                         lambda *, backend_factory: factories.append(backend_factory))
+
+    def stop_at_download(**kwargs):
+        assert are_progress_bars_disabled()
+        raise RuntimeError("Download configured")
+
+    monkeypatch.setattr(workflow, "load_training", stop_at_download)
     disabled = are_progress_bars_disabled()
     try:
-        exec(source.split("reference, _ = load_training", 1)[0], {"configure_access": lambda **kw: None})
-        assert are_progress_bars_disabled()
-        assert len(capsys.readouterr().out.splitlines()) == 1
+        with pytest.raises(RuntimeError, match="Download configured"):
+            job.prepare()
+        assert len(factories) == 1
         with factories[0]() as session:
             retry = session.get_adapter("https://huggingface.co").max_retries
             assert retry.get_retry_after(HTTPResponse(status=429, headers={"Retry-After": "370"})) == 370
@@ -118,15 +127,29 @@ def test_e3_identity_macro_does_not_weight_by_photo_count(tmp_path):
     assert analysis["per_animal"][1]["rank1_delta_e3_e2"] == -1.0
 
 
-def test_preparation_v2_delegates_to_package_and_keeps_unexecuted_outputs():
-    contents = cells(ROOT / "datasets/prepare_training_v2.ipynb")
+def test_single_preparation_notebook_delegates_to_package():
+    path = ROOT / "datasets/prepare_training.ipynb"
+    assert list(path.parent.glob("prepare_training*.ipynb")) == [path]
+    contents = cells(path)
     for cell in contents:
         if cell['cell_type'] == 'code':
             ast.parse(''.join(cell['source']))
-            assert cell['execution_count'] is None and cell['outputs'] == []
     source = next(''.join(c['source']) for c in contents if 'prepared = preparation.prepare(' in ''.join(c['source']))
     prepared = SimpleNamespace(fingerprint='verified')
     workflow = SimpleNamespace(prepare=lambda **kw: prepared, version_path='v2.50.json')
     namespace = {'preparation': workflow, 'perf_counter': lambda: 0, 'os': SimpleNamespace(environ={})}
     exec(source, namespace)
     assert namespace['prepared'] is prepared
+
+
+def test_preparation_notebook_exports_hf_version_setting(capsys):
+    source = next(''.join(c['source']) for c in cells(ROOT / "datasets/prepare_training.ipynb")
+                  if c['id'] == 'training-data-use')
+    namespace = {'json': json, 'preparation': SimpleNamespace(version_path='v2.50.json', version='v2.50'),
+                 'prepared': SimpleNamespace(fingerprint='verified'),
+                 'release': {'repo': 'fixture/training', 'version': 'v2.50', 'commit': 'a' * 40,
+                             'fingerprint': 'verified'}}
+    exec(source, namespace)
+    output = capsys.readouterr().out
+    settings = json.loads(output[output.index('{'):output.rindex('}') + 1])
+    assert settings['HF_TRAINING_DATASET_VERSION'] == 'v2.50'

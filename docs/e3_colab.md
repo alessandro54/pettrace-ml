@@ -18,12 +18,12 @@ para entrenar.
 
 ## Preparación progresiva y reutilizable
 
-Para una nueva preparación usa [`datasets/prepare_training_v2.ipynb`](../datasets/prepare_training_v2.ipynb)
+Para preparar cualquiera de los tres volúmenes usa [`datasets/prepare_training.ipynb`](../datasets/prepare_training.ipynb)
 con el wheel local `0.2.5.dev3` (ver [instalación y cachés](../datasets/README.md)).
-`prepare_training.ipynb` conserva la corrida anterior: no ejecutes ambos a la vez sobre Drive.
+Solo una sesión puede escribir en la misma carpeta de respaldos de Drive.
 La preparación comparte el algoritmo de limpieza,
 y cambia únicamente `SOURCE_SAMPLE_PCT` entre 20, 50 y 100. El código compartido está
-en `pettrace.data.preparation` y `pettrace.data.volume`; no hay tres algoritmos de limpieza.
+en `pettrace.data.workflow.TrainingPreparation`, `pettrace.data.preparation` y `pettrace.data.volume`.
 
 El orden SHA-256 de las rutas originales con semilla 42 define muestras anidadas
 20 ⊆ 50 ⊆ 100, antes de mirar etiquetas o calidad. Se verifican los índices completos

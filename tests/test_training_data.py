@@ -167,7 +167,7 @@ def test_notebook_defaults_do_not_publish_or_prompt_for_hf_access():
     cells = {c["id"]: "".join(c["source"]) for c in notebook["cells"]}
     assert "PUBLISH_TO_HF = False" in cells["training-data-config"]
     calls = []
-    namespace = {"PUBLISH_TO_HF": False, "configure_access": calls.append, "publish_training": calls.append}
+    namespace = {"PUBLISH_TO_HF": False, "preparation": SimpleNamespace(publish=lambda: calls.append("publish"))}
     exec(compile(cells["training-data-publish"], "publication-default", "exec"), namespace)
     assert namespace["release"] is None and not calls
 
