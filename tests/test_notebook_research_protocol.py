@@ -17,6 +17,35 @@ def cells(path):
     return json.loads(path.read_text())["cells"]
 
 
+def test_preparation_download_is_quiet_and_waits_out_hub_quota(monkeypatch, capsys):
+    import huggingface_hub
+    from huggingface_hub.utils import are_progress_bars_disabled, enable_progress_bars
+    from urllib3.response import HTTPResponse
+
+    source = next("".join(c["source"]) for c in cells(ROOT / "datasets/prepare_training.ipynb")
+                  if "def preparation_hub_session" in "".join(c["source"]))
+    factories = []
+    monkeypatch.setattr(huggingface_hub, "configure_http_backend",
+                        lambda *, backend_factory: factories.append(backend_factory))
+    disabled = are_progress_bars_disabled()
+    try:
+        exec(source.split("reference, _ = load_training", 1)[0], {"configure_access": lambda **kw: None})
+        assert are_progress_bars_disabled()
+        assert len(capsys.readouterr().out.splitlines()) == 1
+        with factories[0]() as session:
+            retry = session.get_adapter("https://huggingface.co").max_retries
+            assert retry.get_retry_after(HTTPResponse(status=429, headers={"Retry-After": "370"})) == 370
+            assert not retry.is_retry("GET", 401)
+            waits = []
+            for _ in range(3):
+                retry = retry.increment(method="GET", response=HTTPResponse(status=429))
+                waits.append(retry.get_backoff_time())
+            assert waits == [0, 120, 240]
+    finally:
+        if not disabled:
+            enable_progress_bars()
+
+
 @pytest.mark.parametrize("path", [p for p in NOTEBOOKS if not p.name.startswith("e1_")]
                          + [ROOT / "datasets/prepare_training.ipynb"], ids=lambda p: p.stem)
 @pytest.mark.parametrize("version", [(3, 10), (3, 11), (3, 12), (3, 13), (3, 14)])
