@@ -4,6 +4,15 @@ Visual re-identification research for **individual dogs and cats**, developed as
 
 This repository documents the research questions, experimental methods, reusable implementation, and evidence behind PetTrace. The application and its serving infrastructure live in a separate repository. The [research notebooks](notebooks/README.md) are written in Spanish; this README provides an English overview.
 
+## Python package
+
+The distribution is `pettrace-ml`, imported as `pettrace`. See the [public methods and examples](docs/package.md)
+for duplicate audits, Drive recovery, preparation, embeddings, training, evaluation and MLflow publication.
+Version `0.2.5` prepares the first PyPI publication; account setup and publication must finish before
+`pip install 'pettrace-ml[notebooks]==0.2.5'` is available there. Until then, install the checkout or wheel.
+The [release guide](docs/releases.md) covers publication and locked environments. Frozen experiment notebooks
+continue to use their recorded package and runtime versions.
+
 ## Research progression
 
 The experiments investigate incremental changes to a shared visual retrieval pipeline. External methods are cited below; their application, sampling rules, evaluation protocol, and measured PetTrace results are decisions and findings of this research.

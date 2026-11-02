@@ -2,6 +2,10 @@
 
 Los notebooks se reservan para experimentos y preparación/preprocesamiento de datos. Los lanzadores y herramientas de instalación se mantienen como scripts Python, sin notebooks adicionales.
 
+La auditoría raw de duplicados y conflictos, sin YOLO, está en
+[`datasets/data_lookup.ipynb`](../datasets/data_lookup.ipynb); exporta inventarios para revisión,
+sin reemplazar los snapshots de los experimentos.
+
 Los tres cuadernos documentan una secuencia de investigación de tesis sobre recuperación visual de identidades individuales de perros y gatos. Cada condición modifica un componente del pipeline y conserva el mismo benchmark privado de evaluación. La raza no es la etiqueta del problema.
 
 | Experimento | Intervención | Parámetros ajustados | Comparación |

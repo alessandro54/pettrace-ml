@@ -58,23 +58,33 @@ class DriveBackup:
             raise ValueError('Checkpoint path escapes working directory')
         return target
 
-    def restore(self, *, only=None):
-        """Verify receipts and archives before restoring; never restore partial packs."""
+    def restore(self, *, only=None, files=None):
+        """Restore selected roots or exact archive paths, verifying confirmed packs."""
         if only is not None and not set(only) <= self.roots.keys():
             raise ValueError("Unknown restore root")
+        if files is not None:
+            files = set(files)
+            for name in files:
+                self._target(name)
+                if only is not None and _safe(name).parts[0] not in only:
+                    raise ValueError("Requested file is outside the selected restore roots")
         latest, receipts = {}, {}
         for receipt_path in sorted(self.destination.glob('*.json')):
             receipt = json.loads(receipt_path.read_text())
             if receipt.get('schema') != 1 or receipt.get('archive') != receipt_path.with_suffix('.tar').name:
                 raise ValueError('Invalid checkpoint receipt')
-            receipts[receipt_path.name] = receipt
             for name, info in receipt['files'].items():
+                if files is not None and name not in files:
+                    continue
                 label = _safe(name).parts[0]
                 if label not in self.roots:
                     raise ValueError('Unknown checkpoint root')
                 if only is None or label in only:
                     self._target(name)
+                    receipts[receipt_path.name] = receipt
                     latest[name] = (receipt_path.name, info)
+        if files is not None and files - latest.keys():
+            raise FileNotFoundError(f"No confirmed Drive backup for: {', '.join(sorted(files - latest.keys()))}")
         needed = {}
         for name, (receipt_name, info) in latest.items():
             target = self._target(name)

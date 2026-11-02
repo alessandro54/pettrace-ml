@@ -1,0 +1,86 @@
+name: Publish package
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name }}
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.11.22"
+      - name: Check release version
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          python - <<'PY'
+          import os, tomllib
+          from pathlib import Path
+          version = tomllib.loads(Path("pyproject.toml").read_text())["project"]["version"]
+          if os.environ["RELEASE_TAG"] != f"v{version}" or "+" in version:
+              raise SystemExit("Release tag must match the public package version")
+          PY
+      - run: uv sync --locked --group dev --group notebooks --extra notebooks --extra training
+      - run: uv run --no-sync ruff check .
+      - run: uv run --no-sync python -m pytest -q
+      - run: uv run --no-sync python tools/build_release.py
+      - name: Stage PyPI distributions
+        run: |
+          mkdir -p dist/pypi
+          cp dist/v*/*.whl dist/v*/*.tar.gz dist/pypi/
+      - name: Check installed distribution
+        run: |
+          uv pip install --python .venv/bin/python --reinstall --no-deps dist/v*/*.whl
+          .venv/bin/python -I -c "import pettrace; from pettrace.data.lookup import lookup_duplicates, restore_lookup_review; from pettrace.data.workflow import TrainingPreparation; from pettrace.training.triplet import fit; from pettrace.tracking import publish_evaluation; assert 'site-packages' in pettrace.__file__"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: distributions
+          path: dist/pypi/
+          if-no-files-found: error
+
+  install:
+    needs: build
+    strategy:
+      matrix:
+        python: ["3.11", "3.12", "3.13"]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: distributions
+          path: dist
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.11.22"
+      - name: Install in a fresh environment
+        run: |
+          uv venv --python '${{ matrix.python }}'
+          uv pip install --python .venv/bin/python dist/*.whl
+          .venv/bin/python -I -c "from pettrace.data.lookup import lookup_duplicates, restore_lookup_review; from pettrace.data.workflow import TrainingPreparation; from pettrace.evaluation.core import evaluate; from pettrace.tracking import publish_evaluation"
+          .venv/bin/pettrace-evaluate --help
+          .venv/bin/pettrace-prepare-e3 --help
+
+  publish:
+    needs: [build, install]
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/pettrace-ml/
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: distributions
+          path: dist
+      - uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086 # release/v1
+        with:
+          packages-dir: dist/

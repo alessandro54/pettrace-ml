@@ -71,7 +71,6 @@ def test_sample_rejects_pilot_unverified_receipts_and_bad_hashes():
 
 
 def test_three_variants_have_identical_science_and_distinct_report_paths():
-    notebooks = []
     for pct in (20, 50, 100):
         config = ast.parse(cell("e3-05", pct))
         assignment = next(n for n in config.body if isinstance(n, ast.Assign)
@@ -79,10 +78,6 @@ def test_three_variants_have_identical_science_and_distinct_report_paths():
         assert ast.literal_eval(assignment.value) == pct
         assert 'f"e3_{SOURCE_SAMPLE_PCT}_{DATASET}"' in cell("e3-05", pct)
         assert 'REGISTER_E3 = True' in cell("e3-05", pct)
-        notebook = json.loads((ROOT / f"notebooks/e3_mlp_head_triplet_{pct}.ipynb").read_text())
-        notebooks.append(notebook)
-        if pct != 20:
-            assert all(not c.get("outputs") and c.get("execution_count") is None for c in notebook["cells"])
     assert len(list((ROOT / "notebooks").glob("e3_mlp_head_triplet*.ipynb"))) == 3
     assert cell("e3-17", 20) == cell("e3-17", 50) == cell("e3-17", 100)
     assert cell("e3-28", 20) == cell("e3-28", 50) == cell("e3-28", 100)

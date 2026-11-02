@@ -164,3 +164,48 @@ def test_prepared_only_restore_does_not_resolve_raw_paths(tmp_path, monkeypatch)
     assert resolved and all(name.startswith('prepared/') for name in resolved)
     assert not (tmp_path / 'new-data').exists()
     assert (tmp_path / 'new-prepared/manifest.csv').read_text() == 'refined'
+
+
+def test_exact_file_restore_uses_latest_copy_and_skips_other_packs(tmp_path):
+    root, drive = tmp_path / 'data', tmp_path / 'drive'
+    root.mkdir()
+    review = root / 'source-100-seed42/review.csv'
+    review.parent.mkdir()
+    review.write_text('old inventory')
+    (root / 'photo.jpg').write_bytes(b'photo')
+    backup = DriveBackup({'data': root}, drive, block_bytes=1)
+    backup(force=True)
+    review.write_text('complete inventory')
+    backup(force=True, paths=[review])
+    receipts = sorted(drive.glob('*.json'))
+    # Only the last pack is needed: neither raw photos nor the older CSV is read.
+    for path in receipts[:-1]:
+        path.with_suffix('.tar').write_bytes(b'unavailable old pack')
+    restored = tmp_path / 'restored'
+    fresh = DriveBackup({'data': restored}, drive)
+    member = 'data/source-100-seed42/review.csv'
+    fresh.restore(files={member})
+    assert (restored / 'source-100-seed42/review.csv').read_text() == 'complete inventory'
+    assert not (restored / 'photo.jpg').exists()
+    receipts[-1].with_suffix('.tar').write_bytes(b'corrupted requested pack')
+    fresh.restore(files={member})  # Verified local copy needs no TAR transfer.
+    (restored / 'source-100-seed42/review.csv').unlink()
+    with pytest.raises(ValueError, match='checksum'):
+        fresh.restore(files={member})
+
+
+def test_exact_file_restore_rejects_missing_volume_and_unsafe_path(tmp_path):
+    root = tmp_path / 'data'
+    root.mkdir()
+    (root / 'review.csv').write_text('other inventory')
+    drive = tmp_path / 'drive'
+    DriveBackup({'data': root}, drive)(force=True)
+    target = tmp_path / 'new-data'
+    fresh = DriveBackup({'data': target, 'prepared': tmp_path / 'prepared'}, drive)
+    with pytest.raises(FileNotFoundError, match='source-100'):
+        fresh.restore(files={'data/source-100-seed42/review.csv'})
+    assert not target.exists()
+    with pytest.raises(ValueError, match='Unsafe'):
+        fresh.restore(files={'data/../escape'})
+    with pytest.raises(ValueError, match='outside'):
+        fresh.restore(only={'prepared'}, files={'data/review.csv'})

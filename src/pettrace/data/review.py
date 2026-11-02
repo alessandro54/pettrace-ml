@@ -1,8 +1,10 @@
 """An explicit, resumable photo review for the E3 public identity pilot."""
 
+import base64
 import csv
 import html
 import io
+import json
 import os
 import tempfile
 from collections import Counter, defaultdict
@@ -32,6 +34,144 @@ def review_status(path):
     counts = Counter(row["decision"] for row in rows)
     return {"total": len(rows), "keep": counts["keep"], "drop": counts["drop"],
             "pending": sum(row["decision"] not in {"keep", "drop"} for row in rows)}
+
+
+def exclusion_summary(snapshot):
+    """Count recorded exclusions without decoding images or rerunning any filter."""
+    snapshot = Path(snapshot)
+    audit = json.loads((snapshot / "audit.json").read_text())
+    corrupt = {row["path"] for row in audit["corrupt"]}
+    groups, reasons = defaultdict(list), Counter()
+    with (snapshot / "excluded.csv").open(newline="") as stream:
+        for row in csv.DictReader(stream):
+            reasons[row["reason"]] += 1
+            # Older snapshots use insufficient_distinct_photos as a fallback for decode failures.
+            if row["reason"] == "insufficient_distinct_photos" and row["path"] not in corrupt:
+                groups[(row["species"], row["animal"])].append(row["path"])
+    histogram = {species: dict(sorted(Counter(len(photos) for (sp, _), photos in groups.items()
+                                             if sp == species).items())) for species in ("cat", "dog")}
+    minimum = audit["minimum_photos"]
+    if any(len(photos) >= minimum for photos in groups.values()):
+        raise ValueError("Exclusion counts contradict the recorded minimum")
+    recoverable = [photos for photos in groups.values() if 2 <= len(photos) < minimum]
+    return {"exclusion_reasons": dict(reasons), "minimum_photos": minimum,
+            "excluded_identities_by_distinct_photos": histogram,
+            "additional_identities_at_minimum_2": len(recoverable),
+            "additional_photos_at_minimum_2": sum(map(len, recoverable)),
+            "quarantined_identities": len(audit["conflicting_identities_quarantined"]),
+            "conflicting_hashes": len(audit["conflicting_hashes"]),
+            "note": "Counterfactual from recorded filters, not a new validated dataset or verified identity labels."}
+
+
+def quarantine_groups(snapshot):
+    """Group labels connected by exact shared images; these are review cases, not merges."""
+    conflicts = json.loads((Path(snapshot) / "audit.json").read_text())["conflicting_hashes"]
+    by_animal, labels = defaultdict(set), {}
+    for digest, rows in conflicts.items():
+        animals = {row["animal"] for row in rows}
+        if len(animals) < 2:
+            raise ValueError("A conflicting hash must involve at least two identity labels")
+        labels[digest] = animals
+        for animal in animals:
+            by_animal[animal].add(digest)
+    unseen, groups = set(by_animal), []
+    while unseen:
+        pending = [unseen.pop()]
+        animals, hashes = set(pending), set()
+        while pending:
+            animal = pending.pop()
+            for digest in by_animal[animal] - hashes:
+                hashes.add(digest)
+                neighbors = labels[digest] & unseen
+                unseen.difference_update(neighbors)
+                animals.update(neighbors)
+                pending.extend(neighbors)
+        groups.append({"animals": sorted(animals),
+                       "shared_hashes": {digest: sorted(labels[digest]) for digest in sorted(hashes)}})
+    return sorted(groups, key=lambda group: min(group["shared_hashes"]))
+
+
+def quarantine_gallery(snapshot, output, *, start=0, count=8):
+    """Export a bounded, offline HTML review batch; never approve or change a snapshot.
+
+    Requires the original source images at their recorded paths. Every photo of each
+    involved identity is shown once per hash, with all its labels and exclusions.
+    Connected labels form one case; indirect links do not establish animal identity.
+    """
+    snapshot, output = Path(snapshot).resolve(), Path(output).resolve()
+    if output.is_relative_to(snapshot):
+        raise ValueError("Write the review outside the immutable snapshot")
+    if output.suffix.lower() != ".html":
+        raise ValueError("Use an .html output file")
+    if start < 0 or count < 1 or count > 50:
+        raise ValueError("Use start >= 0 and 1–50 groups per batch")
+    cases = quarantine_groups(snapshot)
+    chosen = cases[start:start + count]
+    if not chosen:
+        raise ValueError("No conflicts in this batch")
+    animals = {animal for case in chosen for animal in case["animals"]}
+    groups = defaultdict(list)
+    with (snapshot / "review.csv").open(newline="") as stream:
+        for row in csv.DictReader(stream):
+            if row["animal"] in animals:
+                groups[row["animal"]].append(row)
+    reasons = {}
+    if (snapshot / "excluded.csv").is_file():
+        with (snapshot / "excluded.csv").open(newline="") as stream:
+            reasons = {row["path"]: row["reason"] for row in csv.DictReader(stream) if row["animal"] in animals}
+    content = ['<!doctype html><html lang="es"><meta charset="utf-8">',
+               '<title>PetTrace · Conflictos de identidad</title>',
+               '<style>body{font:16px system-ui;max-width:1200px;margin:32px auto;padding:0 16px}'
+               '.photos{display:flex;flex-wrap:wrap;gap:12px}figure{width:260px;margin:0 0 16px;overflow-wrap:anywhere}'
+               'img{max-width:260px;max-height:240px}figcaption{font-size:13px}.shared{outline:4px solid #d97706}'
+               'section{border-top:2px solid #aaa;margin-top:28px}code{overflow-wrap:anywhere}</style>',
+               '<h1>Revisión de conflictos de identidad</h1>',
+               f'<p>Inventario: <code>{html.escape(snapshot.name)}</code>. '
+               f'Grupos {start + 1}–{start + len(chosen)} de {len(cases)} (orden del primer SHA256 compartido).</p>',
+               '<p>El borde naranja indica la imagen exacta compartida por distintas etiquetas. '
+               'Cada imagen aparece una sola vez, con todas sus etiquetas. Las conexiones indirectas '
+               'no prueban que sea el mismo animal: puede haber fotos mal asignadas. '
+               'Todos los casos siguen pendientes; abrir este visor no aprueba nada.</p>']
+    for number, case in enumerate(chosen, start + 1):
+        photos_by_hash = defaultdict(list)
+        for animal in case["animals"]:
+            photos = groups[animal]
+            if not photos or not any(row["sha256"] in case["shared_hashes"] for row in photos):
+                raise ValueError("Conflict does not match the recorded review")
+            for row in photos:
+                photos_by_hash[row["sha256"]].append(row)
+        for digest, expected_animals in case["shared_hashes"].items():
+            if not set(expected_animals) <= {row["animal"] for row in photos_by_hash.get(digest, [])}:
+                raise ValueError("Conflict does not match the recorded review")
+        total = sum(map(len, photos_by_hash.values()))
+        content.append(f'<section><h2>Grupo {number} · pendiente</h2>'
+                       f'<p>{len(case["animals"])} etiquetas · {total} archivos · '
+                       f'{len(photos_by_hash)} imágenes distintas por SHA256.</p>'
+                       f'<p>Etiquetas: {html.escape(", ".join(case["animals"]))}</p><div class="photos">')
+        for digest, photos in sorted(photos_by_hash.items()):
+            for row in photos:
+                path = Path(row["path"])
+                if sha256(path) != digest:
+                    raise ValueError(f"Source photo changed: {path.name}")
+            try:
+                with Image.open(photos[0]["path"]) as image:
+                    thumb = ImageOps.contain(ImageOps.exif_transpose(image).convert("RGB"), (520, 480))
+                    stream = io.BytesIO()
+                    thumb.save(stream, format="JPEG", quality=80)
+                preview = '<img loading="lazy" alt="Foto para revisar" src="data:image/jpeg;base64,' + base64.b64encode(stream.getvalue()).decode() + '">'
+            except (OSError, ValueError, Image.DecompressionBombError):
+                preview = '<p>Imagen ilegible; requiere revisar el original.</p>'
+            shared = ' class="shared"' if digest in case["shared_hashes"] else ''
+            content.append(f'<figure{shared}>{preview}<figcaption><ul>')
+            for row in photos:
+                content.append(f'<li>{html.escape(row["animal"])} · {html.escape(Path(row["path"]).name)}'
+                               f' · {html.escape(reasons.get(row["path"], "sin exclusión registrada"))}</li>')
+            content.append(f'</ul>SHA256: {html.escape(digest)}</figcaption></figure>')
+        content.append('</div></section>')
+    content.append('<p>No se modificaron fotos, etiquetas ni decisiones. Las correcciones requieren una nueva versión.</p></html>')
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text('\n'.join(content))
+    return output
 
 
 class ReviewPending(ValueError):

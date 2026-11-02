@@ -1,4 +1,5 @@
 import csv
+import json
 
 import pytest
 from PIL import Image
@@ -99,3 +100,109 @@ def test_prompt_review_rejects_incomplete_answers_and_resumes_saved_progress(tmp
     answers = iter(["d k"])
     assert review_with_prompts(path) == {"total": 4, "keep": 2, "drop": 2, "pending": 0}
     assert [row["decision"] for row in read_rows(path)] == ["keep", "drop", "drop", "keep"]
+
+
+def test_exclusion_summary_distinguishes_singletons_and_corrupt_fallback(tmp_path):
+    from pettrace.data.review import exclusion_summary
+
+    rows = []
+    for animal, size in (("one", 1), ("two", 2), ("three", 3)):
+        rows.extend({"path": f"{animal}-{i}", "animal": animal, "species": "cat",
+                     "reason": "insufficient_distinct_photos"} for i in range(size))
+    rows.append({"path": "broken", "animal": "three", "species": "cat", "reason": "insufficient_distinct_photos"})
+    with (tmp_path / "excluded.csv").open("w", newline="") as stream:
+        writer = csv.DictWriter(stream, rows[0].keys())
+        writer.writeheader()
+        writer.writerows(rows)
+    (tmp_path / "audit.json").write_text(json.dumps({"minimum_photos": 4, "corrupt": [{"path": "broken"}],
+        "conflicting_hashes": {}, "conflicting_identities_quarantined": []}))
+    result = exclusion_summary(tmp_path)
+    assert result["excluded_identities_by_distinct_photos"] == {"cat": {1: 1, 2: 1, 3: 1}, "dog": {}}
+    assert result["additional_identities_at_minimum_2"] == 2
+    assert result["additional_photos_at_minimum_2"] == 5
+
+
+def test_quarantine_gallery_shows_conflict_context_without_changing_decisions(tmp_path):
+    from pettrace.data.review import quarantine_gallery
+
+    root = tmp_path / "snapshot"
+    root.mkdir()
+    rows, path = fixture_review(root)
+    digest = sha256(rows[0]["path"])
+    (root / "audit.json").write_text(json.dumps({"conflicting_hashes": {digest: rows}}))
+    with (root / "excluded.csv").open("w", newline="") as stream:
+        writer = csv.DictWriter(stream, ["path", "animal", "species", "reason"])
+        writer.writeheader()
+        writer.writerows({k: row[k] for k in ("path", "animal", "species")} | {"reason": "conflicting_identity"}
+                         for row in rows)
+    original = {p.name: p.read_bytes() for p in root.iterdir()}
+    output = quarantine_gallery(root, tmp_path / "review.html", count=1)
+    text = output.read_text()
+    assert "lcw:cat:1" in text and "lcw:cat:2" in text and "4 archivos" in text
+    assert text.count('class="shared"') == 1 and text.count("data:image/jpeg;base64,") == 1
+    assert all(row["path"].rsplit("/", 1)[-1] in text for row in rows)
+    assert "Todos los casos siguen pendientes" in text
+    assert {p.name: p.read_bytes() for p in root.iterdir()} == original
+    with pytest.raises(ValueError, match="immutable"):
+        quarantine_gallery(root, root / "review.html")
+    with pytest.raises(ValueError, match="No conflicts"):
+        quarantine_gallery(root, tmp_path / "empty.html", start=1)
+    Image.new("RGB", (20, 30), "red").save(rows[0]["path"])
+    with pytest.raises(ValueError, match="Source photo changed"):
+        quarantine_gallery(root, tmp_path / "changed.html")
+
+
+def test_quarantine_groups_connect_indirect_labels_once_and_stably(tmp_path):
+    from pettrace.data.review import quarantine_groups
+
+    conflicts = {"h1": [{"animal": a} for a in ("a", "b", "a")],
+                 "h2": [{"animal": a} for a in ("b", "c")],
+                 "h3": [{"animal": a} for a in ("c", "a")],
+                 "h4": [{"animal": a} for a in ("d", "e")]}
+    audit = tmp_path / "audit.json"
+    audit.write_text(json.dumps({"conflicting_hashes": conflicts}))
+    expected = [{"animals": ["a", "b", "c"],
+                 "shared_hashes": {"h1": ["a", "b"], "h2": ["b", "c"], "h3": ["a", "c"]}},
+                {"animals": ["d", "e"], "shared_hashes": {"h4": ["d", "e"]}}]
+    before = audit.read_bytes()
+    assert quarantine_groups(tmp_path) == expected
+    assert audit.read_bytes() == before
+    audit.write_text(json.dumps({"conflicting_hashes": {k: list(reversed(v))
+                                                       for k, v in reversed(list(conflicts.items()))}}))
+    assert quarantine_groups(tmp_path) == expected
+    audit.write_text(json.dumps({"conflicting_hashes": {}}))
+    assert quarantine_groups(tmp_path) == []
+    audit.write_text(json.dumps({"conflicting_hashes": {"h1": [{"animal": "a"}]}}))
+    with pytest.raises(ValueError, match="two identity labels"):
+        quarantine_groups(tmp_path)
+
+
+def test_quarantine_gallery_shows_indirect_group_context_and_checks_each_link(tmp_path):
+    from pettrace.data.review import quarantine_gallery
+
+    root = tmp_path / "snapshot"
+    root.mkdir()
+    rows = []
+    for animal, color in (("a", "red"), ("b", "red"), ("b", "blue"), ("c", "blue"), ("c", "green")):
+        path = root / f"{animal}-{color}.jpg"
+        Image.new("RGB", (20, 30), color).save(path)
+        rows.append({"path": str(path), "animal": animal, "species": "cat", "source": "lcw"})
+    review = write_review(rows, root / "review.csv")
+    red, blue = sha256(rows[0]["path"]), sha256(rows[2]["path"])
+    (root / "audit.json").write_text(json.dumps({"conflicting_hashes": {
+        red: rows[:2], blue: rows[2:4]}}))
+    (root / "excluded.csv").write_text("path,animal,reason\n")
+    output = quarantine_gallery(root, tmp_path / "review.html", count=1)
+    text = output.read_text()
+    assert "Grupos 1–1 de 1" in text and "3 etiquetas · 5 archivos · 3 imágenes" in text
+    assert text.count("data:image/jpeg;base64,") == 3
+    assert text.count('class="shared"') == 2
+    assert "c-green.jpg" in text and "conexiones indirectas" in text
+    # C still has the blue shared hash; missing B's blue copy must also be rejected.
+    recorded = read_rows(review)
+    with review.open("w", newline="") as stream:
+        writer = csv.DictWriter(stream, recorded[0].keys())
+        writer.writeheader()
+        writer.writerows(r for r in recorded if r["path"] != rows[2]["path"])
+    with pytest.raises(ValueError, match="does not match"):
+        quarantine_gallery(root, tmp_path / "incomplete.html")

@@ -23,10 +23,94 @@ y el mismo algoritmo de limpieza. Aplica:
 
 El modo exploratorio no exige aprobar cada imagen. Las etiquetas del publicador siguen sin verificación visual individual; el reporte conserva esa limitación y los posibles errores de YOLO.
 
+## Revisar exclusiones y cuarentena
+
+El paquete permite contar las identidades descartadas por tener 1, 2 o 3 fotos distintas,
+y exportar lotes HTML para revisión visual sin ejecutar YOLO ni modificar el dataset:
+
+```python
+from pettrace.data.review import exclusion_summary, quarantine_groups, quarantine_gallery
+
+# Ruta del snapshot terminado, no la carpeta de la preparación que sigue ejecutándose.
+snapshot = "/content/datasets/build/pettrace-training/<fingerprint>"
+print(exclusion_summary(snapshot))
+groups = quarantine_groups(snapshot)  # Solo audit.json; propuestas para revisar, no fusiones.
+quarantine_gallery(snapshot, "/content/reports/cuarentena-001.html", start=0, count=8)
+```
+
+`exclusion_summary` solo necesita `audit.json` y `excluded.csv`. La recuperación con mínimo
+dos es un conteo hipotético con los demás filtros conservados, no una aprobación de las etiquetas.
+`quarantine_gallery` requiere además `review.csv` y las imágenes originales en sus rutas registradas;
+las fotos excluidas no forman parte de `images/` del snapshot refinado. Verifica sus hashes antes
+de mostrar miniaturas. Cada caso reúne las etiquetas conectadas directa o indirectamente por
+imágenes exactas. Cada imagen aparece una sola vez, con todas sus etiquetas, archivos y motivos
+previos de exclusión. El borde naranja señala las imágenes compartidas entre etiquetas.
+Usa `start=8`, `start=16`, etc. para los lotes siguientes (orden del primer SHA256 compartido).
+`quarantine_groups` devuelve los mismos grupos y el mapa hash → etiquetas, sin cargar fotos.
+Una conexión indirecta puede venir de una etiqueta mezclada: agrupar casos no aprueba fusionarlos.
+
+Descarga el HTML y ábrelo en el navegador: funciona sin widgets, conexión ni GPU. Todos los
+casos siguen pendientes; el visor no guarda decisiones ni reincorpora imágenes. Anota el SHA256
+compartido, identidad y archivo al decidir si es el mismo animal, una asignación incorrecta o un
+caso incierto. Corregir etiquetas o reducir el mínimo requiere una versión nueva del dataset.
+Estas funciones están en el código actual del paquete; no actualices el wheel de una preparación activa.
+
+## Data lookup sin YOLO
+
+[`data_lookup.ipynb`](data_lookup.ipynb) corre en **Colab CPU** y monta `MyDrive/PetTrace`.
+Elige `SOURCE_SAMPLE_PCT = 20`, `50` o `100`. Recupera el `review.csv` raw de ese volumen
+desde `checkpoints/preparation`, con los hashes calculados antes de YOLO. Este inventario
+cubre candidatos con etiquetas identificables; no incluye necesariamente cada foto del ZIP.
+
+Solo lee los recibos y copia el bloque TAR que contiene la última versión confirmada del CSV.
+Verifica el hash del bloque y del CSV, y extrae únicamente ese archivo en una carpeta separada
+bajo `/content/data-lookup/restored`. No restaura imágenes, ZIP, modelos ni la caché completa.
+Si el CSV local ya coincide con el respaldo, no vuelve a transferir el bloque. Si falta el
+respaldo del porcentaje solicitado, se detiene sin cambiar de volumen ni ejecutar preparación.
+
+Los métodos viven en el paquete:
+
+```python
+from pettrace.data.lookup import lookup_duplicates, restore_lookup_review
+
+review = restore_lookup_review("/content/drive/MyDrive/PetTrace", "/content", percent=100)
+report = lookup_duplicates(review, "/content/drive/MyDrive/PetTrace/data-lookup")
+```
+
+Para analizar un CSV ya descargado en tu Mac, llama directamente a `lookup_duplicates`.
+El checkout se instala con `python -m pip install -e '.[notebooks]'` desde la raíz.
+En Colab usa el wheel actualizado en una **sesión CPU nueva**; no reinstales el paquete
+en el kernel que siga preparando o entrenando datos.
+
+La compilación local disponible es `0.2.5.dev3+lookup.378c7acc`, con wheel, `SHA256SUMS`
+y `BUILD.json` en `dist/v0.2.5.dev3+lookup.378c7acc/`. No está publicada en GitHub.
+Sube el wheel y `SHA256SUMS` a `/content`; verifica e instala desde la terminal de Colab:
+
+```bash
+cd /content
+sha256sum -c SHA256SUMS
+python -m pip install './pettrace_ml-0.2.5.dev3+lookup.378c7acc-py3-none-any.whl[notebooks]'
+```
+
+Después abre `datasets/data_lookup.ipynb`, autoriza el montaje de Drive y ejecuta sus tres fases.
+El wheel anterior `0.2.5.dev3+lookup.4d09aec0` solo analiza CSV; no incluye la recuperación selectiva.
+
+El notebook exporta un representante por SHA256 en `unique-images.csv`, todas sus etiquetas,
+las copias sobrantes en `duplicate-copies.csv`, el inventario original y los conflictos para
+revisión. Los gráficos distinguen archivos, hashes únicos y fotos distintas por etiqueta.
+No aplica decisiones manuales previas, YOLO, mínimo de fotos ni splits; no fusiona etiquetas
+ni borra imágenes. Es un inventario depurado, **no una versión entrenable**.
+
+Los reportes persisten en `MyDrive/PetTrace/data-lookup`, en carpetas identificadas por hash
+con recibo `lookup.json`. Otro runtime recupera el CSV y verifica/reutiliza el mismo reporte.
+La revisión visual opcional necesita fotos en las rutas registradas; en una sesión nueva
+sin fotos se omite. El conteo confía en los hashes registrados, no vuelve a leer las imágenes.
+
 ## Organización
 
 ```text
 datasets/
+  data_lookup.ipynb            # Inventario raw, duplicados exactos y conflictos; CPU, sin YOLO
   prepare_training.ipynb       # Pipeline incremental; valida CUDA antes del lote
   public/e3-body/              # Fuentes y cachés existentes, fuera de Git
   build/pettrace-training/
