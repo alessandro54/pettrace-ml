@@ -10,21 +10,25 @@ Notebooks describe and run the experiments.
 Python 3.11–3.13 is supported. Install a published version in your Python environment:
 
 ```bash
-python -m pip install 'pettrace-ml[notebooks]==0.2.6'
+python -m pip install pettrace-ml==0.2.7
 ```
 
-Use `pettrace-ml` for the base package, `[notebooks]` for plots and interactive review,
-or `[notebooks,training]` to also install PyTorch, ONNX export and pandas.
-For local development, install the checkout with `python -m pip install -e '.[notebooks]'`.
+The default install includes plots. Colab already supplies IPython and widgets; the
+`[notebooks]` extra adds them for standalone Jupyter environments. Use `[training]`
+to also install PyTorch, ONNX export and pandas. For development, use `pip install -e .`.
 
-Colab is the primary notebook target. For data lookup, use the installation cell in
-`datasets/data_lookup.ipynb`: it installs the committed
-[Colab profile](https://github.com/alessandro54/pettrace-ml/blob/main/requirements/data-lookup-colab.txt)
-with exact versions and hashes, including PetTrace 0.2.6. It also passes the installed
-`google-colab` version to pip so incompatible host requirements fail resolution before installation.
-The reference is Linux x86_64 / Python 3.13.18 with the runtime requirements reported on 2026-11-02.
-CI installs this same profile, exercises lookup and starts a Jupyter kernel before publishing.
-The hosted Colab frontend and Drive authorization still require validation in Colab itself.
+Colab is the primary notebook target. The first cell of `datasets/data_lookup.ipynb` is:
+
+```python
+%pip install -q "pettrace-ml==0.2.7"
+```
+
+Use a fresh Colab CPU runtime. CI tests this ordinary installation against the reported
+Linux x86_64 / Python 3.13.18 environment and rejects changes to its existing dependencies.
+The hash-checked `requirements/data-lookup-colab.txt` profile reconstructs that CI baseline;
+it is not installed over Colab. It records the supplied runtime constraints, not Google's
+entire VM image. The hosted frontend and authenticated Drive mount need validation in Colab.
+A plain pip install resolves compatible dependencies; it does not apply a full environment lock.
 
 Model weights and datasets are separate artifacts and are not included in the package.
 Data lookup uses CPU. GPU screening requires the separately validated E3 environment;

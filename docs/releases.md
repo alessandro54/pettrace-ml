@@ -1,5 +1,18 @@
 # Package releases
 
+## 0.2.7 — direct package installation
+
+`pip install pettrace-ml==0.2.7` includes plotting dependencies. Colab's existing IPython and
+widgets are reused; the `[notebooks]` extra remains available for standalone Jupyter.
+Data lookup now has a one-line installation cell. No installer, Colab-specific extra or
+kernel replacement is needed.
+
+CI performs a normal package installation against the recorded Colab environment and rejects
+changes to its dependencies. The reference profile also incorporates the additional host
+constraints reported by pip (including dateutil, decorator, protobuf and fsspec). That profile
+is for CI, not for replacing Colab's preinstalled libraries. Existing notebook outputs and
+frozen experiment versions are preserved. No research result changes.
+
 ## 0.2.6 — Colab dependency compatibility
 
 The notebook extra now accepts Colab's IPython 7.34 requirement and no longer depends on pip.
@@ -41,18 +54,18 @@ To install the package, use a fresh virtual environment:
 
 ```bash
 python3 -m venv .venv
-.venv/bin/python -m pip install 'pettrace-ml[notebooks]==0.2.6'
+.venv/bin/python -m pip install pettrace-ml==0.2.7
 ```
 
 The matching wheel and source distribution are also available in the
-[GitHub release](https://github.com/alessandro54/pettrace-ml/releases/tag/v0.2.6).
+[GitHub release](https://github.com/alessandro54/pettrace-ml/releases/tag/v0.2.7).
 
 This resolves dependencies within the package's declared ranges. Installing a wheel does **not**
 apply `uv.lock`. For the locked development/training environment, use uv **0.11.22** and the
 matching repository tag:
 
 ```bash
-git clone --branch v0.2.6 --depth 1 https://github.com/alessandro54/pettrace-ml.git
+git clone --branch v0.2.7 --depth 1 https://github.com/alessandro54/pettrace-ml.git
 cd pettrace-ml
 uv python install 3.11.15
 uv sync --locked --python 3.11.15 --group dev --group notebooks --extra notebooks --extra training
@@ -66,24 +79,28 @@ directory, then run `sha256sum --check SHA256SUMS` (macOS: `shasum -a 256 -c SHA
 
 ## Colab and Jupyter
 
-Data lookup uses `requirements/data-lookup-colab.txt`, a committed hash-checked lock for
-Linux x86_64 / Python 3.13.18. Its `.in` file records the user's reported `google-colab` requirements
-and numerical-package versions. The lock includes PetTrace 0.2.6 and all resolved dependencies;
-`google-colab` itself remains supplied by the hosted runtime.
+Data lookup installs directly from PyPI:
 
-The shared `.github/workflows/colab.yml` installs this profile in CI and before publication,
-checks dependency consistency, exercises data lookup and starts a Jupyter kernel. It also
-replaces only PetTrace with the candidate wheel and requires its notebook extra to resolve
-without changing any dependency. This validates the reported Python requirements, not the
-hosted Google frontend or an authenticated Drive mount. CI never regenerates the profile.
-Update the `.in` inputs and regenerate/review the lock explicitly when the Colab target changes:
+```python
+%pip install -q "pettrace-ml==0.2.7"
+```
+
+`requirements/data-lookup-colab.txt` is a committed hash-checked CI baseline for Linux x86_64 /
+Python 3.13.18. Its `.in` file records the reported `google-colab` requirements, numerical
+versions and other host constraints observed in pip's output. The last published PetTrace
+version supplies its dependency closure; CI removes it and installs the candidate wheel
+normally, with dependency resolution enabled. Only PetTrace may change. `pip check`, data
+lookup tests and a Jupyter kernel startup must then pass before publication.
+
+This validates the recorded dependencies, not the full hosted Google image or authenticated
+Drive mount. Do not install the reference lock over Colab. The notebook reuses compatible
+preinstalled packages; a plain pip install is not a full environment lock.
+CI never regenerates the reference profile. Update its `.in` inputs and regenerate/review it
+explicitly when the reference runtime or published baseline changes:
 
 ```bash
 uv pip compile requirements/data-lookup-colab.in --python-version 3.13.18 --python-platform x86_64-unknown-linux-gnu --generate-hashes --output-file requirements/data-lookup-colab.txt --no-annotate
 ```
-
-The notebook must reference the profile by immutable Git commit, not `main`. The package's
-general dependency ranges remain available for other environments; they are not this lock.
 
 E1 and E2 install the v0.2.2 wheel with the immutable `requirements/e1-runtime.txt` profile in Python 3.11–3.13.
 This profile excludes notebook infrastructure supplied by Colab. Restart only if setup detects
@@ -137,7 +154,7 @@ uv run --no-sync ruff check .
 uv run --no-sync python tools/build_release.py
 ```
 
-The builder creates `dist/v0.2.6/` with the wheel, source distribution and `SHA256SUMS`.
+The builder creates `dist/v0.2.7/` with the wheel, source distribution and `SHA256SUMS`.
 It refuses to replace an existing release directory. The package embeds its version,
 source commit, lockfile hash, reference Python and build-tool version in `pettrace/_build.json`;
 `source_identity()` hashes every Python module, including nested packages.
@@ -168,7 +185,7 @@ No PyPI API token or password belongs in this repository or in Colab.
 ### Release workflow
 
 `.github/workflows/publish.yml` runs when a GitHub Release is published. Its tag must match
-`pyproject.toml`, for example `v0.2.6`; local `+lookup` build versions cannot be published.
+`pyproject.toml`, for example `v0.2.7`; local `+lookup` build versions cannot be published.
 The workflow runs the locked tests and lint, builds wheel/sdist with commit provenance,
 checks the installed wheel, and checks fresh installations on Linux Python 3.11, 3.12 and 3.13.
 Only those two distribution files are handed to the separate `pypi` environment job.

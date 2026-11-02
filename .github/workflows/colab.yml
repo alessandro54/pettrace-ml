@@ -36,15 +36,13 @@ jobs:
           python -m venv .colab-venv
           .colab-venv/bin/python -m pip install --require-hashes -r requirements/data-lookup-colab.txt
           .colab-venv/bin/python -m pip check
-      - name: Verify the candidate wheel in the same environment
+      - name: Install the package normally without changing host dependencies
         run: |
-          .colab-venv/bin/python -m pip install --force-reinstall --no-deps dist/*.whl
+          .colab-venv/bin/python -m pip uninstall -y pettrace-ml
+          .colab-venv/bin/python -m pip install --report .colab-install.json dist/*.whl
+          .colab-venv/bin/python -c "import json; assert [p['metadata']['name'] for p in json.load(open('.colab-install.json'))['install']] == ['pettrace-ml'], 'Installation changes the reported Colab dependencies'"
           .colab-venv/bin/python -m pip check
           .colab-venv/bin/python -I -c "import sys, pettrace; assert sys.version_info[:3] == (3, 13, 18); assert 'site-packages' in pettrace.__file__"
-          for wheel in dist/*.whl; do
-            .colab-venv/bin/python -m pip install --dry-run --report .colab-install.json "$wheel[notebooks]"
-          done
-          .colab-venv/bin/python -c "import json; assert not json.load(open('.colab-install.json'))['install'], 'Candidate requires changes to the locked Colab profile'"
       - name: Exercise lookup and kernel startup
         run: |
           .colab-venv/bin/python -m pip install 'pytest==8.3.4'

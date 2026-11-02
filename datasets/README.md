@@ -77,27 +77,20 @@ review = restore_lookup_review("/content/drive/MyDrive/PetTrace", "/content", pe
 report = lookup_duplicates(review, "/content/drive/MyDrive/PetTrace/data-lookup")
 ```
 
-La primera celda de `data_lookup.ipynb` instala
-[PetTrace 0.2.6 desde PyPI](https://pypi.org/project/pettrace-ml/0.2.6/) antes de los imports,
-con el perfil completo fijado por versiones y hashes en un commit inmutable.
-CI verifica ese perfil, los métodos de lookup y el arranque del kernel antes de publicar.
-Ejecuta el notebook en una **sesión Colab CPU nueva con Python 3.13.18**:
+La primera celda instala el paquete directamente desde PyPI, incluidos los gráficos:
 
 ```python
-import sys
-from importlib.metadata import version
-
-if sys.version_info[:3] != (3, 13, 18):
-    raise RuntimeError("Este perfil está validado para Colab con Python 3.13.18.")
-COLAB_VERSION = version("google-colab")
-%pip install -q --require-hashes -r "https://raw.githubusercontent.com/alessandro54/pettrace-ml/f9a582e70986dc6909c1a77bc8abd3aee82a83fe/requirements/data-lookup-colab.txt" "google-colab=={COLAB_VERSION}"
+%pip install -q "pettrace-ml==0.2.7"
 ```
 
-La versión instalada de `google-colab` participa en la resolución: si sus requisitos cambian
-y chocan con el perfil, pip se detiene. El montaje autenticado de Drive se valida en Colab.
+Usa una **sesión Colab CPU nueva**. Colab ya proporciona IPython y los widgets; no hace falta
+un extra ni instalar un archivo de dependencias. La CI prueba esta instalación normal con
+el entorno reportado de Python 3.13.18 y exige que no cambie sus dependencias existentes.
+El perfil con hashes permanece en `requirements/data-lookup-colab.txt` para reproducir esa
+prueba; no se instala encima del runtime de Colab. No representa toda la imagen de Google.
 
-En tu Mac instala `python -m pip install 'pettrace-ml[notebooks]==0.2.6'` y llama a
-`lookup_duplicates` para analizar un CSV descargado.
+En tu Mac, `python -m pip install pettrace-ml==0.2.7` instala los métodos y los gráficos.
+Para un Jupyter propio, el extra `[notebooks]` añade IPython y widgets.
 Después autoriza el montaje de Drive y continúa con las tres fases del notebook.
 No reinstales el paquete en un kernel que siga preparando o entrenando datos.
 
