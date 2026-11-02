@@ -10,7 +10,7 @@ Notebooks describe and run the experiments.
 Python 3.11–3.13 is supported. Install a published version in your Python environment:
 
 ```bash
-python -m pip install pettrace-ml==0.2.10
+python -m pip install pettrace-ml==0.2.11
 ```
 
 The default install includes plots. Colab already supplies IPython and widgets; the
@@ -20,7 +20,7 @@ to also install PyTorch, ONNX export and pandas. For development, use `pip insta
 Colab is the primary notebook target. The first cell of `datasets/data_lookup.ipynb` is:
 
 ```python
-%pip install -q "pettrace-ml==0.2.10"
+%pip install -q "pettrace-ml==0.2.11"
 ```
 
 Use a fresh Colab CPU runtime. CI tests this ordinary installation against the reported

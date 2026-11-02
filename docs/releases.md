@@ -1,5 +1,12 @@
 # Package releases
 
+## 0.2.11 — restore original LCW image folders
+
+Near-copy lookup now accepts the original LCW `CatFullDataset/<individual-ID>/<image>`
+layout in Drive backups. Version 0.2.10 incorrectly required the flat `images/` layout
+used by Dogs of the World and stopped before restoring LCW originals. Source-root and
+identity-folder validation remain enforced; image comparison criteria are unchanged.
+
 ## 0.2.10 — review groups for resized and recompressed copies
 
 Data lookup can compare all unique recorded images before the photo-count minimum, using

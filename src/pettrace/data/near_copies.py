@@ -112,7 +112,11 @@ def find_near_copies(by_hash, cache_dir, *, drive_root=None, source_root="/conte
         for row in missing.values():
             path = Path(row["path"]).resolve()
             relative = path.relative_to(source_root)
-            if relative.parts[:3] != ("source-cache", row["source"], "images") or len(relative.parts) != 4:
+            parts = relative.parts
+            flat = len(parts) == 4 and parts[2] == "images"
+            lcw = (row["source"] == "lcw" and len(parts) == 5
+                   and parts[2] == "CatFullDataset" and parts[3].isdigit())
+            if parts[:2] != ("source-cache", row["source"]) or not (flat or lcw):
                 raise ValueError("Source photo is outside the expected preparation cache")
             if not path.is_file():
                 members.add(f"data/{relative.as_posix()}")

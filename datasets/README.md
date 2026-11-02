@@ -100,7 +100,7 @@ report = lookup_duplicates(review, "/content/drive/MyDrive/PetTrace/data-lookup"
 La primera celda instala el paquete directamente desde PyPI, incluidos los gráficos:
 
 ```python
-%pip install -q "pettrace-ml==0.2.10"
+%pip install -q "pettrace-ml==0.2.11"
 ```
 
 Usa una **sesión Colab CPU nueva**. Colab ya proporciona IPython y los widgets; no hace falta
@@ -109,7 +109,7 @@ el entorno reportado de Python 3.13.18 y exige que no cambie sus dependencias ex
 El perfil con hashes permanece en `requirements/data-lookup-colab.txt` para reproducir esa
 prueba; no se instala encima del runtime de Colab. No representa toda la imagen de Google.
 
-En tu Mac, `python -m pip install pettrace-ml==0.2.10` instala los métodos y los gráficos.
+En tu Mac, `python -m pip install pettrace-ml==0.2.11` instala los métodos y los gráficos.
 Para un Jupyter propio, el extra `[notebooks]` añade IPython y widgets.
 Después autoriza el montaje de Drive y continúa con las tres fases del notebook.
 No reinstales el paquete en un kernel que siga preparando o entrenando datos.

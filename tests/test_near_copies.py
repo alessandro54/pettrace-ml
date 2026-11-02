@@ -89,13 +89,16 @@ def test_banded_search_matches_bruteforce_and_shared_representation(tmp_path):
     assert actual == expected
 
 
-def test_drive_restores_uncached_representatives_and_survives_new_kernel(tmp_path):
+@pytest.mark.parametrize("source, layout", [
+    ("dogs-world", "images"), ("lcw", "images"), ("lcw", "CatFullDataset/123"),
+])
+def test_drive_restores_uncached_representatives_and_survives_new_kernel(tmp_path, source, layout):
     from pettrace.data.checkpoints import DriveBackup
     data = tmp_path / "data"
-    folder = data / "source-cache/lcw/images"
+    folder = data / "source-cache" / source / layout
     folder.mkdir(parents=True)
     paths = images(folder)
-    rows = {sha256(p): [{"path": str(p), "source": "lcw"}] for p in paths}
+    rows = {sha256(p): [{"path": str(p), "source": source}] for p in paths}
     drive = tmp_path / "drive"
     prepared = tmp_path / "prepared"
     prepared.mkdir()
@@ -110,6 +113,16 @@ def test_drive_restores_uncached_representatives_and_survives_new_kernel(tmp_pat
     second = find_near_copies(rows, tmp_path / "new-cache", drive_root=drive, source_root=data)
     assert first == second and not any(p.exists() for p in paths)
     assert list((drive / "checkpoints/lookup-near").rglob("*.tar"))
+
+
+@pytest.mark.parametrize("relative", ["source-cache/lcw/CatFullDataset/not-an-id/a.jpg",
+    "source-cache/dogs-world/images/a.jpg", "source-cache/lcw/metadata/a.jpg", "../outside.jpg"])
+def test_drive_rejects_paths_outside_source_image_layout(tmp_path, relative):
+    data, drive = tmp_path / "data", tmp_path / "drive"
+    drive.mkdir()
+    rows = {"a" * 64: [{"path": str(data / relative), "source": "lcw"}]}
+    with pytest.raises(ValueError):
+        find_near_copies(rows, tmp_path / "cache", drive_root=drive, source_root=data)
 
 
 def test_gallery_can_verify_one_original_without_requiring_exact_copies(tmp_path):
