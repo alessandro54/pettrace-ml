@@ -17,9 +17,14 @@ Use `pettrace-ml` for the base package, `[notebooks]` for plots and interactive 
 or `[notebooks,training]` to also install PyTorch, ONNX export and pandas.
 For local development, install the checkout with `python -m pip install -e '.[notebooks]'`.
 
-In Colab, use the installation cell in `datasets/data_lookup.ipynb`: it also passes the
-installed `google-colab` version to pip so Colab's dependency pins participate in resolution.
-The notebook extra accepts IPython 7.34–9 and does not require upgrading pip.
+Colab is the primary notebook target. For data lookup, use the installation cell in
+`datasets/data_lookup.ipynb`: it installs the committed
+[Colab profile](https://github.com/alessandro54/pettrace-ml/blob/main/requirements/data-lookup-colab.txt)
+with exact versions and hashes, including PetTrace 0.2.6. It also passes the installed
+`google-colab` version to pip so incompatible host requirements fail resolution before installation.
+The reference is Linux x86_64 / Python 3.13.18 with the runtime requirements reported on 2026-11-02.
+CI installs this same profile, exercises lookup and starts a Jupyter kernel before publishing.
+The hosted Colab frontend and Drive authorization still require validation in Colab itself.
 
 Model weights and datasets are separate artifacts and are not included in the package.
 Data lookup uses CPU. GPU screening requires the separately validated E3 environment;

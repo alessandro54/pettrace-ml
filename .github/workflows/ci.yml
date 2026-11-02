@@ -1,6 +1,8 @@
 name: ci
 on: [push, pull_request]
 jobs:
+  colab:
+    uses: ./.github/workflows/colab.yml
   test:
     runs-on: ubuntu-latest
     steps:

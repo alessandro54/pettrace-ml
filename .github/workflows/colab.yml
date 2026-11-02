@@ -1,0 +1,51 @@
+name: Colab runtime
+
+on:
+  workflow_call:
+    inputs:
+      artifact-name:
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  data-lookup:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name || github.sha }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13.18"
+          architecture: x64
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.11.22"
+      - if: inputs.artifact-name == ''
+        run: uv build --out-dir dist
+      - if: inputs.artifact-name != ''
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ inputs.artifact-name }}
+          path: dist
+      - name: Install the locked Colab profile
+        run: |
+          python -m venv .colab-venv
+          .colab-venv/bin/python -m pip install --require-hashes -r requirements/data-lookup-colab.txt
+          .colab-venv/bin/python -m pip check
+      - name: Verify the candidate wheel in the same environment
+        run: |
+          .colab-venv/bin/python -m pip install --force-reinstall --no-deps dist/*.whl
+          .colab-venv/bin/python -m pip check
+          .colab-venv/bin/python -I -c "import sys, pettrace; assert sys.version_info[:3] == (3, 13, 18); assert 'site-packages' in pettrace.__file__"
+          for wheel in dist/*.whl; do
+            .colab-venv/bin/python -m pip install --dry-run --report .colab-install.json "$wheel[notebooks]"
+          done
+          .colab-venv/bin/python -c "import json; assert not json.load(open('.colab-install.json'))['install'], 'Candidate requires changes to the locked Colab profile'"
+      - name: Exercise lookup and kernel startup
+        run: |
+          .colab-venv/bin/python -m pip install 'pytest==8.3.4'
+          .colab-venv/bin/python -m pytest -q tests/test_data_lookup.py tests/test_e1_runner.py::test_kernel_uses_selected_python_and_retains_failure_evidence

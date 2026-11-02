@@ -67,16 +67,15 @@ jobs:
           .venv/bin/python -I -c "from pettrace.data.lookup import lookup_duplicates, restore_lookup_review; from pettrace.data.workflow import TrainingPreparation; from pettrace.evaluation.core import evaluate; from pettrace.tracking import publish_evaluation"
           .venv/bin/pettrace-evaluate --help
           .venv/bin/pettrace-prepare-e3 --help
-      - name: Check notebook extra with Colab IPython constraint
-        run: |
-          uv pip install --python .venv/bin/python pip
-          for wheel in dist/*.whl; do
-            .venv/bin/python -m pip install "$wheel[notebooks]" "ipython==7.34.0"
-          done
-          .venv/bin/python -I -c "from IPython.display import display, Markdown; from importlib.metadata import version; from pettrace.data.lookup import lookup_duplicates; assert version('ipython') == '7.34.0'"
+
+  colab:
+    needs: build
+    uses: ./.github/workflows/colab.yml
+    with:
+      artifact-name: distributions
 
   publish:
-    needs: [build, install]
+    needs: [build, install, colab]
     runs-on: ubuntu-latest
     environment:
       name: pypi

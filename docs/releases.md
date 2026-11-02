@@ -66,6 +66,25 @@ directory, then run `sha256sum --check SHA256SUMS` (macOS: `shasum -a 256 -c SHA
 
 ## Colab and Jupyter
 
+Data lookup uses `requirements/data-lookup-colab.txt`, a committed hash-checked lock for
+Linux x86_64 / Python 3.13.18. Its `.in` file records the user's reported `google-colab` requirements
+and numerical-package versions. The lock includes PetTrace 0.2.6 and all resolved dependencies;
+`google-colab` itself remains supplied by the hosted runtime.
+
+The shared `.github/workflows/colab.yml` installs this profile in CI and before publication,
+checks dependency consistency, exercises data lookup and starts a Jupyter kernel. It also
+replaces only PetTrace with the candidate wheel and requires its notebook extra to resolve
+without changing any dependency. This validates the reported Python requirements, not the
+hosted Google frontend or an authenticated Drive mount. CI never regenerates the profile.
+Update the `.in` inputs and regenerate/review the lock explicitly when the Colab target changes:
+
+```bash
+uv pip compile requirements/data-lookup-colab.in --python-version 3.13.18 --python-platform x86_64-unknown-linux-gnu --generate-hashes --output-file requirements/data-lookup-colab.txt --no-annotate
+```
+
+The notebook must reference the profile by immutable Git commit, not `main`. The package's
+general dependency ranges remain available for other environments; they are not this lock.
+
 E1 and E2 install the v0.2.2 wheel with the immutable `requirements/e1-runtime.txt` profile in Python 3.11–3.13.
 This profile excludes notebook infrastructure supplied by Colab. Restart only if setup detects
 changed loaded packages, then continue from verification; research cells display results directly
