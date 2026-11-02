@@ -92,3 +92,26 @@ def test_publish_cannot_trigger_preparation(job, monkeypatch):
 def test_bad_configuration_fails_before_work(tmp_path, kwargs):
     with pytest.raises(ValueError):
         workflow.TrainingPreparation(drive_root=tmp_path, work_dir=tmp_path / 'work', **kwargs)
+
+
+def test_indexed_workflow_requires_new_version_and_rejects_mismatched_restoration(tmp_path, monkeypatch):
+    for version in (None, 'v2.100'):
+        with pytest.raises(ValueError, match='new version'):
+            workflow.TrainingPreparation(drive_root=tmp_path, work_dir=tmp_path / 'work',
+                                         candidate_index=tmp_path / 'index', version=version)
+    index = tmp_path / 'index'
+    index.mkdir()
+    (index / 'lookup.json').write_text('indexed inputs')
+    job = workflow.TrainingPreparation(drive_root=tmp_path, work_dir=tmp_path / 'work',
+                                       candidate_index=index, version='v3.100', source_percent=100)
+    job.version_path.parent.mkdir(parents=True)
+    job.version_path.write_text('named receipt')
+    root = tmp_path / 'snapshot'
+    root.mkdir()
+    (root / 'prepared.json').write_text(json.dumps({'inputs': {'candidate_index_sha256': 'different'}}))
+    ready = SimpleNamespace(root=root, summary={'processing': {s: {'requested_pct': 100} for s in ('dogs-world', 'lcw')}})
+    monkeypatch.setattr(workflow, 'load_local_training', lambda _: (ready, {}))
+    with pytest.raises(ValueError, match='different candidate index'):
+        job.restore()
+    (root / 'prepared.json').write_text(json.dumps({'inputs': {'candidate_index_sha256': sha256(index / 'lookup.json')}}))
+    assert job.restore() is ready

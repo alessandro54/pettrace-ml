@@ -9,11 +9,12 @@ from collections import Counter, defaultdict
 from pathlib import Path
 
 from pettrace.data.review import _read
-from pettrace.data.sources import SOURCES
+from pettrace.data.sources import REVIEW_FIELDS, SOURCES
 from pettrace.data.verification import sha256
 
 
-REPORT_FILES = ("review.csv", "unique-images.csv", "duplicate-copies.csv", "audit.json", "summary.json")
+REPORT_FILES = ("review.csv", "unique-images.csv", "duplicate-copies.csv", "audit.json", "summary.json",
+                "candidates.csv", "excluded.csv")
 
 
 def restore_lookup_review(drive_root, work_dir, *, percent=100):
@@ -38,16 +39,20 @@ def restore_lookup_review(drive_root, work_dir, *, percent=100):
     return local / member
 
 
-def lookup_duplicates(review_csv, output_root):
+def lookup_duplicates(review_csv, output_root, *, minimum_photos=4):
     """Export one representative per recorded SHA256, retaining every original label.
 
     Reads only the pre-screening review CSV, not image bytes. The result is a source
-    inventory for further review, not a prepared training dataset. No decisions,
-    identity merges, species filters, photo minima or split assignments are applied.
+    inventory for further review, not a prepared training dataset. Separately index
+    pre-YOLO candidates after manual drops, identity quarantine, exact deduplication
+    and a distinct-photo minimum. Never merge labels or assign splits.
     """
     review_csv, output_root = Path(review_csv).resolve(), Path(output_root).resolve()
+    if not isinstance(minimum_photos, int) or minimum_photos < 2:
+        raise ValueError("Use at least two distinct photos per identity")
     inputs = {"review_sha256": sha256(review_csv), "implementation_sha256": sha256(__file__),
               "review_implementation_sha256": sha256(_read.__code__.co_filename),
+              "minimum_photos": minimum_photos,
               "source_species": {name: spec["species"] for name, spec in SOURCES.items()}}
     fingerprint = hashlib.sha256(json.dumps(inputs, sort_keys=True).encode()).hexdigest()
     destination = output_root / fingerprint
@@ -108,6 +113,35 @@ def lookup_duplicates(review_csv, output_root):
                     duplicates.writerow({key: row[key] for key in ("path", "sha256", "source", "species", "animal")}
                                         | {"representative_path": photos[0]["path"]})
         conflicted_ids = sorted({row["animal"] for photos in conflicts.values() for row in photos})
+        quarantined = set(conflicted_ids)
+        candidates, excluded = [], {}
+        for photos in by_hash.values():
+            eligible = []
+            for row in photos:
+                if row["decision"] == "drop":
+                    excluded[row["path"]] = "manual_drop"
+                elif row["animal"] in quarantined:
+                    excluded[row["path"]] = "identity_review_pending"
+                else:
+                    eligible.append(row)
+            if eligible:
+                # Prefer an explicit keep; neither a hash nor a pending label proves identity.
+                eligible.sort(key=lambda row: (row["decision"] != "keep", row["path"]))
+                candidates.append(eligible[0])
+                excluded.update({row["path"]: "exact_duplicate" for row in eligible[1:]})
+        counts = Counter(row["animal"] for row in candidates)
+        excluded.update({row["path"]: "insufficient_distinct_photos" for row in candidates
+                         if counts[row["animal"]] < minimum_photos})
+        candidates = sorted((row for row in candidates if row["path"] not in excluded),
+                            key=lambda row: (row["animal"], row["sha256"]))
+        with (folder / "candidates.csv").open("w", newline="") as stream:
+            writer = csv.DictWriter(stream, REVIEW_FIELDS)
+            writer.writeheader()
+            writer.writerows(candidates)
+        with (folder / "excluded.csv").open("w", newline="") as stream:
+            writer = csv.DictWriter(stream, REVIEW_FIELDS + ["reason"])
+            writer.writeheader()
+            writer.writerows({**row, "reason": excluded[row["path"]]} for row in rows if row["path"] in excluded)
         summary = {
             "files": len(rows), "unique_images": len(by_hash), "duplicate_copies": len(rows) - len(by_hash),
             "duplicate_pct": 100 * (len(rows) - len(by_hash)) / len(rows),
@@ -119,7 +153,12 @@ def lookup_duplicates(review_csv, output_root):
                                     "within_source_duplicate_copies": total - source_unique[source]}
                           for source, total in sorted(source_files.items())},
             "review_decisions_recorded": dict(Counter(row["decision"] or "pending" for row in rows)),
-            "scope": "All rows in the supplied review CSV; no manual or automatic exclusions applied.",
+            "candidate_photos": len(candidates),
+            "candidate_identities": len({row["animal"] for row in candidates}),
+            "candidate_unverified_labels": sum(row["decision"] != "keep" for row in candidates),
+            "minimum_photos": minimum_photos,
+            "pre_yolo_exclusions": dict(Counter(excluded.values())),
+            "scope": "Duplicate statistics cover all input rows. candidates.csv is a separate pre-YOLO selection.",
             "limitation": "Recorded SHA256 only; source image bytes, visual similarity and animal identities "
                           "are not revalidated. This inventory has no train/val/test splits and is not training-ready.",
         }
@@ -131,3 +170,28 @@ def lookup_duplicates(review_csv, output_root):
         (folder / "lookup.json").write_text(json.dumps(receipt, indent=2) + "\n")
         folder.rename(destination)
     return destination
+
+
+def load_candidates(report, review_csv, *, minimum_photos=4):
+    """Verify a pre-YOLO index against the full current review, without opening photos."""
+    report = Path(report)
+    receipt = json.loads((report / "lookup.json").read_text())
+    if (receipt.get("fingerprint") != hashlib.sha256(json.dumps(receipt["inputs"], sort_keys=True).encode()).hexdigest()
+            or receipt["inputs"].get("minimum_photos") != minimum_photos
+            or receipt["inputs"]["review_sha256"] != sha256(review_csv)
+            or set(receipt.get("files", {})) != set(REPORT_FILES)
+            or any(sha256(report / name) != receipt["files"][name] for name in REPORT_FILES)):
+        raise ValueError("Candidate index changed or does not match the review/minimum; regenerate data_lookup")
+    with (report / "candidates.csv").open(newline="") as stream:
+        candidates = list(csv.DictReader(stream))
+    with (report / "excluded.csv").open(newline="") as stream:
+        excluded = list(csv.DictReader(stream))
+    original = {row["path"]: row for row in _read(review_csv)}
+    combined = candidates + excluded
+    if (len(combined) != len(original) or {row["path"] for row in combined} != original.keys()
+            or any({key: row[key] for key in REVIEW_FIELDS} != original[row["path"]] for row in combined)
+            or len({row["sha256"] for row in candidates}) != len(candidates)
+            or any(row["decision"] == "drop" for row in candidates)
+            or any(n < minimum_photos for n in Counter(row["animal"] for row in candidates).values())):
+        raise ValueError("Candidate index does not partition the original inventory")
+    return candidates, {row["path"]: row["reason"] for row in excluded}

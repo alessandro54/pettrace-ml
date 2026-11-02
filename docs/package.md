@@ -10,7 +10,7 @@ Notebooks describe and run the experiments.
 Python 3.11–3.13 is supported. Install a published version in your Python environment:
 
 ```bash
-python -m pip install pettrace-ml==0.2.8
+python -m pip install pettrace-ml==0.2.9
 ```
 
 The default install includes plots. Colab already supplies IPython and widgets; the
@@ -20,7 +20,7 @@ to also install PyTorch, ONNX export and pandas. For development, use `pip insta
 Colab is the primary notebook target. The first cell of `datasets/data_lookup.ipynb` is:
 
 ```python
-%pip install -q "pettrace-ml==0.2.7"
+%pip install -q "pettrace-ml==0.2.9"
 ```
 
 Use a fresh Colab CPU runtime. CI tests this ordinary installation against the reported
@@ -68,7 +68,7 @@ start with `_` are internal. Existing experiment imports continue to work.
 | Module | Methods | Purpose |
 |---|---|---|
 | `pettrace.data` | `load` | Load a verified refined version: local cache, mounted Drive backup, then its published Hub release. |
-| `pettrace.data.lookup` | `lookup_duplicates`, `restore_lookup_review` | Audit exact duplicates and retrieve only the backed-up inventory from Drive. |
+| `pettrace.data.lookup` | `lookup_duplicates`, `load_candidates`, `restore_lookup_review` | Audit duplicates, index pre-YOLO candidates and recover the raw inventory from Drive. |
 | `pettrace.data.sources` | `discover_body_ids`, `write_review` | Build a SHA-256 inventory from locally extracted source photos and publisher labels. |
 | `pettrace.data.review` | `exclusion_summary`, `quarantine_groups`, `quarantine_gallery`, `save_decisions` | Inspect filtering, review conflicting labels and record explicit decisions. |
 | `pettrace.data.workflow` | `TrainingPreparation.restore`, `.prepare`, `.publish` | Reuse or prepare versioned training data; Hugging Face publication is a separate explicit step. |
@@ -99,6 +99,19 @@ This exports one representative per hash, every original label, a mapping of dup
 copies and identity conflicts for review. It does not delete photos or merge identities.
 Counts cover the supplied inventory, not unobserved photos. Recorded hashes are used
 without rereading images; exact-byte duplicates do not identify every visually similar photo.
+
+`candidates.csv` separately selects one image per hash after manual drops, whole-identity
+quarantine and the distinct-photo minimum (default four). `excluded.csv` records every
+noncandidate and its reason. Pending source labels remain unverified; this is not yet a
+training dataset. `load_candidates(report, review_csv)` checks integrity and the matching
+source inventory before returning candidates and exclusions.
+
+Pass `candidate_index=report` to `PrepareConfig` or `TrainingPreparation` to apply this index
+before YOLO. The latter requires an explicit new version, for example `version="v3.100"`.
+The current review must match exactly; later decisions require a new index. Preparation
+still protects the frozen benchmark, checks image bytes, runs screening and near-duplicate
+curation and reapplies the photo minimum. Existing v2 versions are not changed. Raw image
+restoration remains separate; the index reduces screening work, not raw transfer volume.
 
 In Colab, after mounting Drive, recover the confirmed raw inventory of the selected volume:
 

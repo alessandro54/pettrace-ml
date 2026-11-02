@@ -100,7 +100,7 @@ report = lookup_duplicates(review, "/content/drive/MyDrive/PetTrace/data-lookup"
 La primera celda instala el paquete directamente desde PyPI, incluidos los gráficos:
 
 ```python
-%pip install -q "pettrace-ml==0.2.7"
+%pip install -q "pettrace-ml==0.2.9"
 ```
 
 Usa una **sesión Colab CPU nueva**. Colab ya proporciona IPython y los widgets; no hace falta
@@ -109,7 +109,7 @@ el entorno reportado de Python 3.13.18 y exige que no cambie sus dependencias ex
 El perfil con hashes permanece en `requirements/data-lookup-colab.txt` para reproducir esa
 prueba; no se instala encima del runtime de Colab. No representa toda la imagen de Google.
 
-En tu Mac, `python -m pip install pettrace-ml==0.2.7` instala los métodos y los gráficos.
+En tu Mac, `python -m pip install pettrace-ml==0.2.9` instala los métodos y los gráficos.
 Para un Jupyter propio, el extra `[notebooks]` añade IPython y widgets.
 Después autoriza el montaje de Drive y continúa con las tres fases del notebook.
 No reinstales el paquete en un kernel que siga preparando o entrenando datos.
@@ -117,8 +117,28 @@ No reinstales el paquete en un kernel que siga preparando o entrenando datos.
 El notebook exporta un representante por SHA256 en `unique-images.csv`, todas sus etiquetas,
 las copias sobrantes en `duplicate-copies.csv`, el inventario original y los conflictos para
 revisión. Los gráficos distinguen archivos, hashes únicos y fotos distintas por etiqueta.
-No aplica decisiones manuales previas, YOLO, mínimo de fotos ni splits; no fusiona etiquetas
-ni borra imágenes. Es un inventario depurado, **no una versión entrenable**.
+Los conteos raw abarcan toda la entrada. Aparte, `candidates.csv` indexa candidatos para YOLO:
+respeta `drop`, pone identidades conflictivas completas en cuarentena, conserva una copia por
+hash (priorizando `keep`) y exige cuatro fotos distintas por etiqueta. `excluded.csv` registra
+cada descarte. No fusiona etiquetas ni borra imágenes. Los candidatos pendientes siguen
+siendo exploratorios: aún **no son una versión entrenable**.
+
+La preparación consume el índice de forma explícita, en una versión nueva:
+
+```python
+from pettrace.data.workflow import TrainingPreparation
+
+preparation = TrainingPreparation(
+    drive_root="/content/drive/MyDrive/PetTrace", work_dir="/content",
+    source_percent=100, candidate_index=report, version="v3.100",
+)
+```
+
+`prepare()` exige que el índice coincida con el inventario y sus decisiones antes de enviar
+solo los candidatos a YOLO; también reserva val/test v1. Después verifica calidad, duplicados
+cercanos y mínimo de fotos, y guarda el índice en la procedencia refinada. El cambio requiere
+una nueva versión: no sustituye `v2.20`, `v2.50` ni `v2.100`. Esto reduce entradas a YOLO;
+no evita por sí solo recuperar las imágenes originales en la preparación.
 
 Los reportes persisten en `MyDrive/PetTrace/data-lookup`, en carpetas identificadas por hash
 con recibo `lookup.json`. Otro runtime recupera el CSV y verifica/reutiliza el mismo reporte.

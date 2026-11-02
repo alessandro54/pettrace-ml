@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 from pettrace.data.checkpoints import DriveBackup
-from pettrace.data.lookup import lookup_duplicates, restore_lookup_review
+from pettrace.data.lookup import load_candidates, lookup_duplicates, restore_lookup_review
 from pettrace.data.review import quarantine_groups
 from pettrace.data.sources import REVIEW_FIELDS
 
@@ -128,3 +128,43 @@ def test_lookup_restore_requires_mount_and_matching_volume(tmp_path):
         restore_lookup_review(tmp_path, tmp_path / "work", percent=10)
     with pytest.raises(FileNotFoundError, match="source-50"):
         restore_lookup_review(tmp_path, tmp_path / "work", percent=50)
+
+
+def test_candidate_index_keeps_distinct_images_and_all_rejection_reasons(tmp_path):
+    path, rows = inventory(tmp_path)
+    for i in range(4):
+        rows.append({"path": f"/not-mounted/eligible-{i}.jpg", "source": "lcw", "species": "cat",
+                     "animal": "lcw:cat:eligible", "sha256": f"{10 + i:064x}", "decision": "", "note": ""})
+    rows.append({**rows[-1], "path": "/not-mounted/z-keep.jpg", "decision": "keep"})
+    rows.append({**rows[-2], "path": "/not-mounted/a-drop.jpg", "decision": "drop"})
+    write(path, rows)
+    report = lookup_duplicates(path, tmp_path / "lookup")
+    candidates, excluded = load_candidates(report, path)
+    assert len(candidates) == len({r['sha256'] for r in candidates}) == 4
+    assert {r['animal'] for r in candidates} == {'lcw:cat:eligible'}
+    assert any(r['path'].endswith('z-keep.jpg') for r in candidates)
+    assert excluded['/not-mounted/a-drop.jpg'] == 'manual_drop'
+    assert excluded['/not-mounted/eligible-3.jpg'] == 'exact_duplicate'
+    assert excluded['/not-mounted/6.jpg'] == 'identity_review_pending'  # whole connected identity, even unique photo
+    assert excluded['/not-mounted/5.jpg'] == 'insufficient_distinct_photos'
+    assert len(candidates) + len(excluded) == len(rows)
+    summary = json.loads((report / 'summary.json').read_text())
+    assert summary['candidate_photos'] == 4 and summary['candidate_identities'] == 1
+    assert summary['candidate_unverified_labels'] == 3
+    with pytest.raises(ValueError, match='review/minimum'):
+        load_candidates(report, path, minimum_photos=5)
+    # A changed human decision invalidates the old selection rather than silently ignoring it.
+    rows[-1]['decision'] = 'keep'
+    write(path, rows)
+    with pytest.raises(ValueError, match='review/minimum'):
+        load_candidates(report, path)
+
+
+def test_empty_candidate_index_is_valid_but_tampered_selection_is_rejected(tmp_path):
+    path, _ = inventory(tmp_path)
+    report = lookup_duplicates(path, tmp_path / 'lookup')
+    candidates, excluded = load_candidates(report, path)
+    assert not candidates and len(excluded) == 7
+    (report / 'candidates.csv').write_text('changed')
+    with pytest.raises(ValueError, match='index changed'):
+        load_candidates(report, path)

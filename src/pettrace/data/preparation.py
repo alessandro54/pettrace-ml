@@ -73,6 +73,7 @@ class PrepareConfig:
     visual_sample_per_species: int = 4
     expected_detector_sha256: str = DETECTOR_SHA256
     screening_provider: str = "cpu"
+    candidate_index: str | None = None
 
 
 @dataclass
@@ -330,9 +331,17 @@ def prepare(config, *, checkpoint=None):
     write_review(selected, review_path)
     with review_path.open(newline="") as stream:
         review = list(csv.DictReader(stream))
+    indexed, indexed_exclusions = review, {}
+    index_receipt_hash = None
+    if config.candidate_index is not None:
+        from pettrace.data.lookup import load_candidates
+        index_root = Path(config.candidate_index)
+        index_receipt_hash = sha256(index_root / "lookup.json")
+        indexed, indexed_exclusions = load_candidates(index_root, review_path, minimum_photos=config.minimum_photos)
     settings = asdict(config)
     settings.pop("output_root")
     settings.pop("source_archives")  # Transport location does not change the source inventory.
+    settings.pop("candidate_index")  # Record content rather than the Drive mount path.
     package_root = Path(__file__).resolve().parents[1]
     implementation = {name: sha256(package_root / name) for name in
                       ("data/preparation.py", "data/sources.py", "data/screening.py", "data/curation.py",
@@ -344,6 +353,9 @@ def prepare(config, *, checkpoint=None):
               "detector_spec_sha256": sha256(model_root / "pipeline.yaml"),
               "review_sha256": sha256(review_path), "photos": [{k: r[k] for k in ("path", "source", "species", "animal", "sha256")} for r in review],
               "sources": sources}
+    if index_receipt_hash is not None:
+        inputs["candidate_index_sha256"] = index_receipt_hash
+        inputs["implementation"]["data/lookup.py"] = sha256(package_root / "data/lookup.py")
     fingerprint = _digest(inputs)
     output_root = Path(config.output_root or Path(config.data_root) / "prepared").resolve()
     output_root.mkdir(parents=True, exist_ok=True)
@@ -359,6 +371,11 @@ def prepare(config, *, checkpoint=None):
     held_hashes = {r["sha256"] for r in reference_rows}
     reserved = {r["path"]: "reserved_public_identity_or_image" for r in review
                 if r["animal"] in held_ids or r["sha256"] in held_hashes}
+    if config.candidate_index is not None:
+        reserved = indexed_exclusions | reserved
+        reserved.update({r["path"]: "known_ambiguous_identity" for r in indexed
+                         if r["animal"] in config.excluded_animals})
+        print(f"Índice previo: {len(review)} fotos → {sum(r['path'] not in reserved for r in indexed)} candidatas a YOLO", flush=True)
     from functools import partial
     from pettrace.data.checkpoints import DriveBackup
     screening_checkpoint = (partial(checkpoint, paths=[Path(config.data_root) / "animal-screening-cache"])
@@ -369,7 +386,7 @@ def prepare(config, *, checkpoint=None):
         screen = partial(screen_cuda, model_file=_safe_file(model_root, step["file"]))
         screening_checkpoint = checkpoint  # CUDA tracks completed cache files instead of scanning the directory.
     exclusions, screening = screen(
-        [r for r in review if r["path"] not in reserved], detector, Path(config.data_root) / "animal-screening-cache", detector_sha256=model_hash,
+        [r for r in indexed if r["path"] not in reserved], detector, Path(config.data_root) / "animal-screening-cache", detector_sha256=model_hash,
         confidence=config.confidence, iou=config.nms_iou, checkpoint=screening_checkpoint)
     exclusions.update(reserved)
     # Detect concurrent review edits before applying filtering decisions.
@@ -380,6 +397,13 @@ def prepare(config, *, checkpoint=None):
         retained, audit = curate_review(review_path, folder, seed=config.seed, minimum_photos=config.minimum_photos,
                                         review_policy=config.review_policy, excluded_animals=config.excluded_animals,
                                         excluded_paths=exclusions)
+        if config.candidate_index is not None:
+            index_audit = json.loads((index_root / "audit.json").read_text())
+            audit["conflicting_hashes"].update(index_audit["conflicting_hashes"])
+            audit["conflicting_identities_quarantined"] = sorted(set(audit["conflicting_identities_quarantined"])
+                                                               | set(index_audit["conflicting_identity_labels"]))
+            audit["candidate_index_sha256"] = index_receipt_hash
+            (folder / "audit.json").write_text(_json(audit))
         if reference_rows:
             # Reuse curation unchanged; only the split assignment is fixed for the volume study.
             retained = [{**r, "split": "train"} for r in retained] + reference_rows
@@ -437,6 +461,18 @@ def prepare(config, *, checkpoint=None):
         (folder / "summary.json").write_text(_json(summary))
         (folder / "sources.json").write_text(_json(sources))
         (folder / "animal-screening.json").write_text(_json(screening))
+        if config.candidate_index is not None:
+            for source_name, target_name in (("lookup.json", "candidate-index.json"),
+                                             ("candidates.csv", "candidates.csv"), ("excluded.csv", "candidate-exclusions.csv")):
+                shutil.copy2(index_root / source_name, folder / target_name)
+            # Fail on concurrent index edits rather than archive evidence different from what ran.
+            load_candidates(index_root, review_path, minimum_photos=config.minimum_photos)
+            receipt = json.loads((folder / "candidate-index.json").read_text())
+            if (sha256(folder / "candidate-index.json") != index_receipt_hash
+                    or sha256(index_root / "lookup.json") != index_receipt_hash
+                    or sha256(folder / "candidates.csv") != receipt["files"]["candidates.csv"]
+                    or sha256(folder / "candidate-exclusions.csv") != receipt["files"]["excluded.csv"]):
+                raise ValueError("Candidate index changed during preparation")
         shutil.copy2(review_path, folder / "review.csv")
         if sha256(folder / "review.csv") != inputs["review_sha256"]:
             raise ValueError("Review changed during preparation; rerun")

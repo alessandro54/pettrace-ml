@@ -232,7 +232,8 @@ def test_preparation_force_refresh_ignores_stale_environment_and_colab_secrets(m
     assert requests == ["MLFLOW_TRACKING_USERNAME: ", "MLFLOW_TRACKING_PASSWORD: "]
 
 
-def test_volume_reuses_cleaning_and_preserves_fixed_v1_splits(tmp_path, monkeypatch):
+@pytest.mark.parametrize('indexed', [False, True])
+def test_volume_reuses_cleaning_and_preserves_fixed_v1_splits(tmp_path, monkeypatch, indexed):
     from dataclasses import replace
     from pettrace.data import preparation, volume
     from pettrace.data.sources import discover_body_ids
@@ -246,6 +247,11 @@ def test_volume_reuses_cleaning_and_preserves_fixed_v1_splits(tmp_path, monkeypa
         rows.extend(found)
         sources.append({"ref": volume.CAPACITY[source]["ref"], "sampled_photos": len(found)})
     monkeypatch.setattr(preparation, "acquire_candidates", lambda config, **kw: (rows, {"sources": sources, "skipped_paths": []}))
+    if indexed:
+        from pettrace.data.lookup import lookup_duplicates
+        from pettrace.data.sources import write_review
+        review = write_review(rows, Path(config.data_root) / 'source-20-seed42/review.csv')
+        config = replace(config, candidate_index=str(lookup_duplicates(review, tmp_path / 'indices')))
     previous_inferences = FakeDetector.calls
     expanded = prepare(replace(config, source_percent=20, reference_dataset=str(reference.root)))
     assert FakeDetector.calls == previous_inferences
@@ -280,3 +286,51 @@ def test_cuda_preparation_retains_cpu_detections_and_filter_outcomes(tmp_path, m
     assert original == {p.name: p.read_bytes() for p in cache.glob('*.json')}
     inputs = json.loads((accelerated.root / 'prepared.json').read_text())['inputs']
     assert 'data/screening_gpu.py' in inputs['implementation']
+
+
+def test_indexed_preparation_screens_only_candidates_and_preserves_audit(tmp_path, monkeypatch):
+    import csv
+    from pettrace.data import preparation
+    from pettrace.data.lookup import lookup_duplicates, load_candidates
+    from pettrace.data.sources import REVIEW_FIELDS, write_review
+
+    config = setup_pipeline(tmp_path, monkeypatch)
+    cats = Path(config.source_roots['lcw']) / 'CatFullDataset'
+    shutil.copyfile(cats / '1/0.png', cats / '1/1.png')  # within-identity copy
+    shutil.copyfile(cats / '2/0.png', cats / '3/0.png')  # conflicting identities
+    selected, _ = preparation.acquire_candidates(config)
+    review = write_review(selected, Path(config.data_root) / 'pilot-seed42/review.csv')
+    with review.open(newline='') as stream:
+        rows = list(csv.DictReader(stream))
+    for row in rows:
+        if row['animal'] == 'dogs-world:dog:2' and Path(row['path']).name in {'2-0.png', '2-1.png'}:
+            row['decision'] = 'drop'
+    with review.open('w', newline='') as stream:
+        writer = csv.DictWriter(stream, REVIEW_FIELDS)
+        writer.writeheader()
+        writer.writerows(rows)
+    report = lookup_duplicates(review, tmp_path / 'indices')
+    candidates, excluded = load_candidates(report, review)
+    seen = []
+    original_screen = preparation.screen_animals
+    def screen(rows, *args, **kwargs):
+        seen.extend(rows)
+        return original_screen(rows, *args, **kwargs)
+    monkeypatch.setattr(preparation, 'screen_animals', screen)
+    dataset = prepare(replace(config, candidate_index=str(report)))
+    assert {r['path'] for r in seen} == {r['path'] for r in candidates}
+    assert not set(excluded) & {r['path'] for r in seen}
+    assert len(seen) < len(rows)
+    assert len({r['sha256'] for r in seen}) == len(seen)
+    audit = json.loads((dataset.root / 'audit.json').read_text())
+    assert audit['conflicting_identities_quarantined'] == ['lcw:cat:2', 'lcw:cat:3']
+    receipt = json.loads((dataset.root / 'prepared.json').read_text())
+    assert receipt['inputs']['candidate_index_sha256'] == sha256(report / 'lookup.json')
+    assert (dataset.root / 'candidates.csv').read_bytes() == (report / 'candidates.csv').read_bytes()
+    assert not {'lcw:cat:2', 'lcw:cat:3', 'dogs-world:dog:2'} & {r['animal'] for r in dataset.rows}
+    assert sum(dataset.summary['exclusion_reasons'].values()) + len(dataset.rows) == len(rows)
+    # A stale index must fail before a detector is loaded or inference starts.
+    (report / 'candidates.csv').write_text('changed')
+    monkeypatch.setattr(preparation, 'Detector', lambda *a: pytest.fail('No detector with invalid index'))
+    with pytest.raises(ValueError, match='Candidate index'):
+        prepare(replace(config, candidate_index=str(report)))

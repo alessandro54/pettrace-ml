@@ -58,11 +58,18 @@ class TrainingPreparation:
     restore() reads refined data first; prepare() also works without an explicit restore().
     """
 
-    def __init__(self, *, drive_root, work_dir, source_percent=50, workers=4, screening_provider="cuda"):
+    def __init__(self, *, drive_root, work_dir, source_percent=50, workers=4, screening_provider="cuda",
+                 candidate_index=None, version=None):
         if source_percent not in (20, 50, 100) or not isinstance(workers, int) or not 1 <= workers <= 16:
             raise ValueError("Use 20/50/100 percent and 1–16 workers")
         if screening_provider not in {"cpu", "cuda"}:
             raise ValueError("Screening provider must be cpu or cuda")
+        if candidate_index is not None and (not version or version.startswith("v2.")):
+            raise ValueError("An indexed preparation needs a new version, for example v3.100; preserve v2 results")
+        if version is not None:
+            from pettrace.data.versions import _check
+            _check(REPO, version)
+        self.candidate_index = str(Path(candidate_index).resolve()) if candidate_index is not None else None
         self.screening_provider = screening_provider
         self.drive_root, self.work_dir = Path(drive_root).resolve(), Path(work_dir).resolve()
         if not self.drive_root.is_dir():
@@ -71,7 +78,7 @@ class TrainingPreparation:
         self.data_root = self.work_dir / 'datasets/public/e3-body'
         self.output_root = self.work_dir / 'datasets/build/pettrace-training'
         self.reference_root = self.work_dir / 'datasets/build/hub-training'
-        self.version = f'v2.{source_percent}'
+        self.version = version or f'v2.{source_percent}'
         self.version_path = self.output_root / f'{self.version}.json'
         self.backup = DriveBackup({'data': self.data_root, 'prepared': self.output_root,
                                   'reference': self.reference_root}, self.drive_root / 'checkpoints/preparation')
@@ -87,6 +94,11 @@ class TrainingPreparation:
             if any(result.summary.get('processing', {}).get(s, {}).get('requested_pct') != self.source_percent
                    for s in ('dogs-world', 'lcw')):
                 raise ValueError("Prepared version does not match the requested source percentage")
+            if self.candidate_index is not None:
+                from pettrace.data.verification import sha256
+                receipt = json.loads((result.root / 'prepared.json').read_text())
+                if receipt['inputs'].get('candidate_index_sha256') != sha256(Path(self.candidate_index) / 'lookup.json'):
+                    raise ValueError("Prepared version uses a different candidate index; use a new version")
             self.prepared = result
         self._restored = True
         return self.prepared
@@ -138,7 +150,7 @@ class TrainingPreparation:
                                source_percent=self.source_percent, reference_dataset=str(reference.root),
                                minimum_photos=4, confidence=0.25, nms_iou=0.5, seed=42,
                                allow_download=False, download_workers=self.workers,
-                               screening_provider=self.screening_provider)
+                               screening_provider=self.screening_provider, candidate_index=self.candidate_index)
         with self.backup:
             result = prepare(config, checkpoint=self.backup)
             record_version(result.root, self.output_root, version=self.version, repo_id=REPO)
