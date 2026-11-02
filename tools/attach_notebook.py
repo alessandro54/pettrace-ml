@@ -2,7 +2,7 @@
 
     python tools/attach_notebook.py notebooks/e1_clip_zero_shot.ipynb      # run by `make notebook`
 
-Interactive E1/E2: supply --run-id PRIVATE --public-run-id PUBLIC, with --experiment E2 for E2, optionally --env-file .env.
+Interactive E1/E2/E3: supply --run-id PRIVATE --public-run-id PUBLIC, with --experiment E2 or E3, optionally --env-file .env.
 Other notebooks declare metadata.pettrace.report and write run.json there.
 Save the notebook after execution so the attachment includes its final outputs.
 """
@@ -20,8 +20,8 @@ import mlflow
 
 def attach_experiment(notebook, private_run, public_run, experiment="E1"):
     """Archive a saved interactive experiment in both completed runs without reevaluating."""
-    if experiment not in {"E1", "E2"}:
-        raise ValueError("Only E1 and E2 are supported")
+    if experiment not in {"E1", "E2", "E3"}:
+        raise ValueError("Only E1, E2 and E3 are supported")
     from pettrace.experiments.e1 import PRIVATE_COMMIT, notebook_artifacts
     from pettrace.evaluation.research import PUBLIC_COMMIT
     from pettrace.tracking import production_context
@@ -88,7 +88,7 @@ def attach_experiment(notebook, private_run, public_run, experiment="E1"):
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("notebook")
-    parser.add_argument("--experiment", choices=("E1", "E2"), default="E1")
+    parser.add_argument("--experiment", choices=("E1", "E2", "E3"), default="E1")
     parser.add_argument("--run-id", help="Private run; requires --public-run-id")
     parser.add_argument("--public-run-id", help="Public run; requires --run-id")
     parser.add_argument("--env-file")

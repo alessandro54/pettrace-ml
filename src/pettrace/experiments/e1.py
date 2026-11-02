@@ -175,8 +175,8 @@ def execute_notebook(work):
 def notebook_artifacts(work, experiment="E1"):
     """Keep exact notebook bytes while respecting the tracking proxy's upload size limit."""
     work = Path(work)
-    if experiment not in {"E1", "E2"}:
-        raise ValueError("Notebook archival supports E1 and E2")
+    if experiment not in {"E1", "E2", "E3"}:
+        raise ValueError("Notebook archival supports E1, E2 and E3")
     filename = f"{experiment.lower()}.executed.ipynb"
     contents = (work / filename).read_bytes()
     folder = work / "notebook-artifact"

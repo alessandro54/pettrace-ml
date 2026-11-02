@@ -50,7 +50,7 @@ def archive(tmp_path, monkeypatch):
     return client, notebook
 
 
-@pytest.mark.parametrize("experiment", ["E1", "E2"])
+@pytest.mark.parametrize("experiment", ["E1", "E2", "E3"])
 def test_archive_both_runs_receipts_and_exact_notebook(archive, experiment):
     client, notebook = archive
     original = notebook.read_bytes()

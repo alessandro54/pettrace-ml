@@ -5,7 +5,7 @@ Interactive Colab experiments do not require running them. Install `pettrace-ml`
 
 | Tool | When to use it |
 |---|---|
-| `attach_notebook.py` | After saving an executed notebook: archive its outputs in MLflow. E1/E2 use both run IDs; see [E1](../docs/e1_colab.md) or [E2](../docs/e2_colab.md). |
+| `attach_notebook.py` | After saving an executed notebook: archive its outputs in MLflow. E1/E2/E3 use both run IDs (`--experiment E3` for E3); see [E1](../docs/e1_colab.md) or [E2](../docs/e2_colab.md). |
 | `build_release.py` | Before publishing a package release: build wheel, sdist and checksums. |
 | `sync_experiments.py` | After publishing experiments: refresh `experiments.yaml` with `make manifest` (read-only on MLflow). |
 | `verify_model.py` | Check a model's golden embeddings with `make verify-model MODEL=...`; supports offline artifacts. |

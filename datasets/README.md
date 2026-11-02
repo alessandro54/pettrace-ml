@@ -99,7 +99,8 @@ Las detecciones CPU previas se reutilizan sin reescribir; CUDA tiene caché sepa
 su procedencia. Se requiere Linux x86_64, Python 3.13 y el perfil E3 con Torch/CUDA 12.8.
 
 Subir `dist/v0.2.5.dev3/pettrace_ml-0.2.5.dev3-py3-none-any.whl`, `SHA256SUMS` y
-`requirements/e3-runtime.txt` (como `requirements-e3-runtime.txt`) a una sesión nueva.
+`requirements/e3-runtime.txt` (sin renombrarlo) a `/content` en una sesión nueva.
+La celda también acepta el nombre anterior `requirements-e3-runtime.txt`.
 Es una compilación local de desarrollo, no una release publicada. Solo una sesión puede preparar
 datos en la misma carpeta de Drive; no actualices una sesión que sigue procesando.
 Para migrar en la misma VM: interrumpir una vez, esperar el respaldo, instalar el wheel y reiniciar
