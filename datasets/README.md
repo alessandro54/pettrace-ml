@@ -79,15 +79,22 @@ report = lookup_duplicates(review, "/content/drive/MyDrive/PetTrace/data-lookup"
 
 La primera celda de `data_lookup.ipynb` instala
 [PetTrace 0.2.6 desde PyPI](https://pypi.org/project/pettrace-ml/0.2.6/) antes de los imports,
-respetando las dependencias de la versión de Colab instalada.
-Ejecuta el notebook en una **sesión Colab CPU nueva**:
+con el perfil completo fijado por versiones y hashes en un commit inmutable.
+CI verifica ese perfil, los métodos de lookup y el arranque del kernel antes de publicar.
+Ejecuta el notebook en una **sesión Colab CPU nueva con Python 3.13.18**:
 
 ```python
+import sys
 from importlib.metadata import version
 
+if sys.version_info[:3] != (3, 13, 18):
+    raise RuntimeError("Este perfil está validado para Colab con Python 3.13.18.")
 COLAB_VERSION = version("google-colab")
-%pip install -q "pettrace-ml[notebooks]==0.2.6" "google-colab=={COLAB_VERSION}"
+%pip install -q --require-hashes -r "https://raw.githubusercontent.com/alessandro54/pettrace-ml/f9a582e70986dc6909c1a77bc8abd3aee82a83fe/requirements/data-lookup-colab.txt" "google-colab=={COLAB_VERSION}"
 ```
+
+La versión instalada de `google-colab` participa en la resolución: si sus requisitos cambian
+y chocan con el perfil, pip se detiene. El montaje autenticado de Drive se valida en Colab.
 
 En tu Mac instala `python -m pip install 'pettrace-ml[notebooks]==0.2.6'` y llama a
 `lookup_duplicates` para analizar un CSV descargado.
