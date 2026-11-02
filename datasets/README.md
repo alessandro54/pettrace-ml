@@ -77,23 +77,17 @@ review = restore_lookup_review("/content/drive/MyDrive/PetTrace", "/content", pe
 report = lookup_duplicates(review, "/content/drive/MyDrive/PetTrace/data-lookup")
 ```
 
-Para analizar un CSV ya descargado en tu Mac, llama directamente a `lookup_duplicates`.
-El checkout se instala con `python -m pip install -e '.[notebooks]'` desde la raíz.
-En Colab usa el wheel actualizado en una **sesión CPU nueva**; no reinstales el paquete
-en el kernel que siga preparando o entrenando datos.
+Instala [PetTrace 0.2.5 desde PyPI](https://pypi.org/project/pettrace-ml/0.2.5/) en una
+**sesión Colab CPU nueva**, antes de importar el paquete:
 
-La compilación local disponible es `0.2.5.dev3+lookup.378c7acc`, con wheel, `SHA256SUMS`
-y `BUILD.json` en `dist/v0.2.5.dev3+lookup.378c7acc/`. No está publicada en GitHub.
-Sube el wheel y `SHA256SUMS` a `/content`; verifica e instala desde la terminal de Colab:
-
-```bash
-cd /content
-sha256sum -c SHA256SUMS
-python -m pip install './pettrace_ml-0.2.5.dev3+lookup.378c7acc-py3-none-any.whl[notebooks]'
+```python
+%pip install -q "pettrace-ml[notebooks]==0.2.5"
 ```
 
+En terminal usa `python -m pip` en lugar de `%pip`. Para analizar un CSV ya descargado
+en tu Mac, llama directamente a `lookup_duplicates`.
 Después abre `datasets/data_lookup.ipynb`, autoriza el montaje de Drive y ejecuta sus tres fases.
-El wheel anterior `0.2.5.dev3+lookup.4d09aec0` solo analiza CSV; no incluye la recuperación selectiva.
+No reinstales el paquete en un kernel que siga preparando o entrenando datos.
 
 El notebook exporta un representante por SHA256 en `unique-images.csv`, todas sus etiquetas,
 las copias sobrantes en `duplicate-copies.csv`, el inventario original y los conflictos para

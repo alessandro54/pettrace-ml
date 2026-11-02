@@ -2,9 +2,11 @@
 
 ## 0.2.5 — first PyPI publication
 
-The first PyPI publication is prepared, but is not complete until the project exists on PyPI
-and its uploaded files have been verified. The distribution name remains `pettrace-ml` and
-imports remain under `pettrace`. See [the public methods](package.md).
+Published on [PyPI](https://pypi.org/project/pettrace-ml/0.2.5/) on 2026-11-02 through
+[Trusted Publishing](https://github.com/alessandro54/pettrace-ml/actions/runs/41510819962).
+The release passed 247 tests and fresh installation checks on Linux Python 3.11, 3.12 and 3.13.
+Both PyPI downloads were verified against the GitHub build hashes. The distribution name is
+`pettrace-ml`; imports remain under `pettrace`. See [the public methods](package.md).
 
 This version includes the resumable preparation/training work, raw duplicate audits,
 identity-conflict galleries, and selective recovery of raw inventories from Drive backups.
@@ -34,8 +36,8 @@ python3 -m venv .venv
 .venv/bin/python -m pip install 'pettrace-ml[notebooks]==0.2.5'
 ```
 
-The command requires a completed PyPI publication. Until then, install the built wheel or
-use the existing GitHub releases. Both channels distribute the same Python package format.
+The matching wheel and source distribution are also available in the
+[GitHub release](https://github.com/alessandro54/pettrace-ml/releases/tag/v0.2.5).
 
 This resolves dependencies within the package's declared ranges. Installing a wheel does **not**
 apply `uv.lock`. For the locked development/training environment, use uv **0.11.22** and the

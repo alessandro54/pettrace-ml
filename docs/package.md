@@ -15,8 +15,7 @@ python -m pip install 'pettrace-ml[notebooks]==0.2.5'
 
 Use `pettrace-ml` for the base package, `[notebooks]` for plots and interactive review,
 or `[notebooks,training]` to also install PyTorch, ONNX export and pandas.
-Before the first PyPI publication, install the checkout with
-`python -m pip install -e '.[notebooks]'` or install the built wheel.
+For local development, install the checkout with `python -m pip install -e '.[notebooks]'`.
 
 Model weights and datasets are separate artifacts and are not included in the package.
 Data lookup uses CPU. GPU screening requires the separately validated E3 environment;
