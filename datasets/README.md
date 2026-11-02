@@ -77,16 +77,21 @@ review = restore_lookup_review("/content/drive/MyDrive/PetTrace", "/content", pe
 report = lookup_duplicates(review, "/content/drive/MyDrive/PetTrace/data-lookup")
 ```
 
-Instala [PetTrace 0.2.5 desde PyPI](https://pypi.org/project/pettrace-ml/0.2.5/) en una
-**sesión Colab CPU nueva**, antes de importar el paquete:
+La primera celda de `data_lookup.ipynb` instala
+[PetTrace 0.2.6 desde PyPI](https://pypi.org/project/pettrace-ml/0.2.6/) antes de los imports,
+respetando las dependencias de la versión de Colab instalada.
+Ejecuta el notebook en una **sesión Colab CPU nueva**:
 
 ```python
-%pip install -q "pettrace-ml[notebooks]==0.2.5"
+from importlib.metadata import version
+
+COLAB_VERSION = version("google-colab")
+%pip install -q "pettrace-ml[notebooks]==0.2.6" "google-colab=={COLAB_VERSION}"
 ```
 
-En terminal usa `python -m pip` en lugar de `%pip`. Para analizar un CSV ya descargado
-en tu Mac, llama directamente a `lookup_duplicates`.
-Después abre `datasets/data_lookup.ipynb`, autoriza el montaje de Drive y ejecuta sus tres fases.
+En tu Mac instala `python -m pip install 'pettrace-ml[notebooks]==0.2.6'` y llama a
+`lookup_duplicates` para analizar un CSV descargado.
+Después autoriza el montaje de Drive y continúa con las tres fases del notebook.
 No reinstales el paquete en un kernel que siga preparando o entrenando datos.
 
 El notebook exporta un representante por SHA256 en `unique-images.csv`, todas sus etiquetas,

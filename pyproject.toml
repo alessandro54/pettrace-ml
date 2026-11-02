@@ -1,6 +1,6 @@
 [project]
 name = "pettrace-ml"
-version = "0.2.5"
+version = "0.2.6"
 description = "Reproducible pet re-identification: dataset audits, embeddings, metric learning and evaluation"
 readme = "docs/package.md"
 license = "MIT"
@@ -36,7 +36,7 @@ Issues = "https://github.com/alessandro54/pettrace-ml/issues"
 Changelog = "https://github.com/alessandro54/pettrace-ml/blob/main/docs/releases.md"
 
 [project.optional-dependencies]
-notebooks = ["matplotlib>=3.9,<4", "ipython>=8,<10", "ipywidgets>=8.1,<9", "pip>=25,<27"]
+notebooks = ["matplotlib>=3.9,<4", "ipython>=7.34,<10", "ipywidgets>=8.1,<9"]
 training = ["torch>=2.5,<3", "onnx>=1.17,<2", "pandas>=2.2.3,<4"]
 
 [project.scripts]

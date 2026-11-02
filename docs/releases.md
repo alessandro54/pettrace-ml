@@ -1,5 +1,13 @@
 # Package releases
 
+## 0.2.6 — Colab dependency compatibility
+
+The notebook extra now accepts Colab's IPython 7.34 requirement and no longer depends on pip.
+The data lookup installation includes the installed `google-colab` version in the same
+resolution, so its dependency pins are respected, including when repairing the IPython
+upgrade introduced by 0.2.5. Saved notebook outputs and the frozen experiment pins are preserved.
+Release checks install the notebook extra with `ipython==7.34.0` on Python 3.11–3.13.
+
 ## 0.2.5 — first PyPI publication
 
 Published on [PyPI](https://pypi.org/project/pettrace-ml/0.2.5/) on 2026-11-02 through
@@ -33,18 +41,18 @@ To install the package, use a fresh virtual environment:
 
 ```bash
 python3 -m venv .venv
-.venv/bin/python -m pip install 'pettrace-ml[notebooks]==0.2.5'
+.venv/bin/python -m pip install 'pettrace-ml[notebooks]==0.2.6'
 ```
 
 The matching wheel and source distribution are also available in the
-[GitHub release](https://github.com/alessandro54/pettrace-ml/releases/tag/v0.2.5).
+[GitHub release](https://github.com/alessandro54/pettrace-ml/releases/tag/v0.2.6).
 
 This resolves dependencies within the package's declared ranges. Installing a wheel does **not**
 apply `uv.lock`. For the locked development/training environment, use uv **0.11.22** and the
 matching repository tag:
 
 ```bash
-git clone --branch v0.2.5 --depth 1 https://github.com/alessandro54/pettrace-ml.git
+git clone --branch v0.2.6 --depth 1 https://github.com/alessandro54/pettrace-ml.git
 cd pettrace-ml
 uv python install 3.11.15
 uv sync --locked --python 3.11.15 --group dev --group notebooks --extra notebooks --extra training
@@ -110,7 +118,7 @@ uv run --no-sync ruff check .
 uv run --no-sync python tools/build_release.py
 ```
 
-The builder creates `dist/v0.2.5/` with the wheel, source distribution and `SHA256SUMS`.
+The builder creates `dist/v0.2.6/` with the wheel, source distribution and `SHA256SUMS`.
 It refuses to replace an existing release directory. The package embeds its version,
 source commit, lockfile hash, reference Python and build-tool version in `pettrace/_build.json`;
 `source_identity()` hashes every Python module, including nested packages.
@@ -141,7 +149,7 @@ No PyPI API token or password belongs in this repository or in Colab.
 ### Release workflow
 
 `.github/workflows/publish.yml` runs when a GitHub Release is published. Its tag must match
-`pyproject.toml`, for example `v0.2.5`; local `+lookup` build versions cannot be published.
+`pyproject.toml`, for example `v0.2.6`; local `+lookup` build versions cannot be published.
 The workflow runs the locked tests and lint, builds wheel/sdist with commit provenance,
 checks the installed wheel, and checks fresh installations on Linux Python 3.11, 3.12 and 3.13.
 Only those two distribution files are handed to the separate `pypi` environment job.

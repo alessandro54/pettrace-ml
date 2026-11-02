@@ -8,8 +8,8 @@ This repository documents the research questions, experimental methods, reusable
 
 The distribution is `pettrace-ml`, imported as `pettrace`. See the [public methods and examples](docs/package.md)
 for duplicate audits, Drive recovery, preparation, embeddings, training, evaluation and MLflow publication.
-Version `0.2.5` is available on [PyPI](https://pypi.org/project/pettrace-ml/0.2.5/):
-`pip install 'pettrace-ml[notebooks]==0.2.5'`.
+Install the published package from [PyPI](https://pypi.org/project/pettrace-ml/):
+`pip install 'pettrace-ml[notebooks]==0.2.6'`.
 The [release guide](docs/releases.md) covers publication and locked environments. Frozen experiment notebooks
 continue to use their recorded package and runtime versions.
 

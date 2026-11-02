@@ -10,12 +10,16 @@ Notebooks describe and run the experiments.
 Python 3.11–3.13 is supported. Install a published version in your Python environment:
 
 ```bash
-python -m pip install 'pettrace-ml[notebooks]==0.2.5'
+python -m pip install 'pettrace-ml[notebooks]==0.2.6'
 ```
 
 Use `pettrace-ml` for the base package, `[notebooks]` for plots and interactive review,
 or `[notebooks,training]` to also install PyTorch, ONNX export and pandas.
 For local development, install the checkout with `python -m pip install -e '.[notebooks]'`.
+
+In Colab, use the installation cell in `datasets/data_lookup.ipynb`: it also passes the
+installed `google-colab` version to pip so Colab's dependency pins participate in resolution.
+The notebook extra accepts IPython 7.34–9 and does not require upgrading pip.
 
 Model weights and datasets are separate artifacts and are not included in the package.
 Data lookup uses CPU. GPU screening requires the separately validated E3 environment;
