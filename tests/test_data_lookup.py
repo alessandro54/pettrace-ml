@@ -108,7 +108,7 @@ def test_data_lookup_notebook_runs_on_inventory_without_photos(tmp_path, monkeyp
             continue
         if cell["id"] == "lookup-inputs":
             namespace.update(WORK=tmp_path / "new-runtime", DRIVE_ROOT=drive,
-                             SOURCE_SAMPLE_PCT=100, OUTPUT_ROOT=drive / "data-lookup")
+                             SOURCE_SAMPLE_PCT=100, OUTPUT_ROOT=drive / "data-lookup", CHECK_NEAR_COPIES=False)
         else:
             exec(compile("".join(cell["source"]), cell["id"], "exec"), namespace)
     assert namespace["summary"]["duplicate_copies"] == 3

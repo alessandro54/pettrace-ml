@@ -100,7 +100,7 @@ report = lookup_duplicates(review, "/content/drive/MyDrive/PetTrace/data-lookup"
 La primera celda instala el paquete directamente desde PyPI, incluidos los gráficos:
 
 ```python
-%pip install -q "pettrace-ml==0.2.9"
+%pip install -q "pettrace-ml==0.2.10"
 ```
 
 Usa una **sesión Colab CPU nueva**. Colab ya proporciona IPython y los widgets; no hace falta
@@ -109,7 +109,7 @@ el entorno reportado de Python 3.13.18 y exige que no cambie sus dependencias ex
 El perfil con hashes permanece en `requirements/data-lookup-colab.txt` para reproducir esa
 prueba; no se instala encima del runtime de Colab. No representa toda la imagen de Google.
 
-En tu Mac, `python -m pip install pettrace-ml==0.2.9` instala los métodos y los gráficos.
+En tu Mac, `python -m pip install pettrace-ml==0.2.10` instala los métodos y los gráficos.
 Para un Jupyter propio, el extra `[notebooks]` añade IPython y widgets.
 Después autoriza el montaje de Drive y continúa con las tres fases del notebook.
 No reinstales el paquete en un kernel que siga preparando o entrenando datos.
@@ -122,6 +122,31 @@ respeta `drop`, pone identidades conflictivas completas en cuarentena, conserva 
 hash (priorizando `keep`) y exige cuatro fotos distintas por etiqueta. `excluded.csv` registra
 cada descarte. No fusiona etiquetas ni borra imágenes. Los candidatos pendientes siguen
 siendo exploratorios: aún **no son una versión entrenable**.
+
+En v0.2.10 el notebook activa `CHECK_NEAR_COPIES`: compara copias redimensionadas o
+recomprimidas **antes del mínimo**, sobre todos los hashes únicos. Reutiliza dHash, proporción
+y MAE RGB de curación, ahora también entre etiquetas. `audit.json` conserva vínculos,
+puntuaciones y etiquetas; `quarantine_groups` y el visor reúnen casos pendientes.
+Se ponen las etiquetas implicadas completas en cuarentena, incluso coincidencias dentro
+de una etiqueta. No se fusionan identidades ni se eliminan fotos automáticamente.
+
+```python
+report = lookup_duplicates(review, "/content/drive/MyDrive/PetTrace/data-lookup",
+    near_cache="/content/data-lookup/signatures", drive_root="/content/drive/MyDrive/PetTrace")
+```
+
+La biblioteca mantiene el modo solo SHA256 si se omite `near_cache`. Con comparación visual,
+verifica y decodifica un original por hash nuevo, guarda firmas locales en bloques inmutables
+y las respalda bajo `checkpoints/lookup-near`. Otra VM reutiliza firmas y solo recupera originales
+sin firma. No copia ZIP ni ejecuta YOLO; la primera lectura de originales sigue siendo costosa.
+Una sola sesión escribe la caché. El último bloque confirmado sobrevive a la pérdida de VM;
+lo posterior al respaldo periódico de cinco minutos puede perderse.
+
+Son propuestas conservadoras, no reconocimiento de animales ni cobertura garantizada de
+ediciones, recortes o giros. Los umbrales son decisiones del estudio y todavía no están validados
+sobre el volumen completo. El visor puede verificar un representante disponible por hash con
+`representatives_only=True`; las otras copias conservan las etiquetas del inventario.
+Las salidas previas del notebook siguen documentando solo la auditoría exacta del 50%.
 
 La preparación consume el índice de forma explícita, en una versión nueva:
 

@@ -10,8 +10,9 @@ import random
 from collections import Counter, defaultdict
 from pathlib import Path
 
-from PIL import Image, ImageChops, ImageOps, ImageStat
+from PIL import Image
 
+from pettrace.data.near_copies import pixel_error, signature
 from pettrace.data.verification import sha256
 
 EXTENSIONS = {".jpg", ".jpeg", ".png"}
@@ -59,13 +60,7 @@ def audit_and_split(rows, output, seed=42, near_mae=2.0, near_hash_distance=2, m
         try:
             row["sha256"] = sha256(row["path"])
             with Image.open(row["path"]) as im:
-                im = ImageOps.exif_transpose(im).convert("RGB")
-                im.load()
-                thumb = im.resize((64, 64))
-                dh = list(im.convert("L").resize((9, 8)).getdata())
-                bits = [dh[y * 9 + x] > dh[y * 9 + x + 1] for y in range(8) for x in range(8)]
-                dhash = sum(int(value) << bit for bit, value in enumerate(bits))
-                ratio = im.width / im.height
+                dhash, ratio, thumb = signature(im)
         except (OSError, ValueError, Image.DecompressionBombError) as exc:
             corrupt.append({"path": row["path"], "error": str(exc)})
             continue
@@ -80,7 +75,7 @@ def audit_and_split(rows, output, seed=42, near_mae=2.0, near_hash_distance=2, m
         duplicate = None
         for old, old_hash, old_ratio, old_thumb in previews[row["animal"]]:
             if abs(ratio - old_ratio) < 0.01 and (dhash ^ old_hash).bit_count() <= near_hash_distance:
-                error = sum(ImageStat.Stat(ImageChops.difference(thumb, old_thumb)).mean) / 3
+                error = pixel_error(thumb, old_thumb)
                 if error <= near_mae:
                     duplicate = old
                     break

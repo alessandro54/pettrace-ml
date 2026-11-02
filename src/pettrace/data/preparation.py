@@ -344,7 +344,7 @@ def prepare(config, *, checkpoint=None):
     settings.pop("candidate_index")  # Record content rather than the Drive mount path.
     package_root = Path(__file__).resolve().parents[1]
     implementation = {name: sha256(package_root / name) for name in
-                      ("data/preparation.py", "data/sources.py", "data/screening.py", "data/curation.py",
+                      ("data/preparation.py", "data/sources.py", "data/screening.py", "data/curation.py", "data/near_copies.py",
                        "data/pilot.py", "data/volume.py", "data/verification.py", "data/source_capacity_v1.json", "models/pipeline.py")}
     if config.screening_provider == "cuda":
         implementation["data/screening_gpu.py"] = sha256(package_root / "data/screening_gpu.py")
@@ -401,7 +401,10 @@ def prepare(config, *, checkpoint=None):
             index_audit = json.loads((index_root / "audit.json").read_text())
             audit["conflicting_hashes"].update(index_audit["conflicting_hashes"])
             audit["conflicting_identities_quarantined"] = sorted(set(audit["conflicting_identities_quarantined"])
-                                                               | set(index_audit["conflicting_identity_labels"]))
+                                                               | set(index_audit["conflicting_identity_labels"])
+                                                               | set(index_audit.get("near_copy_identity_labels", [])))
+            audit.update({key: value for key, value in index_audit.items()
+                          if key.startswith("near_copy_") or key == "unreadable_images"})
             audit["candidate_index_sha256"] = index_receipt_hash
             (folder / "audit.json").write_text(_json(audit))
         if reference_rows:

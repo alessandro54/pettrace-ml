@@ -10,7 +10,7 @@ Notebooks describe and run the experiments.
 Python 3.11–3.13 is supported. Install a published version in your Python environment:
 
 ```bash
-python -m pip install pettrace-ml==0.2.9
+python -m pip install pettrace-ml==0.2.10
 ```
 
 The default install includes plots. Colab already supplies IPython and widgets; the
@@ -20,7 +20,7 @@ to also install PyTorch, ONNX export and pandas. For development, use `pip insta
 Colab is the primary notebook target. The first cell of `datasets/data_lookup.ipynb` is:
 
 ```python
-%pip install -q "pettrace-ml==0.2.9"
+%pip install -q "pettrace-ml==0.2.10"
 ```
 
 Use a fresh Colab CPU runtime. CI tests this ordinary installation against the reported
@@ -35,6 +35,15 @@ Data lookup uses CPU. GPU screening requires the separately validated E3 environ
 installing the training extra alone does not configure CUDA.
 
 ## Public methods
+
+`lookup_duplicates(..., near_cache="/content/data-lookup/signatures", drive_root=...)`
+adds conservative resized/recompressed-copy proposals before the distinct-photo minimum.
+It compares unique image hashes across labels, quarantines involved labels and records each
+dHash/RGB link for `quarantine_groups` / `quarantine_gallery`. Labels are never merged.
+Omit `near_cache` for the existing CSV-only audit. Drive restores signatures first and only
+recovers originals without signatures. New signatures are saved in immutable incremental
+chunks, shared across source volumes. This CPU pass still needs source bytes the first time;
+it does not run YOLO, infer animal identity or guarantee detection of every edited copy.
 
 Load a refined dataset for an experiment (PetTrace 0.2.8+):
 

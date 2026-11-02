@@ -288,7 +288,8 @@ def test_cuda_preparation_retains_cpu_detections_and_filter_outcomes(tmp_path, m
     assert 'data/screening_gpu.py' in inputs['implementation']
 
 
-def test_indexed_preparation_screens_only_candidates_and_preserves_audit(tmp_path, monkeypatch):
+@pytest.mark.parametrize('near_copies', [False, True])
+def test_indexed_preparation_screens_only_candidates_and_preserves_audit(tmp_path, monkeypatch, near_copies):
     import csv
     from pettrace.data import preparation
     from pettrace.data.lookup import lookup_duplicates, load_candidates
@@ -298,6 +299,12 @@ def test_indexed_preparation_screens_only_candidates_and_preserves_audit(tmp_pat
     cats = Path(config.source_roots['lcw']) / 'CatFullDataset'
     shutil.copyfile(cats / '1/0.png', cats / '1/1.png')  # within-identity copy
     shutil.copyfile(cats / '2/0.png', cats / '3/0.png')  # conflicting identities
+    if near_copies:
+        from PIL.PngImagePlugin import PngInfo
+        metadata = PngInfo()
+        metadata.add_text('variant', 're-encoded copy')
+        with Image.open(cats / '4/0.png') as image:
+            image.save(cats / '5/0.png', pnginfo=metadata)
     selected, _ = preparation.acquire_candidates(config)
     review = write_review(selected, Path(config.data_root) / 'pilot-seed42/review.csv')
     with review.open(newline='') as stream:
@@ -309,7 +316,8 @@ def test_indexed_preparation_screens_only_candidates_and_preserves_audit(tmp_pat
         writer = csv.DictWriter(stream, REVIEW_FIELDS)
         writer.writeheader()
         writer.writerows(rows)
-    report = lookup_duplicates(review, tmp_path / 'indices')
+    report = lookup_duplicates(review, tmp_path / 'indices',
+                               near_cache=tmp_path / 'signatures' if near_copies else None)
     candidates, excluded = load_candidates(report, review)
     seen = []
     original_screen = preparation.screen_animals
@@ -323,7 +331,11 @@ def test_indexed_preparation_screens_only_candidates_and_preserves_audit(tmp_pat
     assert len(seen) < len(rows)
     assert len({r['sha256'] for r in seen}) == len(seen)
     audit = json.loads((dataset.root / 'audit.json').read_text())
-    assert audit['conflicting_identities_quarantined'] == ['lcw:cat:2', 'lcw:cat:3']
+    assert audit['conflicting_identities_quarantined'] == (['lcw:cat:2', 'lcw:cat:3', 'lcw:cat:4', 'lcw:cat:5']
+                                                         if near_copies else ['lcw:cat:2', 'lcw:cat:3'])
+    if near_copies:
+        assert len(audit['near_copy_pairs']) == 1
+        assert not {'lcw:cat:4', 'lcw:cat:5'} & {r['animal'] for r in dataset.rows}
     receipt = json.loads((dataset.root / 'prepared.json').read_text())
     assert receipt['inputs']['candidate_index_sha256'] == sha256(report / 'lookup.json')
     assert (dataset.root / 'candidates.csv').read_bytes() == (report / 'candidates.csv').read_bytes()

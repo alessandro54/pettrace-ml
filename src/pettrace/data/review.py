@@ -64,8 +64,9 @@ def exclusion_summary(snapshot):
 
 
 def quarantine_groups(snapshot):
-    """Group labels connected by exact shared images; these are review cases, not merges."""
-    conflicts = json.loads((Path(snapshot) / "audit.json").read_text())["conflicting_hashes"]
+    """Group labels connected by exact images or proposed near copies, never merge them."""
+    audit = json.loads((Path(snapshot) / "audit.json").read_text())
+    conflicts = audit["conflicting_hashes"]
     by_animal, labels = defaultdict(set), {}
     for digest, rows in conflicts.items():
         animals = {row["animal"] for row in rows}
@@ -74,6 +75,17 @@ def quarantine_groups(snapshot):
         labels[digest] = animals
         for animal in animals:
             by_animal[animal].add(digest)
+    near = {}
+    for pair in audit.get("near_copy_pairs", []):
+        left, right = pair["left"], pair["right"]
+        evidence = audit.get("near_copy_labels", {})
+        if left == right or not evidence.get(left) or not evidence.get(right):
+            raise ValueError("Near-copy link requires two recorded images and their labels")
+        link = (left, right)
+        near[link] = pair
+        labels[link] = set(evidence[left]) | set(evidence[right])
+        for animal in labels[link]:
+            by_animal[animal].add(link)
     unseen, groups = set(by_animal), []
     while unseen:
         pending = [unseen.pop()]
@@ -86,17 +98,25 @@ def quarantine_groups(snapshot):
                 unseen.difference_update(neighbors)
                 animals.update(neighbors)
                 pending.extend(neighbors)
-        groups.append({"animals": sorted(animals),
-                       "shared_hashes": {digest: sorted(labels[digest]) for digest in sorted(hashes)}})
-    return sorted(groups, key=lambda group: min(group["shared_hashes"]))
+        group = {"animals": sorted(animals),
+                 "shared_hashes": {digest: sorted(labels[digest]) for digest in sorted(h for h in hashes if isinstance(h, str))}}
+        links = sorted(h for h in hashes if isinstance(h, tuple))
+        if links:
+            group["near_pairs"] = [near[link] for link in links]
+            group["near_hashes"] = {digest: sorted(audit["near_copy_labels"][digest])
+                                    for digest in sorted({h for link in links for h in link})}
+        groups.append(group)
+    return sorted(groups, key=lambda group: min(set(group["shared_hashes"]) | set(group.get("near_hashes", {}))))
 
 
-def quarantine_gallery(snapshot, output, *, start=0, count=8):
+def quarantine_gallery(snapshot, output, *, start=0, count=8, representatives_only=False):
     """Export a bounded, offline HTML review batch; never approve or change a snapshot.
 
     Requires the original source images at their recorded paths. Every photo of each
     involved identity is shown once per hash, with all its labels and exclusions.
     Connected labels form one case; indirect links do not establish animal identity.
+    representatives_only verifies one available original per recorded hash, useful
+    after selective recovery. Other copies' labels come from the inventory only.
     """
     snapshot, output = Path(snapshot).resolve(), Path(output).resolve()
     if output.is_relative_to(snapshot):
@@ -127,41 +147,53 @@ def quarantine_gallery(snapshot, output, *, start=0, count=8):
                'section{border-top:2px solid #aaa;margin-top:28px}code{overflow-wrap:anywhere}</style>',
                '<h1>Revisión de conflictos de identidad</h1>',
                f'<p>Inventario: <code>{html.escape(snapshot.name)}</code>. '
-               f'Grupos {start + 1}–{start + len(chosen)} de {len(cases)} (orden del primer SHA256 compartido).</p>',
-               '<p>El borde naranja indica la imagen exacta compartida por distintas etiquetas. '
+               f'Grupos {start + 1}–{start + len(chosen)} de {len(cases)} (orden del primer SHA256 vinculado).</p>',
+               '<p>El borde naranja indica una imagen compartida o una posible copia cercana. '
                'Cada imagen aparece una sola vez, con todas sus etiquetas. Las conexiones indirectas '
                'no prueban que sea el mismo animal: puede haber fotos mal asignadas. '
                'Todos los casos siguen pendientes; abrir este visor no aprueba nada.</p>']
+    if representatives_only:
+        content.append('<p>Se verificó un original por SHA256; las etiquetas de las otras copias '
+                       'proceden del inventario y sus archivos no se releen.</p>')
     for number, case in enumerate(chosen, start + 1):
         photos_by_hash = defaultdict(list)
+        linked_hashes = case["shared_hashes"] | case.get("near_hashes", {})
         for animal in case["animals"]:
             photos = groups[animal]
-            if not photos or not any(row["sha256"] in case["shared_hashes"] for row in photos):
+            if not photos or not any(row["sha256"] in linked_hashes for row in photos):
                 raise ValueError("Conflict does not match the recorded review")
             for row in photos:
                 photos_by_hash[row["sha256"]].append(row)
-        for digest, expected_animals in case["shared_hashes"].items():
+        for digest, expected_animals in linked_hashes.items():
             if not set(expected_animals) <= {row["animal"] for row in photos_by_hash.get(digest, [])}:
                 raise ValueError("Conflict does not match the recorded review")
         total = sum(map(len, photos_by_hash.values()))
         content.append(f'<section><h2>Grupo {number} · pendiente</h2>'
                        f'<p>{len(case["animals"])} etiquetas · {total} archivos · '
                        f'{len(photos_by_hash)} imágenes distintas por SHA256.</p>'
-                       f'<p>Etiquetas: {html.escape(", ".join(case["animals"]))}</p><div class="photos">')
+                       f'<p>Etiquetas: {html.escape(", ".join(case["animals"]))}</p>')
+        if case.get("near_pairs"):
+            content.append('<p>Posibles copias redimensionadas/recomprimidas, pendientes de revisión:</p><ul>')
+            for pair in case["near_pairs"]:
+                content.append(f'<li>{html.escape(pair["left"])} ↔ {html.escape(pair["right"])}'
+                               f' · distancia dHash {int(pair["hash_distance"])} · MAE RGB {float(pair["rgb_mae"]):.3f}</li>')
+            content.append('</ul>')
+        content.append('<div class="photos">')
         for digest, photos in sorted(photos_by_hash.items()):
-            for row in photos:
+            shown = next((row for row in photos if Path(row["path"]).is_file()), photos[0]) if representatives_only else photos[0]
+            for row in [shown] if representatives_only else photos:
                 path = Path(row["path"])
                 if sha256(path) != digest:
                     raise ValueError(f"Source photo changed: {path.name}")
             try:
-                with Image.open(photos[0]["path"]) as image:
+                with Image.open(shown["path"]) as image:
                     thumb = ImageOps.contain(ImageOps.exif_transpose(image).convert("RGB"), (520, 480))
                     stream = io.BytesIO()
                     thumb.save(stream, format="JPEG", quality=80)
                 preview = '<img loading="lazy" alt="Foto para revisar" src="data:image/jpeg;base64,' + base64.b64encode(stream.getvalue()).decode() + '">'
             except (OSError, ValueError, Image.DecompressionBombError):
                 preview = '<p>Imagen ilegible; requiere revisar el original.</p>'
-            shared = ' class="shared"' if digest in case["shared_hashes"] else ''
+            shared = ' class="shared"' if digest in linked_hashes else ''
             content.append(f'<figure{shared}>{preview}<figcaption><ul>')
             for row in photos:
                 content.append(f'<li>{html.escape(row["animal"])} · {html.escape(Path(row["path"]).name)}'

@@ -39,21 +39,30 @@ def restore_lookup_review(drive_root, work_dir, *, percent=100):
     return local / member
 
 
-def lookup_duplicates(review_csv, output_root, *, minimum_photos=4):
+def lookup_duplicates(review_csv, output_root, *, minimum_photos=4, near_cache=None,
+                      drive_root=None, source_root="/content/datasets/public/e3-body"):
     """Export one representative per recorded SHA256, retaining every original label.
 
-    Reads only the pre-screening review CSV, not image bytes. The result is a source
+    By default reads only the pre-screening review CSV, not image bytes. The result is a source
     inventory for further review, not a prepared training dataset. Separately index
     pre-YOLO candidates after manual drops, identity quarantine, exact deduplication
-    and a distinct-photo minimum. Never merge labels or assign splits.
+    and a distinct-photo minimum. Never merge labels or assign splits. Supplying a
+    local near_cache also checks resized/recompressed copies before the minimum;
+    whole involved labels stay quarantined, including same-label matches. Optional
+    Drive recovery saves signatures incrementally and reads only uncached originals.
     """
     review_csv, output_root = Path(review_csv).resolve(), Path(output_root).resolve()
     if not isinstance(minimum_photos, int) or minimum_photos < 2:
         raise ValueError("Use at least two distinct photos per identity")
+    if drive_root is not None and near_cache is None:
+        raise ValueError("Provide a local near_cache when using Drive for visual comparison")
     inputs = {"review_sha256": sha256(review_csv), "implementation_sha256": sha256(__file__),
               "review_implementation_sha256": sha256(_read.__code__.co_filename),
               "minimum_photos": minimum_photos,
               "source_species": {name: spec["species"] for name, spec in SOURCES.items()}}
+    if near_cache is not None:
+        from pettrace.data.near_copies import configuration, find_near_copies
+        inputs["near_copies"] = configuration()
     fingerprint = hashlib.sha256(json.dumps(inputs, sort_keys=True).encode()).hexdigest()
     destination = output_root / fingerprint
     if destination.exists():
@@ -112,6 +121,11 @@ def lookup_duplicates(review_csv, output_root, *, minimum_photos=4):
                 for row in photos[1:]:
                     duplicates.writerow({key: row[key] for key in ("path", "sha256", "source", "species", "animal")}
                                         | {"representative_path": photos[0]["path"]})
+        near_pairs, corrupt = [], {}
+        if near_cache is not None:
+            near_pairs, corrupt = find_near_copies(by_hash, near_cache, drive_root=drive_root, source_root=source_root)
+        near_hashes = {pair[side] for pair in near_pairs for side in ("left", "right")}
+        near_ids = {row["animal"] for digest in near_hashes for row in by_hash[digest]}
         conflicted_ids = sorted({row["animal"] for photos in conflicts.values() for row in photos})
         quarantined = set(conflicted_ids)
         candidates, excluded = [], {}
@@ -122,6 +136,10 @@ def lookup_duplicates(review_csv, output_root, *, minimum_photos=4):
                     excluded[row["path"]] = "manual_drop"
                 elif row["animal"] in quarantined:
                     excluded[row["path"]] = "identity_review_pending"
+                elif row["animal"] in near_ids:
+                    excluded[row["path"]] = "near_copy_review_pending"
+                elif row["sha256"] in corrupt:
+                    excluded[row["path"]] = "decode_error"
                 else:
                     eligible.append(row)
             if eligible:
@@ -162,9 +180,20 @@ def lookup_duplicates(review_csv, output_root, *, minimum_photos=4):
             "limitation": "Recorded SHA256 only; source image bytes, visual similarity and animal identities "
                           "are not revalidated. This inventory has no train/val/test splits and is not training-ready.",
         }
+        if near_cache is not None:
+            summary.update(near_copy_pairs=len(near_pairs), near_copy_images=len(near_hashes),
+                           near_copy_identity_labels=len(near_ids), unreadable_unique_images=len(corrupt),
+                           limitation="Conservative resized/recompressed copy proposals, not animal recognition. "
+                           "Whole involved labels remain pending review, never merged. Cached signatures refer to "
+                           "previously verified bytes; preparation must verify originals again. No splits assigned.")
         (folder / "summary.json").write_text(json.dumps(summary, indent=2) + "\n")
-        (folder / "audit.json").write_text(json.dumps({"conflicting_hashes": conflicts,
-            "conflicting_identity_labels": conflicted_ids, "decision": "pending"}, indent=2) + "\n")
+        audit = {"conflicting_hashes": conflicts, "conflicting_identity_labels": conflicted_ids, "decision": "pending"}
+        if near_cache is not None:
+            audit.update(near_copy_pairs=near_pairs, near_copy_identity_labels=sorted(near_ids),
+                         near_copy_labels={digest: sorted({row["animal"] for row in by_hash[digest]})
+                                           for digest in sorted(near_hashes)},
+                         unreadable_images=corrupt, near_copy_method=inputs["near_copies"])
+        (folder / "audit.json").write_text(json.dumps(audit, indent=2) + "\n")
         receipt = {"fingerprint": fingerprint, "inputs": inputs, "source_review": str(review_csv),
                    "files": {name: sha256(folder / name) for name in REPORT_FILES}}
         (folder / "lookup.json").write_text(json.dumps(receipt, indent=2) + "\n")

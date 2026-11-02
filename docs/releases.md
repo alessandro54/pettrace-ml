@@ -1,5 +1,19 @@
 # Package releases
 
+## 0.2.10 — review groups for resized and recompressed copies
+
+Data lookup can compare all unique recorded images before the photo-count minimum, using
+the existing dHash/aspect/RGB criteria across labels. It records proposed links and scores,
+quarantines whole involved labels and groups cases for visual review. No identity is merged
+or photo deleted. The default library call remains an exact-hash-only inventory audit.
+
+New image signatures are verified against the source SHA256 and stored in immutable chunks.
+Optional Drive checkpoints restore signatures first, then only one original per uncached
+hash. Restarts reuse completed signatures across source volumes. The notebook enables this
+CPU pass; its old outputs remain explicitly labeled as the earlier exact-only audit.
+The first pass still transfers/decodes originals; full-volume speed and recall are unmeasured.
+Recompressed/cropped/edited images may be missed and all proposed links need human review.
+
 ## 0.2.9 — cleaning index before YOLO
 
 Data lookup now exports a candidate index alongside the full raw duplicate audit. It respects
@@ -78,18 +92,18 @@ To install the package, use a fresh virtual environment:
 
 ```bash
 python3 -m venv .venv
-.venv/bin/python -m pip install pettrace-ml==0.2.9
+.venv/bin/python -m pip install pettrace-ml==0.2.10
 ```
 
 The matching wheel and source distribution are also available in the
-[GitHub release](https://github.com/alessandro54/pettrace-ml/releases/tag/v0.2.9).
+[GitHub release](https://github.com/alessandro54/pettrace-ml/releases/tag/v0.2.10).
 
 This resolves dependencies within the package's declared ranges. Installing a wheel does **not**
 apply `uv.lock`. For the locked development/training environment, use uv **0.11.22** and the
 matching repository tag:
 
 ```bash
-git clone --branch v0.2.9 --depth 1 https://github.com/alessandro54/pettrace-ml.git
+git clone --branch v0.2.10 --depth 1 https://github.com/alessandro54/pettrace-ml.git
 cd pettrace-ml
 uv python install 3.11.15
 uv sync --locked --python 3.11.15 --group dev --group notebooks --extra notebooks --extra training
@@ -106,7 +120,7 @@ directory, then run `sha256sum --check SHA256SUMS` (macOS: `shasum -a 256 -c SHA
 Data lookup retains its existing direct PyPI installation:
 
 ```python
-%pip install -q "pettrace-ml==0.2.9"
+%pip install -q "pettrace-ml==0.2.10"
 ```
 
 `requirements/data-lookup-colab.txt` is a committed hash-checked CI baseline for Linux x86_64 /
@@ -178,7 +192,7 @@ uv run --no-sync ruff check .
 uv run --no-sync python tools/build_release.py
 ```
 
-The builder creates `dist/v0.2.9/` with the wheel, source distribution and `SHA256SUMS`.
+The builder creates `dist/v0.2.10/` with the wheel, source distribution and `SHA256SUMS`.
 It refuses to replace an existing release directory. The package embeds its version,
 source commit, lockfile hash, reference Python and build-tool version in `pettrace/_build.json`;
 `source_identity()` hashes every Python module, including nested packages.
@@ -209,7 +223,7 @@ No PyPI API token or password belongs in this repository or in Colab.
 ### Release workflow
 
 `.github/workflows/publish.yml` runs when a GitHub Release is published. Its tag must match
-`pyproject.toml`, for example `v0.2.9`; local `+lookup` build versions cannot be published.
+`pyproject.toml`, for example `v0.2.10`; local `+lookup` build versions cannot be published.
 The workflow runs the locked tests and lint, builds wheel/sdist with commit provenance,
 checks the installed wheel, and checks fresh installations on Linux Python 3.11, 3.12 and 3.13.
 Only those two distribution files are handed to the separate `pypi` environment job.
