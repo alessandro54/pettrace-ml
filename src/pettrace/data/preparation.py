@@ -195,8 +195,12 @@ def _safe_file(root, relative):
     if relative.is_absolute() or ".." in relative.parts:
         raise ValueError("Unsafe prepared-dataset path")
     path = (root / relative).resolve()
-    if not path.is_relative_to(root.resolve()) or not path.is_file():
-        raise ValueError(f"Missing/unsafe prepared-dataset file: {relative}")
+    if not path.is_relative_to(root.resolve()):
+        raise ValueError(f"Unsafe prepared-dataset file: {relative}")
+    if not path.exists():
+        raise FileNotFoundError(f"Missing prepared-dataset file: {relative}")
+    if not path.is_file():
+        raise ValueError(f"Expected a regular prepared-dataset file: {relative}")
     return path
 
 

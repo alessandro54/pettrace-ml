@@ -25,6 +25,10 @@ def _safe(name):
     return path
 
 
+class BackupNotFoundError(FileNotFoundError):
+    """No confirmed backup exists for the requested files."""
+
+
 class DriveBackup:
     """One writer per backup directory. Only confirmed archives can be restored.
 
@@ -84,7 +88,7 @@ class DriveBackup:
                     receipts[receipt_path.name] = receipt
                     latest[name] = (receipt_path.name, info)
         if files is not None and files - latest.keys():
-            raise FileNotFoundError(f"No confirmed Drive backup for: {', '.join(sorted(files - latest.keys()))}")
+            raise BackupNotFoundError(f"No confirmed Drive backup for: {', '.join(sorted(files - latest.keys()))}")
         needed = {}
         for name, (receipt_name, info) in latest.items():
             target = self._target(name)

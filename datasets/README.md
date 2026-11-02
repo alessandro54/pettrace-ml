@@ -9,6 +9,26 @@ Esta carpeta contiene el pipeline de datos compartido. Los notebooks de `noteboo
 
 ## Pipeline común
 
+Para **consumir una versión refinada** con PetTrace 0.2.8+, sin repetir la preparación:
+
+```python
+from pettrace import data
+
+prepared, source = data.load("v2.50", drive_root="/content/drive/MyDrive/PetTrace")
+```
+
+Monta Drive previamente. La librería verifica la copia local, recupera solo el snapshot
+solicitado de `checkpoints/preparation` o descarga su versión publicada de Hugging Face.
+La caché local predeterminada es `datasets/build/pettrace-training`; se puede cambiar con
+`cache_dir`. Se conservan la versión, el fingerprint y el commit de HF cuando corresponde.
+Las siguientes llamadas reutilizan la copia verificada sin consultar HF ni leer Drive.
+Si faltan archivos de una copia existente, se recuperan desde su respaldo/origen conocido.
+Los errores de integridad se propagan; no se cambia silenciosamente de versión.
+
+Esta carga solo lee Drive y guarda las descargas de HF localmente. No descarga ZIP raw,
+no ejecuta YOLO ni genera versiones nuevas. El acceso privado a HF requiere `HF_TOKEN`.
+Los notebooks congelados conservan su configuración y evidencias anteriores.
+
 Usar [prepare_training.ipynb](prepare_training.ipynb) con el wheel local `0.2.5.dev3`.
 Es el único notebook de preparación para los tres volúmenes. Usa Dogs of the World y LCW
 y el mismo algoritmo de limpieza. Aplica:

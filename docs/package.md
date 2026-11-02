@@ -10,7 +10,7 @@ Notebooks describe and run the experiments.
 Python 3.11–3.13 is supported. Install a published version in your Python environment:
 
 ```bash
-python -m pip install pettrace-ml==0.2.7
+python -m pip install pettrace-ml==0.2.8
 ```
 
 The default install includes plots. Colab already supplies IPython and widgets; the
@@ -36,11 +36,38 @@ installing the training extra alone does not configure CUDA.
 
 ## Public methods
 
+Load a refined dataset for an experiment (PetTrace 0.2.8+):
+
+```python
+from pettrace import data
+
+dataset, provenance = data.load(
+    "v2.50",
+    drive_root="/content/drive/MyDrive/PetTrace",
+)
+photos = dataset.rows
+```
+
+The loader verifies a local version first, then restores the requested snapshot from the
+mounted Drive preparation backup, or downloads its published `alessandro54/pettrace-training`
+release from Hugging Face. Mount/authorize Drive beforehand; `HF_TOKEN` is needed only for
+private Hub access. The default cache is `datasets/build/pettrace-training`; use `cache_dir`
+to choose another local location. The returned dataset has `root`, `rows`, `summary` and
+`fingerprint`; keep `provenance` with the experiment report.
+
+The first Hub commit is saved locally and reused even if a remote tag moves. Missing files
+can be recovered; corrupt hashes or unsafe paths fail validation. Drive is read-only here;
+Hub downloads are cached locally. A lost Colab VM loses that local cache, while existing Drive
+backups remain available. The loader never downloads raw ZIPs, runs YOLO, cleans data or trains.
+An unavailable version must be prepared/published separately. Frozen experiment notebooks
+retain their recorded loaders and pins; the immutable benchmark API remains in `data.versions`.
+
 These are the supported import paths for the research workflows. Helpers whose names
 start with `_` are internal. Existing experiment imports continue to work.
 
 | Module | Methods | Purpose |
 |---|---|---|
+| `pettrace.data` | `load` | Load a verified refined version: local cache, mounted Drive backup, then its published Hub release. |
 | `pettrace.data.lookup` | `lookup_duplicates`, `restore_lookup_review` | Audit exact duplicates and retrieve only the backed-up inventory from Drive. |
 | `pettrace.data.sources` | `discover_body_ids`, `write_review` | Build a SHA-256 inventory from locally extracted source photos and publisher labels. |
 | `pettrace.data.review` | `exclusion_summary`, `quarantine_groups`, `quarantine_gallery`, `save_decisions` | Inspect filtering, review conflicting labels and record explicit decisions. |
