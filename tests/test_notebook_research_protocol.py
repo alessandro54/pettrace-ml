@@ -155,18 +155,19 @@ def test_preparation_notebook_exports_hf_version_setting(capsys):
     assert settings['HF_TRAINING_DATASET_VERSION'] == 'v2.50'
 
 
-def test_e3_50_local_version_skips_drive_restore(tmp_path):
-    source = next(''.join(c['source']) for c in cells(ROOT / 'notebooks/e3_mlp_head_triplet_50.ipynb')
+@pytest.mark.parametrize("percent", [50, 100])
+def test_e3_local_version_skips_drive_restore(tmp_path, percent):
+    source = next(''.join(c['source']) for c in cells(ROOT / f'notebooks/e3_mlp_head_triplet_{percent}.ipynb')
                   if 'preparation_backup.restore' in ''.join(c['source']))
     prefix = source.split('from pettrace.data.versions import')[0]
     tree = ast.parse(prefix)
     tree.body = tree.body[1:]  # Supply a temporary /content without touching the real runtime.
     content = tmp_path / 'content'
-    receipt = content / 'datasets/build/pettrace-training/v2.50.json'
+    receipt = content / f'datasets/build/pettrace-training/v2.{percent}.json'
     receipt.parent.mkdir(parents=True)
     receipt.write_text('{}')
     namespace = {'Path': lambda p: tmp_path / str(p).lstrip('/'),
-                 'SOURCE_SAMPLE_PCT': 50, 'TRAINING_DATASET_VERSION': ''}
+                 'SOURCE_SAMPLE_PCT': percent, 'TRAINING_DATASET_VERSION': ''}
     exec(compile(tree, '<local restore>', 'exec'), namespace)
     assert namespace['local_version'] == receipt
     assert 'preparation_backup' not in namespace
