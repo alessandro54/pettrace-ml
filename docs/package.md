@@ -94,7 +94,7 @@ start with `_` are internal. Existing experiment imports continue to work.
 | `pettrace.data.lookup` | `lookup_duplicates`, `load_candidates`, `restore_lookup_review` | Audit duplicates, index pre-YOLO candidates and recover the raw inventory from Drive. |
 | `pettrace.data.sources` | `discover_body_ids`, `write_review` | Build a SHA-256 inventory from locally extracted source photos and publisher labels. |
 | `pettrace.data.review` | `exclusion_summary`, `quarantine_groups`, `quarantine_gallery`, `save_decisions` | Inspect filtering, review conflicting labels and record explicit decisions. |
-| `pettrace.data.workflow` | `TrainingPreparation.restore`, `.prepare`, `.publish` | Reuse or prepare versioned training data; Hugging Face publication is a separate explicit step. |
+| `pettrace.data.workflow` | `TrainingPreparation.restore`, `.stage`, `.prepare`, `.publish` | Stage indexed inputs on CPU, screen on GPU, or reuse refined data; HF publication is explicit. |
 | `pettrace.data.checkpoints` | `DriveBackup.restore`, `stage_archive` | Verify and restore checkpoints; stage a source ZIP on local scratch storage. |
 | `pettrace.data.versions` | `load_local_training`, `load_training`, `record_version` | Load verified local or Hub snapshots and assign immutable version names. |
 | `pettrace.models.pipeline` | `Pipeline.preprocess`, `.embed` | Apply the artifact-defined preprocessing and ONNX encoder. |
@@ -133,8 +133,22 @@ Pass `candidate_index=report` to `PrepareConfig` or `TrainingPreparation` to app
 before YOLO. The latter requires an explicit new version, for example `version="v3.100"`.
 The current review must match exactly; later decisions require a new index. Preparation
 still protects the frozen benchmark, checks image bytes, runs screening and near-duplicate
-curation and reapplies the photo minimum. Existing v2 versions are not changed. Raw image
-restoration remains separate; the index reduces screening work, not raw transfer volume.
+curation and reapplies the photo minimum. Existing v2 versions are not changed.
+
+For `TrainingPreparation`, run `preparation.stage()` **on CPU first**, with the pinned
+screening environment. It reuses local candidate photos, recovers missing ones and matching
+detections from confirmed backups, then writes compact packs under
+`checkpoints/indexed/<index-sha256>/`. The completion receipt is written last. The first
+staging may still copy large historical packs when needed photos are absent; it does not run
+YOLO. Keep one writer and the same `work_dir` in both sessions (normally `/content`).
+
+On GPU, `preparation.prepare()` requires that completed input and restores only its photos,
+source receipts, index, frozen reference/model and compatible detections. It does not restore
+the historical raw tree, stage ZIPs or rehash excluded images. All raw rows and exclusion
+reasons remain in the audit; every candidate's bytes and the source membership are verified.
+The CPU/GPU equivalence check and final filtering remain enforced. Compatible new detections
+are checkpointed in the compact namespace for retries; refined versions are saved separately.
+`restore()` reads only the requested refined version, including recovery of a partial restore.
 
 In Colab, after mounting Drive, recover the confirmed raw inventory of the selected volume:
 

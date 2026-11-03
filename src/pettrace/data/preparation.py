@@ -74,6 +74,7 @@ class PrepareConfig:
     expected_detector_sha256: str = DETECTOR_SHA256
     screening_provider: str = "cpu"
     candidate_index: str | None = None
+    indexed_input: bool = False
 
 
 @dataclass
@@ -326,9 +327,14 @@ def prepare(config, *, checkpoint=None):
         if reference.fingerprint != PUBLIC_FINGERPRINT:
             raise ValueError("Reference must be the immutable public v1 dataset")
         reference_rows = [r for r in reference.rows if r["split"] in {"val", "test"}]
-    selected, sources = acquire_candidates(config, checkpoint=checkpoint)
-    review_path = Path(config.data_root).resolve() / f"{'pilot' if config.source_percent is None else 'source-'+str(config.source_percent)}-seed{config.seed}" / "review.csv"
-    write_review(selected, review_path)
+    if config.indexed_input:
+        from pettrace.data.staging import indexed_inventory
+        selected, sources = indexed_inventory(config)
+        review_path = Path(config.candidate_index) / "review.csv"
+    else:
+        selected, sources = acquire_candidates(config, checkpoint=checkpoint)
+        review_path = Path(config.data_root).resolve() / f"{'pilot' if config.source_percent is None else 'source-'+str(config.source_percent)}-seed{config.seed}" / "review.csv"
+        write_review(selected, review_path)
     with review_path.open(newline="") as stream:
         review = list(csv.DictReader(stream))
     indexed, indexed_exclusions = review, {}
@@ -360,6 +366,8 @@ def prepare(config, *, checkpoint=None):
     if index_receipt_hash is not None:
         inputs["candidate_index_sha256"] = index_receipt_hash
         inputs["implementation"]["data/lookup.py"] = sha256(package_root / "data/lookup.py")
+    if config.indexed_input:
+        inputs["implementation"]["data/staging.py"] = sha256(package_root / "data/staging.py")
     fingerprint = _digest(inputs)
     output_root = Path(config.output_root or Path(config.data_root) / "prepared").resolve()
     output_root.mkdir(parents=True, exist_ok=True)
@@ -407,7 +415,8 @@ def prepare(config, *, checkpoint=None):
         folder = Path(folder)
         retained, audit = curate_review(review_path, folder, seed=config.seed, minimum_photos=config.minimum_photos,
                                         review_policy=config.review_policy, excluded_animals=config.excluded_animals,
-                                        excluded_paths=exclusions, identity_aliases=identity_aliases)
+                                        excluded_paths=exclusions, identity_aliases=identity_aliases,
+                                        verify_excluded=not config.indexed_input)
         if config.candidate_index is not None:
             index_audit = json.loads((index_root / "audit.json").read_text())
             audit["conflicting_hashes"].update(index_audit["conflicting_hashes"])
@@ -506,7 +515,8 @@ def prepare(config, *, checkpoint=None):
         folder.replace(destination)
     _atomic_json(output_root / "latest.json", {"fingerprint": fingerprint, "path": destination.name})
     if isinstance(checkpoint, DriveBackup):
-        checkpoint(paths=[destination, output_root / "latest.json", review_path])
+        # Indexed workflow publishes refined outputs separately from its compact input/cache packs.
+        checkpoint(paths=[review_path] if config.indexed_input else [destination, output_root / "latest.json", review_path])
     elif checkpoint:
         checkpoint()
     return load_prepared(destination)

@@ -4,11 +4,11 @@ import json
 import os
 from pathlib import Path
 
-from pettrace.data.checkpoints import DriveBackup, stage_archive
+from pettrace.data.checkpoints import BackupNotFoundError, DriveBackup, stage_archive
 from pettrace.data.preparation import (
     BASE_MODEL, DetectorAuthenticationError, PrepareConfig, acquire_detector, prepare,
 )
-from pettrace.data.versions import REPO, load_local_training, load_training, publish_training, record_version
+from pettrace.data.versions import REPO, _local_reference, load_local_training, load_training, publish_training, record_version
 from pettrace.data.verification import verification_session
 
 
@@ -88,9 +88,28 @@ class TrainingPreparation:
     @verification_session()
     def restore(self):
         """Return a verified refined version, or None; never copy source ZIPs."""
-        self.backup.restore(only={'prepared'})
+        result = None
         if self.version_path.is_file():
+            try:
+                result, _ = load_local_training(self.version_path)
+            except FileNotFoundError:
+                pass  # A named version may have been only partly restored when a runtime died.
+        if result is None:
+            if not self.version_path.is_file():
+                try:
+                    self.backup.restore(files={f'prepared/{self.version}.json'})
+                except BackupNotFoundError:
+                    self._restored = True
+                    return None
+            root, receipt = _local_reference(self.version_path)
+            prefix = f'prepared/{root.relative_to(self.output_root).as_posix()}'
+            self.backup.restore(files={f'{prefix}/prepared.json'})
+            manifest = json.loads((root / 'prepared.json').read_text())
+            if manifest.get('fingerprint') != receipt['fingerprint']:
+                raise ValueError('Prepared version fingerprint changed')
+            self.backup.restore(files={f'{prefix}/{name}' for name in manifest['files']})
             result, _ = load_local_training(self.version_path)
+        if result is not None:
             if any(result.summary.get('processing', {}).get(s, {}).get('requested_pct') != self.source_percent
                    for s in ('dogs-world', 'lcw')):
                 raise ValueError("Prepared version does not match the requested source percentage")
@@ -104,12 +123,20 @@ class TrainingPreparation:
         return self.prepared
 
     @verification_session()
+    def stage(self, *, detector_dir=None):
+        """Build a compact indexed input on CPU; no YOLO inference or GPU allocation."""
+        from pettrace.data.staging import stage
+        return stage(self, detector_dir=detector_dir)
+
+    @verification_session()
     def prepare(self, *, detector_dir=None):
         """Reuse refined data or acquire, clean, version and back it up without training."""
         if not self._restored:
             self.restore()
         if self.prepared is not None:
             return self.prepared
+        if self.candidate_index is not None:
+            return self._prepare_indexed()
         if self.screening_provider == "cuda":
             from pettrace.data.screening_gpu import check_cuda_environment
             check_cuda_environment()
@@ -122,6 +149,20 @@ class TrainingPreparation:
                 continue
             archives[name] = str(stage_archive(self.drive_root / 'raw' / filename,
                                               self.work_dir / 'pettrace-archives' / filename))
+        reference, detector_dir = self._reference_and_detector(detector_dir)
+        # A supplied detector may be outside the backup roots; it remains hash-verified by prepare().
+        paths = [reference.root]
+        if Path(detector_dir).resolve().is_relative_to(self.data_root):
+            paths.append(detector_dir)
+        self.backup(force=True, paths=paths)
+        config = self._config(detector_dir, reference.root, source_archives=archives)
+        with self.backup:
+            result = prepare(config, checkpoint=self.backup)
+            record_version(result.root, self.output_root, version=self.version, repo_id=REPO)
+        self.prepared = result
+        return result
+
+    def _reference_and_detector(self, detector_dir):
         from huggingface_hub import configure_http_backend
         from huggingface_hub.utils import disable_progress_bars
         from pettrace.evaluation.research import PUBLIC_REPO, PUBLIC_VERSION, PUBLIC_COMMIT, PUBLIC_FINGERPRINT
@@ -134,26 +175,42 @@ class TrainingPreparation:
         reference, _ = load_training(repo_id=PUBLIC_REPO, version=PUBLIC_VERSION, revision=PUBLIC_COMMIT,
                                      expected_fingerprint=PUBLIC_FINGERPRINT, cache_dir=self.reference_root)
         if detector_dir is None:
-            configure_access()
             try:
                 detector_dir = acquire_detector(BASE_MODEL, self.data_root / 'detector-models')
             except DetectorAuthenticationError:
                 configure_access(names=('MLFLOW_TRACKING_USERNAME', 'MLFLOW_TRACKING_PASSWORD'), force=True)
                 detector_dir = acquire_detector(BASE_MODEL, self.data_root / 'detector-models')
-        # A supplied detector may be outside the backup roots; it remains hash-verified by prepare().
-        paths = [reference.root]
-        if Path(detector_dir).resolve().is_relative_to(self.data_root):
-            paths.append(detector_dir)
-        self.backup(force=True, paths=paths)
-        config = PrepareConfig(data_root=str(self.data_root), detector_dir=str(detector_dir),
-                               output_root=str(self.output_root), source_archives=archives,
-                               source_percent=self.source_percent, reference_dataset=str(reference.root),
+        return reference, Path(detector_dir)
+
+    def _config(self, detector_dir, reference, **kwargs):
+        return PrepareConfig(data_root=str(self.data_root), detector_dir=str(detector_dir),
+                               output_root=str(self.output_root),
+                               source_percent=self.source_percent, reference_dataset=str(reference),
                                minimum_photos=4, confidence=0.25, nms_iou=0.5, seed=42,
                                allow_download=False, download_workers=self.workers,
-                               screening_provider=self.screening_provider, candidate_index=self.candidate_index)
-        with self.backup:
-            result = prepare(config, checkpoint=self.backup)
+                               screening_provider=self.screening_provider, candidate_index=self.candidate_index,
+                               **kwargs)
+
+    def _prepare_indexed(self):
+        from dataclasses import replace
+        from pettrace.data.staging import _read_ready, restore_staged
+        compact, ready = _read_ready(self)  # Fail before GPU work or any archive transfer.
+        if self.screening_provider == 'cuda':
+            from pettrace.data.screening_gpu import check_cuda_environment
+            check_cuda_environment()
+        reference, detector = restore_staged(self)
+        # Cache deltas from an interrupted screening also live in the compact namespace.
+        cached = {name for name in compact.inventory() if name.startswith('data/animal-screening-cache/')}
+        if cached:
+            compact.restore(files=cached)
+        config = replace(self._config(detector, reference, indexed_input=True),
+                         candidate_index=str(compact._target(ready['index'])))
+        try:
+            result = prepare(config, checkpoint=compact)
             record_version(result.root, self.output_root, version=self.version, repo_id=REPO)
+            self.backup(force=True, paths=[result.root, self.version_path])
+        finally:
+            compact(force=True, paths=[])  # Flush completed work without scanning historical raw roots.
         self.prepared = result
         return result
 

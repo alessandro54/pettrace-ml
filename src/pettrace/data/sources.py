@@ -154,7 +154,7 @@ def write_review(rows, path):
 
 
 def curate_review(path, output, *, seed=42, minimum_photos=4, review_policy="strict", excluded_animals=None,
-                  excluded_paths=None, identity_aliases=None):
+                  excluded_paths=None, identity_aliases=None, verify_excluded=True):
     """Strict review or explicit exploratory use of unverified publisher identity labels."""
     with Path(path).open(newline="") as stream:
         reviewed = list(csv.DictReader(stream))
@@ -174,7 +174,7 @@ def curate_review(path, output, *, seed=42, minimum_photos=4, review_policy="str
     blocked = {identity_aliases.get(label, label) for label in excluded_animals}
     rows = []
     for row in reviewed:
-        if sha256(row["path"]) != row["sha256"]:
+        if (verify_excluded or row["path"] not in excluded_paths) and sha256(row["path"]) != row["sha256"]:
             raise ValueError("Photo changed after review")
         if row["source"] not in SOURCES or row["species"] != SOURCES[row["source"]]["species"]:
             raise ValueError("Invalid source/species in review")
@@ -198,6 +198,7 @@ def curate_review(path, output, *, seed=42, minimum_photos=4, review_policy="str
     if {row["species"] for row in retained} != {"cat", "dog"}:
         raise ValueError("E3 pilot must retain both dogs and cats")
     audit["review_sha256"] = sha256(path)
+    audit["photo_verification"] = "all reviewed photos" if verify_excluded else "photos not excluded by the verified index or screening"
     audit["review_decisions"] = dict(Counter(row["decision"] for row in reviewed))
     audit["review_policy"] = review_policy
     audit["excluded_animals"] = excluded_animals

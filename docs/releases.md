@@ -1,5 +1,15 @@
 # Package releases
 
+## 0.2.13 — compact inputs before GPU screening
+
+`TrainingPreparation.stage()` runs on CPU and packages only verified indexed candidates,
+compatible detection caches and the frozen reference/model. GPU preparation requires its
+completed receipt and never falls back to full historical restoration or ZIP acquisition.
+Raw provenance and exclusions remain recorded, while excluded image bytes are unnecessary.
+YOLO settings, identity protection and final curation are unchanged. Tests compare retained
+images and splits with the full-input path after simulating runtime loss; no production speedup
+is claimed without a measured run. Named refined restoration now selects only that version.
+
 ## 0.2.12 — apply human identity reviews without rescanning images
 
 `lookup_duplicates(..., identity_review=...)` validates explicit same-animal decisions

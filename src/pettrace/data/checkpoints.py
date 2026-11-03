@@ -62,6 +62,19 @@ class DriveBackup:
             raise ValueError('Checkpoint path escapes working directory')
         return target
 
+    def inventory(self):
+        """List latest confirmed members without reading archives or local photo bytes."""
+        latest = {}
+        for path in sorted(self.destination.glob('*.json')):
+            receipt = json.loads(path.read_text())
+            if receipt.get('schema') != 1 or receipt.get('archive') != path.with_suffix('.tar').name:
+                raise ValueError('Invalid checkpoint receipt')
+            for name, info in receipt['files'].items():
+                if _safe(name).parts[0] not in self.roots:
+                    raise ValueError('Unknown checkpoint root')
+                latest[name] = info
+        return latest
+
     def restore(self, *, only=None, files=None):
         """Restore selected roots or exact archive paths, verifying confirmed packs."""
         if only is not None and not set(only) <= self.roots.keys():
