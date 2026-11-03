@@ -1,6 +1,10 @@
 # Package releases
 
-## 0.2.13 — compact inputs before GPU screening
+## 0.2.14 — compact inputs before GPU screening
+
+Supersedes the GitHub-only 0.2.13 build, whose PyPI publication was blocked by a notebook
+unit fixture expecting its older pinned installation. The fixture now emulates that installation
+explicitly; the actual wheel/install checks remain separate.
 
 `TrainingPreparation.stage()` runs on CPU and packages only verified indexed candidates,
 compatible detection caches and the frozen reference/model. GPU preparation requires its

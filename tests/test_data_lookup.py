@@ -1,5 +1,6 @@
 import csv
 import json
+import re
 from pathlib import Path
 
 import pytest
@@ -102,6 +103,12 @@ def test_data_lookup_notebook_runs_on_inventory_without_photos(tmp_path, monkeyp
     drive = tmp_path / "drive"
     DriveBackup({"data": data}, drive / "checkpoints/preparation")(force=True)
     notebook = json.loads((Path(__file__).parents[1] / "datasets/data_lookup.ipynb").read_text())
+    # The unit fixture skips pip; emulate its pinned version while exercising the current API.
+    from importlib import metadata
+    installed_version = metadata.version
+    install = next(''.join(c['source']) for c in notebook['cells'] if c['id'] == 'lookup-install')
+    pinned_version = re.search(r'pettrace-ml==([0-9.]+)', install).group(1)
+    monkeypatch.setattr(metadata, 'version', lambda name: pinned_version if name == 'pettrace-ml' else installed_version(name))
     namespace = {}
     for cell in notebook["cells"]:
         # The recorded eight-group annotation belongs to the real 50% audit, not this fixture.
