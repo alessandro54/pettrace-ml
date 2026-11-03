@@ -60,12 +60,12 @@ def test_preparation_download_is_quiet_and_waits_out_hub_quota(tmp_path, monkeyp
 @pytest.mark.parametrize("version", [(3, 10), (3, 11), (3, 12), (3, 13), (3, 14)])
 def test_notebook_python_support_matches_dependency_profile(path, version):
     source = next("".join(c["source"]) for c in cells(path)
-                  if c["cell_type"] == "code" and "requirements-e" in "".join(c["source"]))
+                  if c["cell_type"] == "code" and "sys.version_info" in "".join(c["source"]))
     guard = next(n for n in ast.parse(source).body
                  if isinstance(n, ast.If) and "version_info" in ast.unparse(n.test))
     code = compile(ast.Module(body=[guard], type_ignores=[]), str(path), "exec")
     namespace = {"sys": SimpleNamespace(version_info=version, version=".".join(map(str, version)))}
-    supported = version == (3, 13) if "requirements-e3-runtime" in source else (3, 11) <= version < (3, 14)
+    supported = version == (3, 13) if "e3-runtime.txt" in source else (3, 11) <= version < (3, 14)
     namespace["sys"].platform = "linux"
     if supported:
         exec(code, namespace)
