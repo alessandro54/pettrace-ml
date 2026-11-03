@@ -1,0 +1,174 @@
+{
+  "lookup_fingerprint": "a7851270df2fbb656db064773cdbfee7d22dfb8d42c84031d4fb9f19a48056c6",
+  "gallery_file": "a7851270df2fbb656db064773cdbfee7d22dfb8d42c84031d4fb9f19a48056c6-grupos-0000.html",
+  "gallery_sha256": "8010153776400fed80f7fd93936bd0461a9c8cba991249c6c60aba115108f2b7",
+  "reviewer": "Alessandro",
+  "evidence": "User visual review of groups 1–8; same animal in groups 2 and 3 explicitly clarified.",
+  "applied_to_dataset": false,
+  "scope": "Identity grouping only; no photo-quality approval, training eligibility, split change or automatic relabeling.",
+  "groups": [
+    {
+      "group": 1,
+      "decision": "same_animal",
+      "confirmed_identity_count": 1,
+      "original_labels": [
+        "dogs-world:dog:06ae77e779a5995f",
+        "dogs-world:dog:228039932f19aa8d",
+        "dogs-world:dog:468dc2d6e2a864aa",
+        "dogs-world:dog:7ccf0dc94fca2d36",
+        "dogs-world:dog:ea15ab4a025d5f10",
+        "dogs-world:dog:ff0ebc3f8fde6d52"
+      ],
+      "image_sha256": [
+        "00042dbc75cead4beee4c3b21ca1d2ee8566239a085396a86d054d191168d217",
+        "66b08a6039503b984713d67d958efe2b3aed48ab11d2433b2331d752891dc877",
+        "e8d67fc8832b62c2815bfce73883bcd0acaf5fcbd7bdff7240f63667d8deab61",
+        "f2afac627b2a197c54f8420b83c6a84b48d696ebbafd8ae8bb177811d4000e2b"
+      ],
+      "original_file_count": 15,
+      "distinct_image_count": 4
+    },
+    {
+      "group": 2,
+      "decision": "same_animal",
+      "confirmed_identity_count": 1,
+      "original_labels": [
+        "dogs-world:dog:984fb88ad642dd38",
+        "dogs-world:dog:b3530dacb3783b6a"
+      ],
+      "image_sha256": [
+        "0015e0a5df9f4520ada533ddb4d7d8bb9c50f9e5cbee84e9ee1e65db83518154",
+        "512f356592a10dba4a767d13375026aed18c7c00b687fdbd5b83b2d1f6e71c12"
+      ],
+      "original_file_count": 3,
+      "distinct_image_count": 2
+    },
+    {
+      "group": 3,
+      "decision": "same_animal",
+      "confirmed_identity_count": 1,
+      "original_labels": [
+        "dogs-world:dog:1ae59ad0720df4f0",
+        "dogs-world:dog:97d16b69655382c3",
+        "dogs-world:dog:a434c896a08f612f",
+        "dogs-world:dog:aa73f9a407b70862",
+        "dogs-world:dog:baea5ae3cfafc2d1",
+        "dogs-world:dog:c25210d370f9014c",
+        "dogs-world:dog:e5426a7d3724cfa4"
+      ],
+      "image_sha256": [
+        "001673742b56ee2f38d15738a0f4c776ab413afbf8ef92daf56113907456543d",
+        "3f521094fc765882306f7009576f37caf7ab705b971fbc6fdc552af8d2556c65",
+        "82cc6f022d95ac27e123bbb5a9070f299c313a6cc71bf7d472701a665c58f57d",
+        "9dec68c86714bced60e965b89c244b826523aefdf6122185f9f6fb3f7cbb7bd4"
+      ],
+      "original_file_count": 15,
+      "distinct_image_count": 4
+    },
+    {
+      "group": 4,
+      "decision": "same_animal",
+      "confirmed_identity_count": 1,
+      "original_labels": [
+        "dogs-world:dog:1ef9423987cd0318",
+        "dogs-world:dog:7a89a96196d67d1f",
+        "dogs-world:dog:8d3fbb556bff545b",
+        "dogs-world:dog:92e771a13df189ee",
+        "dogs-world:dog:e3ea531758d0945e"
+      ],
+      "image_sha256": [
+        "001dc73f085a84991dd4b364070c555d28044d96527630bd3f2c02f5a339e1b0",
+        "05926a6efd4956c72e9813b373c2f123a94ec9286977c7420aaa36b798707741",
+        "70d0596e8642ec237435caa18ecf4f331be079ab6fca34726132d2b1b6cfbf04",
+        "bfdd37446479e0a52445ca19ad636649a08862569b20e93faa5d0b782c098b13"
+      ],
+      "original_file_count": 10,
+      "distinct_image_count": 4
+    },
+    {
+      "group": 5,
+      "decision": "same_animal",
+      "confirmed_identity_count": 1,
+      "original_labels": [
+        "dogs-world:dog:20d1bfd5794bdd8b",
+        "dogs-world:dog:2385b273c102cc11",
+        "dogs-world:dog:3a905631488aaff9",
+        "dogs-world:dog:5f01bf0cf0d4da4d",
+        "dogs-world:dog:6a1a98bf08ef11a6",
+        "dogs-world:dog:84e22c10762cedb9",
+        "dogs-world:dog:bacb775401dd64d8",
+        "dogs-world:dog:bdfe7f518d0e2b93",
+        "dogs-world:dog:cf2e7e6130d64e17",
+        "dogs-world:dog:ea97b17447617889",
+        "dogs-world:dog:ee4753362bbbfb5c",
+        "dogs-world:dog:fee0330a1da6bc89"
+      ],
+      "image_sha256": [
+        "0020439f850c3f7772f37040da978c427355d02edd5594382bd5d4da2098769a",
+        "88cf60778582c873b61846d34f6447e6aadc06c4c9905fcf135b6e2221dbf062",
+        "8cd6d2e9f660d1b72059b0734ed81e9885878fd01df321ebee54a1f51dcffd92",
+        "c876f2c67393548feacfa1a322251764460705b8bd101258c8353495edbcf415"
+      ],
+      "original_file_count": 27,
+      "distinct_image_count": 4
+    },
+    {
+      "group": 6,
+      "decision": "same_animal",
+      "confirmed_identity_count": 1,
+      "original_labels": [
+        "lcw:cat:18728",
+        "lcw:cat:18750",
+        "lcw:cat:26656",
+        "lcw:cat:40583",
+        "lcw:cat:40584"
+      ],
+      "image_sha256": [
+        "002525c649080b6c838f5ca931f6e50e8fb9d9175121e047555e6e61b278d531",
+        "05ce5d5e7af644ae21c27bb279e185820a25e3391675eae63e9206f760b84f34",
+        "6c2ee00e9ca2e80e98fcd7f0354c8ffdd07a2f1c1066b2a78e17ee6dc57268ff",
+        "6fd62922585a93276a1deea074871e8da4bbd5125f16904733622332f54609ba"
+      ],
+      "original_file_count": 9,
+      "distinct_image_count": 4
+    },
+    {
+      "group": 7,
+      "decision": "same_animal",
+      "confirmed_identity_count": 1,
+      "original_labels": [
+        "lcw:cat:63109",
+        "lcw:cat:63110",
+        "lcw:cat:63111",
+        "lcw:cat:63112",
+        "lcw:cat:63113"
+      ],
+      "image_sha256": [
+        "00256d03e75bc203832763a1b012df033a0620ad751d2d92a3d823cb096e5c4d",
+        "0e2635dfbb9f9d4c83771a42deadae48577c96730006e987f09d3f12ccce8c9c",
+        "5f0f9cced824d2a50a74aeba885425bdd5579277f0c3f0f69b2023c7717e8ec4",
+        "84abbbfe9d76df4457a8a569bf2e3782e4db5d698112d4e729735bd9b4219fea",
+        "be15898d2a09ab7c283bd6f9765a2f412fd6108882328ecdaa401ad1433f3dac",
+        "e9dd49e16da801436e89e9ee0fe248bb793f55c8e4863f49dabf64321349ed0c"
+      ],
+      "original_file_count": 22,
+      "distinct_image_count": 6
+    },
+    {
+      "group": 8,
+      "decision": "same_animal",
+      "confirmed_identity_count": 1,
+      "original_labels": [
+        "dogs-world:dog:8bde9df0c9257979",
+        "dogs-world:dog:a72d6f03542f513c"
+      ],
+      "image_sha256": [
+        "002e5464d38b65bc7de1229da70a99ee9b6238478c4021547926a1c3191590d8",
+        "3e63b4e834d3a2af4d2748c2d34f81ef1e81295f6327cf48200acb1b51471dd7",
+        "e08a1b5139acd121cdaa3d0afb1cb7f5f8559a069fed900addab98c3e3429fc8"
+      ],
+      "original_file_count": 4,
+      "distinct_image_count": 3
+    }
+  ]
+}

@@ -10,7 +10,7 @@ Notebooks describe and run the experiments.
 Python 3.11–3.13 is supported. Install a published version in your Python environment:
 
 ```bash
-python -m pip install pettrace-ml==0.2.11
+python -m pip install pettrace-ml==0.2.12
 ```
 
 The default install includes plots. Colab already supplies IPython and widgets; the
@@ -20,7 +20,7 @@ to also install PyTorch, ONNX export and pandas. For development, use `pip insta
 Colab is the primary notebook target. The first cell of `datasets/data_lookup.ipynb` is:
 
 ```python
-%pip install -q "pettrace-ml==0.2.11"
+%pip install -q "pettrace-ml==0.2.12"
 ```
 
 Use a fresh Colab CPU runtime. CI tests this ordinary installation against the reported
@@ -39,11 +39,25 @@ installing the training extra alone does not configure CUDA.
 `lookup_duplicates(..., near_cache="/content/data-lookup/signatures", drive_root=...)`
 adds conservative resized/recompressed-copy proposals before the distinct-photo minimum.
 It compares unique image hashes across labels, quarantines involved labels and records each
-dHash/RGB link for `quarantine_groups` / `quarantine_gallery`. Labels are never merged.
+dHash/RGB link for `quarantine_groups` / `quarantine_gallery`. Labels are never merged automatically.
 Omit `near_cache` for the existing CSV-only audit. Drive restores signatures first and only
 recovers originals without signatures. New signatures are saved in immutable incremental
 chunks, shared across source volumes. This CPU pass still needs source bytes the first time;
 it does not run YOLO, infer animal identity or guarantee detection of every edited copy.
+
+Apply recorded human same-animal confirmations to a **completed original report**:
+
+```python
+reviewed = lookup_duplicates(report / "review.csv", report.parent,
+                            identity_review="confirmed-groups.json")
+```
+
+The review must identify the original lookup fingerprint, reviewer, complete group labels,
+image SHA256 values and counts. The new index retains the original CSV and records canonical
+aliases in `identity-review.json`; it reuses the saved visual audit without reopening images.
+Photo decisions, near-copy quarantine and minimum counts still apply. Use this new index in
+preparation with a new dataset version; held-out or excluded aliases protect their whole group.
+Further confirmations are cumulative against the original lookup, not chained corrected indices.
 
 Load a refined dataset for an experiment (PetTrace 0.2.8+):
 

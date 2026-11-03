@@ -104,7 +104,8 @@ def test_data_lookup_notebook_runs_on_inventory_without_photos(tmp_path, monkeyp
     notebook = json.loads((Path(__file__).parents[1] / "datasets/data_lookup.ipynb").read_text())
     namespace = {}
     for cell in notebook["cells"]:
-        if cell["cell_type"] != "code" or cell["id"] == "lookup-install":
+        # The recorded eight-group annotation belongs to the real 50% audit, not this fixture.
+        if cell["cell_type"] != "code" or cell["id"] in {"lookup-install", "lookup-identity-apply"}:
             continue
         if cell["id"] == "lookup-inputs":
             namespace.update(WORK=tmp_path / "new-runtime", DRIVE_ROOT=drive,

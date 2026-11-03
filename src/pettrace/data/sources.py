@@ -154,7 +154,7 @@ def write_review(rows, path):
 
 
 def curate_review(path, output, *, seed=42, minimum_photos=4, review_policy="strict", excluded_animals=None,
-                  excluded_paths=None):
+                  excluded_paths=None, identity_aliases=None):
     """Strict review or explicit exploratory use of unverified publisher identity labels."""
     with Path(path).open(newline="") as stream:
         reviewed = list(csv.DictReader(stream))
@@ -166,6 +166,12 @@ def curate_review(path, output, *, seed=42, minimum_photos=4, review_policy="str
         raise ValueError("Complete review.csv: every photo requires keep or drop before training")
     excluded_animals = dict(excluded_animals or {})
     excluded_paths = dict(excluded_paths or {})
+    identity_aliases = dict(identity_aliases or {})
+    labels = {row["animal"] for row in reviewed}
+    if any(old not in labels or new not in labels or old.rsplit(":", 1)[0] != new.rsplit(":", 1)[0]
+           or identity_aliases.get(new, new) != new for old, new in identity_aliases.items()):
+        raise ValueError("Identity aliases must use existing, same-source/species canonical labels")
+    blocked = {identity_aliases.get(label, label) for label in excluded_animals}
     rows = []
     for row in reviewed:
         if sha256(row["path"]) != row["sha256"]:
@@ -174,8 +180,9 @@ def curate_review(path, output, *, seed=42, minimum_photos=4, review_policy="str
             raise ValueError("Invalid source/species in review")
         if not row["animal"].startswith(f"{row['source']}:{row['species']}:"):
             raise ValueError("Invalid namespaced individual ID in review")
-        if row["decision"] != "drop" and row["animal"] not in excluded_animals and row["path"] not in excluded_paths:
-            rows.append({k: row[k] for k in REVIEW_FIELDS[:4]} | {"original_test": False})
+        animal = identity_aliases.get(row["animal"], row["animal"])
+        if row["decision"] != "drop" and animal not in blocked and row["path"] not in excluded_paths:
+            rows.append({k: row[k] for k in REVIEW_FIELDS[:4]} | {"animal": animal, "original_test": False})
     # In exploratory mode, quarantine entire conflicting IDs instead of guessing a label.
     conflicting = {}
     if review_policy == "exploratory":
@@ -196,7 +203,9 @@ def curate_review(path, output, *, seed=42, minimum_photos=4, review_policy="str
     audit["excluded_animals"] = excluded_animals
     audit["excluded_paths"] = excluded_paths
     audit["excluded_path_photos"] = sum(row["path"] in excluded_paths for row in reviewed)
-    audit["excluded_animal_photos"] = sum(row["animal"] in excluded_animals for row in reviewed)
+    audit["excluded_animal_photos"] = sum(identity_aliases.get(row["animal"], row["animal"]) in blocked for row in reviewed)
+    if identity_aliases:
+        audit["identity_aliases"] = identity_aliases
     audit["conflicting_hashes"] = conflicting
     audit["conflicting_identities_quarantined"] = sorted({row["animal"] for items in conflicting.values() for row in items})
     decisions = {row["path"]: row["decision"] for row in reviewed}

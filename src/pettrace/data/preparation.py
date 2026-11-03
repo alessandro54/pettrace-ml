@@ -332,12 +332,16 @@ def prepare(config, *, checkpoint=None):
     with review_path.open(newline="") as stream:
         review = list(csv.DictReader(stream))
     indexed, indexed_exclusions = review, {}
+    identity_aliases = {}
     index_receipt_hash = None
     if config.candidate_index is not None:
         from pettrace.data.lookup import load_candidates
         index_root = Path(config.candidate_index)
         index_receipt_hash = sha256(index_root / "lookup.json")
         indexed, indexed_exclusions = load_candidates(index_root, review_path, minimum_photos=config.minimum_photos)
+        index_receipt = json.loads((index_root / "lookup.json").read_text())
+        if "identity_review_sha256" in index_receipt["inputs"]:
+            identity_aliases = json.loads((index_root / "identity-review.json").read_text())["aliases"]
     settings = asdict(config)
     settings.pop("output_root")
     settings.pop("source_archives")  # Transport location does not change the source inventory.
@@ -371,10 +375,17 @@ def prepare(config, *, checkpoint=None):
     held_hashes = {r["sha256"] for r in reference_rows}
     reserved = {r["path"]: "reserved_public_identity_or_image" for r in review
                 if r["animal"] in held_ids or r["sha256"] in held_hashes}
+    if identity_aliases:
+        # A held-out label or image protects every reviewed alias, including its unique photos.
+        protected = {identity_aliases.get(label, label) for label in held_ids}
+        protected.update(identity_aliases.get(r["animal"], r["animal"]) for r in review if r["sha256"] in held_hashes)
+        reserved.update({r["path"]: "reserved_public_identity_or_image" for r in review
+                         if identity_aliases.get(r["animal"], r["animal"]) in protected})
+    blocked = {identity_aliases.get(label, label) for label in config.excluded_animals}
     if config.candidate_index is not None:
         reserved = indexed_exclusions | reserved
         reserved.update({r["path"]: "known_ambiguous_identity" for r in indexed
-                         if r["animal"] in config.excluded_animals})
+                         if r["animal"] in blocked})
         print(f"Índice previo: {len(review)} fotos → {sum(r['path'] not in reserved for r in indexed)} candidatas a YOLO", flush=True)
     from functools import partial
     from pettrace.data.checkpoints import DriveBackup
@@ -396,7 +407,7 @@ def prepare(config, *, checkpoint=None):
         folder = Path(folder)
         retained, audit = curate_review(review_path, folder, seed=config.seed, minimum_photos=config.minimum_photos,
                                         review_policy=config.review_policy, excluded_animals=config.excluded_animals,
-                                        excluded_paths=exclusions)
+                                        excluded_paths=exclusions, identity_aliases=identity_aliases)
         if config.candidate_index is not None:
             index_audit = json.loads((index_root / "audit.json").read_text())
             audit["conflicting_hashes"].update(index_audit["conflicting_hashes"])
@@ -433,7 +444,7 @@ def prepare(config, *, checkpoint=None):
             if row["path"] in retained_paths:
                 continue
             reason = ("manual_drop" if row["decision"] == "drop" else
-                      "known_ambiguous_identity" if row["animal"] in config.excluded_animals else
+                      "known_ambiguous_identity" if identity_aliases.get(row["animal"], row["animal"]) in blocked else
                       exclusions.get(row["path"]) or
                       ("conflicting_identity" if row["animal"] in conflicts else
                        duplicate_paths.get(row["path"], "insufficient_distinct_photos")))
@@ -465,16 +476,18 @@ def prepare(config, *, checkpoint=None):
         (folder / "sources.json").write_text(_json(sources))
         (folder / "animal-screening.json").write_text(_json(screening))
         if config.candidate_index is not None:
-            for source_name, target_name in (("lookup.json", "candidate-index.json"),
-                                             ("candidates.csv", "candidates.csv"), ("excluded.csv", "candidate-exclusions.csv")):
+            index_files = [("lookup.json", "candidate-index.json"), ("candidates.csv", "candidates.csv"),
+                           ("excluded.csv", "candidate-exclusions.csv")]
+            if identity_aliases:
+                index_files.append(("identity-review.json", "identity-review.json"))
+            for source_name, target_name in index_files:
                 shutil.copy2(index_root / source_name, folder / target_name)
             # Fail on concurrent index edits rather than archive evidence different from what ran.
             load_candidates(index_root, review_path, minimum_photos=config.minimum_photos)
             receipt = json.loads((folder / "candidate-index.json").read_text())
             if (sha256(folder / "candidate-index.json") != index_receipt_hash
                     or sha256(index_root / "lookup.json") != index_receipt_hash
-                    or sha256(folder / "candidates.csv") != receipt["files"]["candidates.csv"]
-                    or sha256(folder / "candidate-exclusions.csv") != receipt["files"]["excluded.csv"]):
+                    or any(sha256(folder / target) != receipt["files"][source] for source, target in index_files[1:])):
                 raise ValueError("Candidate index changed during preparation")
         shutil.copy2(review_path, folder / "review.csv")
         if sha256(folder / "review.csv") != inputs["review_sha256"]:

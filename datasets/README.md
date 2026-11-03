@@ -100,7 +100,7 @@ report = lookup_duplicates(review, "/content/drive/MyDrive/PetTrace/data-lookup"
 La primera celda instala el paquete directamente desde PyPI, incluidos los gráficos:
 
 ```python
-%pip install -q "pettrace-ml==0.2.11"
+%pip install -q "pettrace-ml==0.2.12"
 ```
 
 Usa una **sesión Colab CPU nueva**. Colab ya proporciona IPython y los widgets; no hace falta
@@ -109,7 +109,7 @@ el entorno reportado de Python 3.13.18 y exige que no cambie sus dependencias ex
 El perfil con hashes permanece en `requirements/data-lookup-colab.txt` para reproducir esa
 prueba; no se instala encima del runtime de Colab. No representa toda la imagen de Google.
 
-En tu Mac, `python -m pip install pettrace-ml==0.2.11` instala los métodos y los gráficos.
+En tu Mac, `python -m pip install pettrace-ml==0.2.12` instala los métodos y los gráficos.
 Para un Jupyter propio, el extra `[notebooks]` añade IPython y widgets.
 Después autoriza el montaje de Drive y continúa con las tres fases del notebook.
 No reinstales el paquete en un kernel que siga preparando o entrenando datos.
@@ -146,7 +146,15 @@ Son propuestas conservadoras, no reconocimiento de animales ni cobertura garanti
 ediciones, recortes o giros. Los umbrales son decisiones del estudio y todavía no están validados
 sobre el volumen completo. El visor puede verificar un representante disponible por hash con
 `representatives_only=True`; las otras copias conservan las etiquetas del inventario.
-Las salidas previas del notebook siguen documentando solo la auditoría exacta del 50%.
+Las salidas conservadas documentan la auditoría del 50% con v0.2.11, incluidos duplicados cercanos.
+
+Las confirmaciones visuales de los grupos 1–8 están en `datasets/reviews/`, vinculadas al hash
+del reporte y de la galería. La última celda aplica esas decisiones a un índice nuevo sin
+releer imágenes ni ejecutar YOLO. Conserva `review.csv`, crea `identity-review.json` con los
+alias y mantiene los descartes manuales, los grupos no revisados y las copias cercanas pendientes.
+Confirmar un animal no aprueba calidad ni sesiones distintas; los grupos 2 y 8 siguen bajo
+el mínimo de cuatro fotos. Usa `REVIEWED_REPORT` para la siguiente preparación, en una versión nueva.
+Las revisiones posteriores deben acumularse contra el reporte original para conservar la numeración.
 
 La preparación consume el índice de forma explícita, en una versión nueva:
 

@@ -1,5 +1,18 @@
 # Package releases
 
+## 0.2.12 — apply human identity reviews without rescanning images
+
+`lookup_duplicates(..., identity_review=...)` validates explicit same-animal decisions
+against complete quarantine groups in the original report. It creates a new candidate index,
+keeps original labels in the unchanged review CSV and records the alias map and evidence.
+Manual drops, minimum-photo requirements and unresolved near-copy quarantine remain enforced.
+The saved visual audit is reused without downloading or decoding images or running YOLO.
+
+Preparation carries confirmed aliases into its manifest and archives their evidence.
+Any held-out identity/image or excluded label protects the entire merged identity.
+Existing prepared versions and experiment results remain unchanged. These confirmations
+do not approve photo quality, distinct capture sessions or final training eligibility.
+
 ## 0.2.11 — restore original LCW image folders
 
 Near-copy lookup now accepts the original LCW `CatFullDataset/<individual-ID>/<image>`
