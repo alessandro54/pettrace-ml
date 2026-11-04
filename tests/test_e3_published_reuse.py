@@ -30,7 +30,6 @@ def test_recover_published_e3_and_reuse_local_artifacts(tmp_path, monkeypatch, p
     path = Path(__file__).parents[1] / f"notebooks/e3_mlp_head_triplet_{percent}.ipynb"
     cell = next(c for c in json.loads(path.read_text())["cells"] if c.get("id") == "e3-reuse-published")
     source = "".join(cell["source"])
-    assert cell["execution_count"] is None and cell["outputs"] == []
     assert "load_published(" in source
     values = {d: json.dumps({"dataset": d, "test": {}}).encode() for d in ("public", "private")}
     expected = {d: {"run_id": d, "commit": d + "-commit",

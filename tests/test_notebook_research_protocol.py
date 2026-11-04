@@ -169,27 +169,30 @@ def test_preparation_notebook_exports_hf_version_setting(capsys):
     assert settings['HF_TRAINING_DATASET_VERSION'] == 'v2.50'
 
 
+@pytest.mark.parametrize("percent", [20, 50, 100])
 @pytest.mark.parametrize("case, error", [
-    ("missing", "not ready"), ("only50", "include v4.100"),
+    ("missing", "not ready"), ("other_volume", "include v4"),
     ("invalid_hash", "Invalid prepared dataset fingerprint"),
     ("missing_index", "candidate index checksum"), ("changed_data", "fingerprint differs"),
     ("changed_index", "different automatic candidate index"), ("ready", None),
 ])
-def test_e3_100_requires_completed_volume_receipt(tmp_path, monkeypatch, case, error):
+def test_e3_requires_completed_volume_receipt(tmp_path, monkeypatch, percent, case, error):
     import pettrace.data
 
-    source = next(''.join(c['source']) for c in cells(ROOT / 'notebooks/e3_mlp_head_triplet_100.ipynb')
+    source = next(''.join(c['source']) for c in cells(ROOT / f'notebooks/e3_mlp_head_triplet_{percent}.ipynb')
                   if c.get('id') == 'e3-load-prepared').split('manifest_rows =')[0]
     drive = tmp_path / 'content/drive/MyDrive'
     receipt = drive / 'PetTrace/data-lookup/inventory100/volume-series.json'
     receipt.parent.mkdir(parents=True)
-    entry = {'version': 'v4.100', 'fingerprint': 'a' * 64, 'candidate_index_sha256': 'b' * 64}
+    version = f'v4.{percent}'
+    entry = {'version': version, 'fingerprint': 'a' * 64, 'candidate_index_sha256': 'b' * 64}
     if case == 'invalid_hash':
         entry['fingerprint'] = 'unfinished'
     if case == 'missing_index':
         del entry['candidate_index_sha256']
     if case != 'missing':
-        receipt.write_text(json.dumps({'50' if case == 'only50' else '100': entry}))
+        other_percent = 100 if percent != 100 else 50
+        receipt.write_text(json.dumps({str(other_percent if case == 'other_volume' else percent): entry}))
     prepared_root = tmp_path / 'refined'
     prepared_root.mkdir()
     (prepared_root / 'prepared.json').write_text(json.dumps({
@@ -205,7 +208,7 @@ def test_e3_100_requires_completed_volume_receipt(tmp_path, monkeypatch, case, e
     report = tmp_path / 'report'
     report.mkdir()
     namespace = {'Path': lambda p: tmp_path / str(p).lstrip('/'), 'json': json, 'REPORT': report,
-                 'SOURCE_SAMPLE_PCT': 100, 'TRAINING_DATASET_VERSION': 'v4.100'}
+                 'SOURCE_SAMPLE_PCT': percent, 'TRAINING_DATASET_VERSION': version}
     if error:
         with pytest.raises((RuntimeError, ValueError), match=error):
             exec(source, namespace)
@@ -214,11 +217,11 @@ def test_e3_100_requires_completed_volume_receipt(tmp_path, monkeypatch, case, e
         exec(source, namespace)
         assert (report / 'volume-series.json').read_bytes() == receipt.read_bytes()
         assert namespace['TRAINING_DATASET_FINGERPRINT'] == 'a' * 64
-    if case in {'missing', 'only50', 'invalid_hash', 'missing_index'}:
+    if case in {'missing', 'other_volume', 'invalid_hash', 'missing_index'}:
         assert calls == []
     else:
-        assert calls == [('v4.100', {'cache_dir': '/content/datasets/build/pettrace-training',
-                                   'drive_root': '/content/drive/MyDrive/PetTrace'})]
+        assert calls == [(version, {'cache_dir': '/content/datasets/build/pettrace-training',
+                                    'drive_root': '/content/drive/MyDrive/PetTrace'})]
 
 
 @pytest.mark.parametrize('outcome', ['prepared', 'failed', 'preparing'])
@@ -266,21 +269,3 @@ def test_e3_100_keeps_newer_local_feature_cache(tmp_path):
     exec(source, {'FEATURE_CACHE_ROOT': tmp_path, 'feature_backup': backup})
     assert restored == [{'files': {'features/missing.sqlite3'}}]
     assert (tmp_path / 'current.sqlite3').read_bytes() == b'newer local embeddings'
-
-
-def test_e3_50_rejects_a_different_prepared_fingerprint(monkeypatch):
-    import pettrace.data
-
-    source = next(''.join(c['source']) for c in cells(ROOT / 'notebooks/e3_mlp_head_triplet_50.ipynb')
-                  if c.get('id') == 'e3-load-prepared').split('manifest_rows =')[0]
-    calls = []
-    def load(version, **kwargs):
-        calls.append((version, kwargs))
-        return SimpleNamespace(fingerprint='other'), {}
-    monkeypatch.setattr(pettrace.data, 'load', load)
-    namespace = {'Path': lambda p: SimpleNamespace(is_dir=lambda: True),
-                 'TRAINING_DATASET_VERSION': 'v3.50', 'TRAINING_DATASET_FINGERPRINT': 'pinned'}
-    with pytest.raises(ValueError, match='fingerprint'):
-        exec(source, namespace)
-    assert calls == [('v3.50', {'cache_dir': '/content/datasets/build/pettrace-training',
-                              'drive_root': '/content/drive/MyDrive/PetTrace'})]

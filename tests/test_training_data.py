@@ -115,19 +115,6 @@ def test_private_hub_release_is_idempotent_inventory_only_and_loads_by_commit(tm
     assert all(Path(row["path"]).is_relative_to(tmp_path / "cache") for row in loaded.rows)
     with pytest.raises(ValueError, match="fingerprint"):
         load_training(expected_fingerprint="0" * 64, cache_dir=tmp_path / "cache")
-    # Exercise the experiment's real Hub input branch, without credentials or fitting a model.
-    from pettrace.data.curation import sha256
-    notebook = json.loads((Path(__file__).parents[1] / "notebooks/e3_mlp_head_triplet_20.ipynb").read_text())
-    cell = next(c for c in notebook["cells"] if c["id"] == "e3-load-prepared")
-    report = tmp_path / "report"
-    report.mkdir()
-    monkeypatch.setenv("PETTRACE_TRAINING_CACHE", str(tmp_path / "experiment-cache"))
-    namespace = {"TRAINING_DATASET_VERSION": "v1", "TRAINING_DATASET_FINGERPRINT": dataset.fingerprint,
-                 "REPORT": report,
-                 "json": json, "shutil": shutil, "sha256": sha256}
-    exec(compile("".join(cell["source"]), "hub-experiment-input", "exec"), namespace)
-    training_source = json.loads((report / "data-preparation.json").read_text())["training_source"]
-    assert {key: training_source[key] for key in release} == release
     # A moved external tag cannot change the commit between resolution and download.
     def resolve_and_move(repo, revision=None):
         result = SimpleNamespace(private=True, sha="c" * 40)

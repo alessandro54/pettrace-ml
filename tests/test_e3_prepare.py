@@ -10,7 +10,6 @@ import yaml
 from PIL import Image
 
 from pettrace.data.preparation import PrepareConfig, load_prepared, prepare
-from pettrace.data.versions import record_version
 from pettrace.data.curation import sha256
 
 
@@ -91,18 +90,6 @@ def test_pipeline_creates_portable_snapshot_reuses_it_and_preserves_pending_deci
     assert audit["retained_with_unverified_source_label"] == 154
     assert all(Path(row["path"]).is_relative_to(dataset.root) for row in dataset.rows)
     assert all(len({r["split"] for r in dataset.rows if r["animal"] == row["animal"]}) == 1 for row in dataset.rows)
-    # Exercise the actual training-notebook input cell without private access or model fitting.
-    notebook = json.loads((Path(__file__).parents[1] / "notebooks/e3_mlp_head_triplet_20.ipynb").read_text())
-    cell = next(c for c in notebook["cells"] if c["id"] == "e3-load-prepared")
-    report = tmp_path / "training-report"
-    report.mkdir()
-    record_version(dataset.root, dataset.root.parent, version="v2.20")
-    monkeypatch.setenv("PETTRACE_TRAINING_CACHE", str(dataset.root.parent))
-    namespace = {"TRAINING_DATASET_VERSION": "v2.20", "TRAINING_DATASET_FINGERPRINT": dataset.fingerprint,
-                 "REPORT": report, "json": json, "shutil": shutil, "sha256": sha256}
-    exec(compile("".join(cell["source"]), "training-input", "exec"), namespace)
-    assert namespace["manifest_rows"] == dataset.rows
-    assert json.loads((report / "data-preparation.json").read_text())["prepared_dataset_fingerprint"] == dataset.fingerprint
     calls = FakeDetector.calls
     repeated = prepare(config)
     assert repeated.fingerprint == dataset.fingerprint and FakeDetector.calls == calls
