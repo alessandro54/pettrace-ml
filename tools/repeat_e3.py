@@ -23,12 +23,26 @@ ORIGINS = {
     "v3.50": "50770cc30ff84aadad4840e502339fe2",
 }
 MODEL_KEY = "34b5868b55efae9fabf7b79c3e49c6d3c91edf5895a89ba784872c1c80975a26"
+PREPARATION_EVIDENCE = (
+    "manifest.csv", "review.csv", "prepared.json", "audit.json", "summary.json",
+    "excluded.csv", "sources.json", "animal-screening.json", "lookup.json",
+    "requirements-e3-runtime.txt", "dataset-coverage.json",
+)
 
 
 def write_json(path, value):
     partial = path.with_suffix(path.suffix + ".tmp")
     partial.write_text(json.dumps(value, indent=2) + "\n")
     partial.replace(path)
+
+
+def copy_preparation_evidence(source, report):
+    destination = Path(report) / "preparation"
+    destination.mkdir(exist_ok=True)
+    for filename in PREPARATION_EVIDENCE:
+        path = Path(source) / filename
+        if path.is_file():
+            shutil.copy2(path, destination / filename)
 
 
 def cached_vectors(manifest, config, database):
@@ -205,9 +219,7 @@ def run(context, output, *, prepared_inputs=None):
                     shutil.copy2(output / filename, report / filename)
                 shutil.copy2(__file__, report / "repeat_e3.py")
                 if prepared_inputs is not None:
-                    for path in Path(prepared_inputs[name]).iterdir():
-                        if path.is_file() and path.name != "training-config.json":
-                            shutil.copy2(path, report / path.name)
+                    copy_preparation_evidence(prepared_inputs[name], report)
                     for filename in ("run_e3_volume.py", "volume-plan.json", "volume-series.json"):
                         shutil.copy2(output / filename, report / filename)
                 runtime = save_provenance(report, model)

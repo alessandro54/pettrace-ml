@@ -58,3 +58,22 @@ def test_pixel_cache_keys_include_shape_and_mode():
     # Identical pixels copied to a new object retain their key.
     assert repeat.image_key(images[0]) == repeat.image_key(images[0].copy())
     assert repeat.image_key(Image.new("RGB", (3, 3))) != repeat.image_key(Image.new("RGB", (1, 9)))
+
+
+def test_preparation_evidence_cannot_overwrite_run_results(tmp_path):
+    source, report = tmp_path / "input", tmp_path / "report"
+    source.mkdir()
+    report.mkdir()
+    (source / "summary.json").write_text("preparation")
+    (source / "dataset-coverage.json").write_text("coverage")
+    (source / "training-summary.json").write_text("stale training")
+    (source / "registration.json").write_text("stale registration")
+    (report / "summary.json").write_text("evaluation")
+
+    repeat.copy_preparation_evidence(source, report)
+
+    assert (report / "summary.json").read_text() == "evaluation"
+    assert (report / "preparation/summary.json").read_text() == "preparation"
+    assert (report / "preparation/dataset-coverage.json").read_text() == "coverage"
+    assert not (report / "preparation/training-summary.json").exists()
+    assert not (report / "preparation/registration.json").exists()
