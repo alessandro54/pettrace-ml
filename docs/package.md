@@ -20,7 +20,7 @@ to also install PyTorch, ONNX export and pandas. For development, use `pip insta
 Colab is the primary notebook target. The first cell of `datasets/data_lookup.ipynb` is:
 
 ```python
-%pip install -q "pettrace-ml==0.2.12"
+%pip install -q "pettrace-ml==0.2.16"
 ```
 
 Use a fresh Colab CPU runtime. CI tests this ordinary installation against the reported

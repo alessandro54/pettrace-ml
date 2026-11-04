@@ -15,15 +15,16 @@
 
 ## OE3 (experiments E3–E5)
 
-- [x] E3 implementation and self-contained Colab notebook: identity import/audit, frozen E2 + MLP, P×K batches, triplet loss, val-only checkpoint selection, ONNX parity, MLflow evidence. First real training run remains pending.
+- [x] E3 implementation and 100% condition: frozen E2 + MLP, P×K batches, triplet loss,
+      val-only checkpoint selection, ONNX parity, seeds 42–44 and MLflow publication.
 
 - [ ] **Training data**: E3–E4 train on public pet re-ID datasets (check licences); `pettrace-reid`
       stays an independent test set. Keep growing it (test first, then `val`).
 - [ ] **Sighting-style photos** (outside the home, far, from behind) and an owner-photo vs
       street-photo protocol: removes the background advantage E2 exposed in E1.
 - [ ] **Rank-k vs gallery size** (7, 50, 200 candidates, public distractors): the city-scale view.
-- [ ] E3: frozen CLIP + MLP head, triplet loss, P×K sampler; training notebook (Colab GPU) per
-      [notebooks/README.md](notebooks/README.md); seeds fixed and logged.
+- [ ] E3 volume comparison: run the common-policy 20% and 50% conditions against the completed
+      100% condition; keep seeds fixed and logged.
 - [ ] E4: LoRA (r = 8, α = 16, q/v), merged into the ONNX encoder.
 - [ ] E5: re-ranking with the sighting's description (multilingual text encoder).
 - [ ] Threshold calibrated at the EER on `val`, FAR/FRR reported on `test` (no more optimistic EER).

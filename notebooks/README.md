@@ -83,7 +83,8 @@ en total. `dataset.sampled_pct` registra adquisición y `dataset.train_pct` mant
 su denominador de 694.594 fotos originales, contando solo train. Fotos e identidades
 por split/especie se publican en ambos runs MLflow.
 
-El procesamiento real de la muestra ampliada está pendiente; la implementación compartida ya admite 20/50/100 con cachés incrementales; los notebooks rechazan el piloto v1 como
-si fuese un 20%. La validación y el test públicos v1 quedan fijos. Las salidas
-conservadas en E3 20 son del piloto histórico, no resultados del nuevo volumen.
+La preparación v4.100 y sus tres semillas (42–44) ya terminaron y están publicadas; el
+contraste común 20/50/100 sigue pendiente. Los notebooks rechazan el piloto v1 como si
+fuese un 20%. La validación y el test públicos v1 quedan fijos. Las salidas conservadas
+en E3 20 son del piloto histórico, no resultados del nuevo volumen.
 Véanse [cuotas, requisitos y ejecución](../docs/e3_colab.md).

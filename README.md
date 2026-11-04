@@ -9,7 +9,7 @@ This repository documents the research questions, experimental methods, reusable
 The distribution is `pettrace-ml`, imported as `pettrace`. See the [public methods and examples](docs/package.md)
 for duplicate audits, Drive recovery, preparation, embeddings, training, evaluation and MLflow publication.
 Install the published package from [PyPI](https://pypi.org/project/pettrace-ml/):
-`pip install pettrace-ml==0.2.12`.
+`pip install pettrace-ml==0.2.16`.
 The [release guide](docs/releases.md) covers publication and locked environments. Frozen experiment notebooks
 continue to use their recorded package and runtime versions.
 
@@ -21,7 +21,7 @@ The experiments investigate incremental changes to a shared visual retrieval pip
 |---|---|---|---|
 | [E1 — Frozen representation](notebooks/e1_clip_zero_shot.ipynb) | How well does a pretrained visual encoder retrieve individual pets without domain adaptation? | Image without animal localization → CLIP ViT-B/32 → 512-dimensional, L2-normalized embedding. No parameter updates. | Reference evaluation published on PetTrace v4. |
 | [E2 — Animal localization](notebooks/e2_yolo_crop_zero_shot.ipynb) | How does localizing the animal affect retrieval with the same encoder? | YOLOv8n → highest-confidence cat/dog box with a 10% margin → the same frozen CLIP encoder. The image is retained when no valid box is available. | Reference evaluation published on PetTrace v4, including a recalculated E1 baseline. |
-| E3 — [20%](notebooks/e3_mlp_head_triplet_20.ipynb) / [50%](notebooks/e3_mlp_head_triplet_50.ipynb) / [100%](notebooks/e3_mlp_head_triplet_100.ipynb) | Does a projection trained on public identities transfer to private PetTrace identities? | Frozen E2 → MLP 512→256→512 → L2 normalization. Only the MLP is trained with batch-hard triplet loss. | Historical pilot results are below. The new 20/50/100% source samples require expanded data preparation before training. |
+| E3 — [20%](notebooks/e3_mlp_head_triplet_20.ipynb) / [50%](notebooks/e3_mlp_head_triplet_50.ipynb) / [100%](notebooks/e3_mlp_head_triplet_100.ipynb) | Does a projection trained on public identities transfer to private PetTrace identities? | Frozen E2 → MLP 512→256→512 → L2 normalization. Only the MLP is trained with batch-hard triplet loss. | The 100% condition is published for seeds 42–44; the common-policy 20/50/100 volume comparison remains pending. |
 | E4 — Encoder adaptation | What additional benefit might adapting the visual encoder provide? | Proposed LoRA-based adaptation. | Future research; no completed experiment is claimed. |
 | E5 — Text-assisted retrieval | Can a sighting description improve visual candidate ranking? | Proposed integration of textual information or re-ranking. | Future research; no completed experiment is claimed. |
 
@@ -57,7 +57,7 @@ E1 and E2 perform inference with frozen pretrained components. E3 caches frozen 
 | Objective | Batch-hard triplet loss, margin `0.2` |
 | Sampling | 8 identities × 4 images; same-species batches alternating cats and dogs |
 | Schedule | Up to 30 epochs, 100 steps per epoch, early-stopping patience 7 |
-| Seed | 42 |
+| Seeds | 42, 43 and 44 for the completed 100% condition |
 | Checkpoint selection | Mean of the public validation mAP values for cats and dogs |
 | Private benchmark participation | No private images or identities used for fitting or checkpoint selection |
 | Execution | GPU training of the MLP; frozen ONNX inference uses CPU |
@@ -81,7 +81,7 @@ The public split is **15.2% of the prepared photographs and 14.9% of the prepare
 
 The reports contain confusion matrices, CMC curves, Rank-1/Rank-2/mAP charts, score distributions, similarity matrices, and per-identity analysis. E3 also includes training/validation curves. Long identity strings receive compact plot labels with a reversible `identity-labels.json` mapping. Figures are calculated by this project rather than copied from the literature.
 
-**The new public-versus-private comparisons are implemented but have not been rerun yet.** Historical metrics below do not include public-test results or a newly measured Rank-2 value.
+The completed E3 100% condition reports public v1 and PetTrace v4 separately for three seeds. Its notebook is the canonical record; historical metrics below remain labeled as a different pilot.
 
 ## Datasets and version identities
 
