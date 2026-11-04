@@ -25,7 +25,8 @@
 - [ ] **Rank-k vs gallery size** (7, 50, 200 candidates, public distractors): the city-scale view.
 - [ ] E3 volume comparison: run the common-policy 20% and 50% conditions against the completed
       100% condition; keep seeds fixed and logged.
-- [ ] E4: LoRA (r = 8, α = 16, q/v), merged into the ONNX encoder.
+- [ ] E4: LoRA (r = 8, α = 16, q/v), merged into the ONNX encoder. Adapter injection,
+      merge and frozen E3 checkpoint verification are implemented; training/export/publication remain.
 - [ ] E5: re-ranking with the sighting's description (multilingual text encoder).
 - [ ] Threshold calibrated at the EER on `val`, FAR/FRR reported on `test` (no more optimistic EER).
 

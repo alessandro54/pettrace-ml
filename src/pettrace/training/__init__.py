@@ -1,1 +1,1 @@
-"""Metric-learning optimization on frozen representations."""
+"""Metric-learning optimization and encoder adaptation."""

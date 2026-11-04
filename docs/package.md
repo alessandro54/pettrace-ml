@@ -167,6 +167,12 @@ the TAR block containing the CSV and restores only that file. Missing backups fa
 it does not silently change the percentage or run preparation. Reports persist in Drive.
 The optional `quarantine_gallery` needs the original photos at their recorded paths.
 
+## E4 LoRA primitives
+
+`pettrace.training.lora.inject_lora(model, rank=8, alpha=16)` freezes a PyTorch model and adds trainable low-rank updates to its `q_proj` and `v_proj` layers. `merge_lora(model)` folds those updates back into the linear weights for export. `load_frozen_e3_head(path, sha256)` refuses a control checkpoint whose bytes do not match the recorded MLflow artifact.
+
+These methods prepare E4; they do not train, evaluate or publish an experiment by themselves.
+
 ## Experiments and reproducibility
 
 Use the versioned
