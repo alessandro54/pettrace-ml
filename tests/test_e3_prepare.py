@@ -10,6 +10,7 @@ import yaml
 from PIL import Image
 
 from pettrace.data.preparation import PrepareConfig, load_prepared, prepare
+from pettrace.data.versions import record_version
 from pettrace.data.curation import sha256
 
 
@@ -92,8 +93,10 @@ def test_pipeline_creates_portable_snapshot_reuses_it_and_preserves_pending_deci
     cell = next(c for c in notebook["cells"] if c["id"] == "e3-load-prepared")
     report = tmp_path / "training-report"
     report.mkdir()
-    namespace = {"load_prepared": load_prepared, "PREPARED_DATASET_ROOT": dataset.root,
-                 "REPORT": report, "json": json, "shutil": shutil, "sha256": sha256, "TRAINING_DATASET_REPO": ""}
+    record_version(dataset.root, dataset.root.parent, version="v2.20")
+    monkeypatch.setenv("PETTRACE_TRAINING_CACHE", str(dataset.root.parent))
+    namespace = {"TRAINING_DATASET_VERSION": "v2.20", "TRAINING_DATASET_FINGERPRINT": dataset.fingerprint,
+                 "REPORT": report, "json": json, "shutil": shutil, "sha256": sha256}
     exec(compile("".join(cell["source"]), "training-input", "exec"), namespace)
     assert namespace["manifest_rows"] == dataset.rows
     assert json.loads((report / "data-preparation.json").read_text())["prepared_dataset_fingerprint"] == dataset.fingerprint

@@ -121,15 +121,13 @@ def test_private_hub_release_is_idempotent_inventory_only_and_loads_by_commit(tm
     cell = next(c for c in notebook["cells"] if c["id"] == "e3-load-prepared")
     report = tmp_path / "report"
     report.mkdir()
-    accesses = []
     monkeypatch.setenv("PETTRACE_TRAINING_CACHE", str(tmp_path / "experiment-cache"))
-    namespace = {"TRAINING_DATASET_REPO": release["repo"], "TRAINING_DATASET_VERSION": "v1",
-                 "TRAINING_DATASET_REVISION": release["commit"], "TRAINING_DATASET_FINGERPRINT": dataset.fingerprint,
-                 "configure_private_access": lambda **kwargs: accesses.append(kwargs), "REPORT": report,
+    namespace = {"TRAINING_DATASET_VERSION": "v1", "TRAINING_DATASET_FINGERPRINT": dataset.fingerprint,
+                 "REPORT": report,
                  "json": json, "shutil": shutil, "sha256": sha256}
     exec(compile("".join(cell["source"]), "hub-experiment-input", "exec"), namespace)
-    assert accesses == [{"names": ("HF_TOKEN",)}]
-    assert json.loads((report / "data-preparation.json").read_text())["training_source"] == release
+    training_source = json.loads((report / "data-preparation.json").read_text())["training_source"]
+    assert {key: training_source[key] for key in release} == release
     # A moved external tag cannot change the commit between resolution and download.
     def resolve_and_move(repo, revision=None):
         result = SimpleNamespace(private=True, sha="c" * 40)

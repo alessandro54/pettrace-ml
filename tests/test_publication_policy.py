@@ -1,5 +1,6 @@
 """Experiment entry points cannot silently omit required MLflow publication."""
 import ast
+import inspect
 import json
 from pathlib import Path
 
@@ -14,6 +15,17 @@ def test_notebook_publication_is_required_before_side_effects(filename):
     assignment = next(n for n in ast.parse(config).body if isinstance(n, ast.Assign)
                       and any(isinstance(t, ast.Name) and t.id == "LOG_TO_MLFLOW" for t in n.targets))
     assert ast.literal_eval(assignment.value) is True
+    if filename.startswith("e3_"):
+        from pettrace.experiments.e3 import publish_results
+
+        publication = next(s for s in code if "publication = publish_results(" in s)
+        assert "LOG_TO_MLFLOW" not in publication
+        assert "log_to_mlflow" not in inspect.signature(publish_results).parameters
+        calls = [node for node in ast.walk(ast.parse(inspect.getsource(publish_results)))
+                 if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
+                 and node.func.id == "publish_evaluation"]
+        assert len(calls) == 2
+        return
     publication = next(s for s in code if "run_id = publish_evaluation(" in s)
     with pytest.raises(ValueError, match="mandatory"):
         exec(publication, {"LOG_TO_MLFLOW": False})

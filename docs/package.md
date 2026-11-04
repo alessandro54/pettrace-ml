@@ -10,7 +10,7 @@ Notebooks describe and run the experiments.
 Python 3.11–3.13 is supported. Install a published version in your Python environment:
 
 ```bash
-python -m pip install pettrace-ml==0.2.12
+python -m pip install pettrace-ml==0.2.15
 ```
 
 The default install includes plots. Colab already supplies IPython and widgets; the
@@ -104,6 +104,7 @@ start with `_` are internal. Existing experiment imports continue to work.
 | `pettrace.evaluation.metrics` | `retrieval`, `pair_scores`, `eer`, `at_threshold` | Calculate same-species retrieval and pair-score metrics. |
 | `pettrace.tracking` | `publish_evaluation`, `source_identity`, `save_provenance` | Publish experiment evidence and record its code/runtime identity. |
 | `pettrace.experiments.e1` | `resume_publication` | Retry publication from saved evidence without repeating inference. |
+| `pettrace.experiments.e3` | `load_benchmarks`, `load_published`, `publish_results`, `register_candidate` | Load separated pinned benchmarks, verify prior E3 evidence, publish both domains and register a candidate without promoting an alias. |
 
 ## Duplicate audit without model inference
 

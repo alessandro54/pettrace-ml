@@ -1,24 +1,34 @@
 import json
-from pathlib import Path
 from types import SimpleNamespace
-from textwrap import dedent
+
+import pytest
+
+from pettrace.experiments.e3 import register_candidate
 
 
 def test_registration_retries_reuse_version(tmp_path):
-    n=json.loads(Path('notebooks/e3_mlp_head_triplet_20.ipynb').read_text())
-    source=''.join(next(c for c in n['cells'] if c.get('id')=='e3-28')['source'])
-    source=dedent(source[source.index('    if REGISTER_E3:'):])
     versions=[]
     def create(name, source, run_id, tags):
         version=SimpleNamespace(version='7',source=source,run_id=run_id,status='READY')
         versions.append(version)
         return version
-    client=SimpleNamespace(get_run=lambda _:SimpleNamespace(info=SimpleNamespace(artifact_uri='mlflow-artifacts:/3/run/artifacts')),
+    client=SimpleNamespace(get_run=lambda _:SimpleNamespace(info=SimpleNamespace(status='FINISHED',artifact_uri='mlflow-artifacts:/3/run/artifacts')),
         search_model_versions=lambda _:versions,create_model_version=create,
         get_model_version=lambda *_:versions[0],log_artifact=lambda *_,**kw:None)
-    scope=dict(REGISTER_E3=True,mlflow=SimpleNamespace(MlflowClient=lambda:client),run_id='run',REPORT=tmp_path,json=json)
-    exec(source,scope)
-    exec(source,scope)
-    assert len(versions)==1
-    assert versions[0].source.endswith('/report/model')
-    assert json.loads((tmp_path/'registration.json').read_text())['alias_promoted'] is False
+    import mlflow
+    original = mlflow.MlflowClient
+    mlflow.MlflowClient = lambda: client
+    receipt = tmp_path / 'publication.json'
+    try:
+        receipt.write_text(json.dumps({'published': False, 'run_id': 'run', 'public_run_id': 'public'}))
+        with pytest.raises(RuntimeError, match='Publish both domains'):
+            register_candidate(tmp_path, 'run', 'public')
+        assert not versions
+        receipt.write_text(json.dumps({'published': True, 'run_id': 'run', 'public_run_id': 'public'}))
+        register_candidate(tmp_path, 'run', 'public')
+        register_candidate(tmp_path, 'run', 'public')
+        assert len(versions)==1
+        assert versions[0].source.endswith('/report/model')
+        assert json.loads((tmp_path/'registration.json').read_text())['alias_promoted'] is False
+    finally:
+        mlflow.MlflowClient = original

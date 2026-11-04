@@ -1,5 +1,19 @@
 # Package releases
 
+## 0.2.15 — readable E3 experiment notebooks
+
+E3 notebooks keep their research choices visible—dataset pins, `Config`, training,
+metrics, figures and interpretation—while shared operational code now lives in
+`pettrace.experiments.e3`. The package verifies previously published models/results,
+loads pinned benchmarks with leakage guards, publishes public v1 and PetTrace
+separately with identical training evidence, and registers an idempotent candidate
+without promoting a serving alias. Publication has no disable flag and can be retried
+from saved reports without retraining.
+
+The notebooks install one pinned PyPI package command; no requirements file or wheel
+build is embedded. Existing executed outputs remain as historical evidence and do not
+claim a new experiment. Training, data selection and evaluation methods are unchanged.
+
 ## 0.2.14 — compact inputs before GPU screening
 
 Supersedes the GitHub-only 0.2.13 build, whose PyPI publication was blocked by a notebook

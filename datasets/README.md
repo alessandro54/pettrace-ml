@@ -29,7 +29,7 @@ Esta carga solo lee Drive y guarda las descargas de HF localmente. No descarga Z
 no ejecuta YOLO ni genera versiones nuevas. El acceso privado a HF requiere `HF_TOKEN`.
 Los notebooks congelados conservan su configuración y evidencias anteriores.
 
-Usar [prepare_training.ipynb](prepare_training.ipynb) con el wheel local `0.2.5.dev3`.
+Usar [prepare_training.ipynb](prepare_training.ipynb), cuyo setup instala `pettrace-ml==0.2.14` desde PyPI.
 Es el único notebook de preparación para los tres volúmenes. Usa Dogs of the World y LCW
 y el mismo algoritmo de limpieza. Aplica:
 
@@ -254,13 +254,13 @@ El diagnóstico queda en `animal-screening-cache/cuda/<clave>/gpu-validation.jso
 Las detecciones CPU previas se reutilizan sin reescribir; CUDA tiene caché separada y el reporte distingue
 su procedencia. Se requiere Linux x86_64, Python 3.13 y el perfil E3 con Torch/CUDA 12.8.
 
-Subir `dist/v0.2.5.dev3/pettrace_ml-0.2.5.dev3-py3-none-any.whl`, `SHA256SUMS` y
-`requirements/e3-runtime.txt` (sin renombrarlo) a `/content` en una sesión nueva.
-La celda también acepta el nombre anterior `requirements-e3-runtime.txt`.
-Es una compilación local de desarrollo, no una release publicada. Solo una sesión puede preparar
-datos en la misma carpeta de Drive; no actualices una sesión que sigue procesando.
-Para migrar en la misma VM: interrumpir una vez, esperar el respaldo, instalar el wheel y reiniciar
-solo el kernel cuando se solicite. No eliminar el runtime ni sus archivos locales.
+En una sesión nueva, ejecuta el setup del notebook: instala `pettrace-ml==0.2.14`
+desde PyPI y las dependencias del perfil E3 con hashes. El perfil se descarga desde
+la etiqueta `v0.2.14` de GitHub y se verifica por SHA-256. No hace falta compilar el
+paquete ni subir archivos de instalación. Reinicia solo si el setup lo solicita
+porque reemplazó una biblioteca ya cargada.
+Solo una sesión puede preparar datos en la misma carpeta de Drive; no actualices
+una sesión que sigue procesando ni elimines sus archivos locales.
 La procedencia registra los cambios de implementación; las versiones refinadas existentes no se
 sobrescriben. No se ha medido la aceleración con las bases completas en Colab.
 

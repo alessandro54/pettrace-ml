@@ -1,8 +1,7 @@
 """Source acquisition percentages must not be confused with effective training volume."""
 import ast
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 import json
-from textwrap import dedent
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -79,34 +78,95 @@ def test_three_variants_have_identical_science_and_distinct_report_paths():
         assert 'f"e3_{SOURCE_SAMPLE_PCT}_{DATASET}"' in cell("e3-05", pct)
         assert 'REGISTER_E3 = True' in cell("e3-05", pct)
     assert len(list((ROOT / "notebooks").glob("e3_mlp_head_triplet*.ipynb"))) == 3
-    assert cell("e3-17", 20) == cell("e3-17", 50) == cell("e3-17", 100)
-    assert cell("e3-28", 20) == cell("e3-28", 50) == cell("e3-28", 100)
+    # Cache restoration can differ without changing the fit or its configuration.
+    def training_calls(pct):
+        return [ast.dump(n) for n in ast.walk(ast.parse(cell("e3-17", pct)))
+                if isinstance(n, ast.Call) and isinstance(n.func, ast.Name) and n.func.id in {"Config", "fit"}]
+
+    assert training_calls(20) == training_calls(50) == training_calls(100)
+    for cell_id in ("e3-public-load", "e3-public-guards", "e3-public-data",
+                    "e3-publication-design", "e3-publication-metrics", "e3-publication-upload", "e3-28"):
+        assert cell(cell_id, 20) == cell(cell_id, 50) == cell(cell_id, 100)
 
 
 def test_expanded_training_rejects_test_leakage_and_changed_validation():
-    # Exercise guards before any public/private evaluation or optimization.
-    tree = ast.parse(cell("e3-public-data"))
-    start = next(i for i, n in enumerate(tree.body) if isinstance(n, ast.Assign)
-                 and any(isinstance(t, ast.Name) and t.id == "public_test_rows" for t in n.targets))
-    end = next(i for i, n in enumerate(tree.body) if isinstance(n, ast.Assign)
-               and any(isinstance(t, ast.Name) and t.id == "public_ds" for t in n.targets))
-    code = compile(ast.Module(body=tree.body[start:end], type_ignores=[]), "held-out", "exec")
+    from pettrace.experiments.e3 import _validate_benchmark_separation
+
     val = {"animal": "v", "species": "cat", "sha256": "v", "split": "val"}
     test = {"animal": "t", "species": "cat", "sha256": "t", "split": "test"}
     train = {"animal": "a", "species": "cat", "sha256": "a", "split": "train"}
-    namespace = {"public_prepared": SimpleNamespace(rows=[val, test]), "manifest_rows": [train, val]}
-    exec(code, namespace)
+    _validate_benchmark_separation([train, val], [val, test], set())
     for changed in ({**train, "animal": "t"}, {**train, "sha256": "t"}):
-        namespace["manifest_rows"] = [changed, val]
         with pytest.raises(ValueError, match="overlaps"):
-            exec(code, namespace)
-    namespace["manifest_rows"] = [train, {**val, "sha256": "new"}]
+            _validate_benchmark_separation([changed, val], [val, test], set())
     with pytest.raises(ValueError, match="validation"):
-        exec(code, namespace)
+        _validate_benchmark_separation([train, {**val, "sha256": "new"}], [val, test], set())
+
+
+def test_public_guard_rejects_images_shared_with_private_benchmark(tmp_path):
+    from pettrace.data.curation import sha256
+    from pettrace.experiments.e3 import _validate_benchmark_separation
+
+    photo = tmp_path / "photo.jpg"
+    photo.write_bytes(b"same photo")
+    row = {"animal": "a", "species": "cat", "sha256": sha256(photo), "split": "test"}
+    with pytest.raises(ValueError, match="shared with the PetTrace benchmark"):
+        _validate_benchmark_separation([], [row], {sha256(photo)})
+
+
+def test_e3_changed_private_tag_stops_before_download(tmp_path, monkeypatch):
+    import huggingface_hub
+    from pettrace.experiments.e3 import load_benchmarks
+
+    downloads = []
+    monkeypatch.setattr(huggingface_hub, "HfApi", lambda: SimpleNamespace(
+        dataset_info=lambda *a, **k: SimpleNamespace(sha="changed")))
+    monkeypatch.setattr(huggingface_hub, "snapshot_download", lambda *a, **k: downloads.append(k))
+    with pytest.raises(ValueError, match="tag changed"):
+        load_benchmarks([], tmp_path, private_version="v4", private_commit="pinned")
+    assert downloads == []
+
+
+def test_load_benchmarks_writes_verified_public_selection(tmp_path, monkeypatch):
+    import huggingface_hub
+    from pettrace.data import benchmark
+    from pettrace.data import versions
+    from pettrace.evaluation import research
+    from pettrace.experiments.e3 import load_benchmarks
+
+    private_photo = tmp_path / "private.jpg"
+    private_photo.write_bytes(b"private")
+    private = SimpleNamespace(
+        repo="private/repo", version="v4", commit="pinned", name="private-v4",
+        photos=[SimpleNamespace(path=private_photo)])
+    val = {"animal": "val", "species": "cat", "sha256": "v", "split": "val"}
+    test = {"animal": "test", "species": "cat", "sha256": "t", "split": "test"}
+    prepared = SimpleNamespace(rows=[val, test], fingerprint="prepared")
+    public = SimpleNamespace(
+        repo="public/repo", version="v1", commit="public-commit", fingerprint="public-test",
+        photos=[object()], animals={"test": {}})
+    monkeypatch.setattr(huggingface_hub, "HfApi", lambda: SimpleNamespace(
+        dataset_info=lambda *a, **k: SimpleNamespace(sha="pinned")))
+    monkeypatch.setattr(huggingface_hub, "snapshot_download", lambda *a, **k: tmp_path)
+    monkeypatch.setattr(benchmark, "from_dir", lambda *a, **k: private)
+    monkeypatch.setattr(versions, "load_training", lambda **k: (prepared, {"commit": "public-commit"}))
+    monkeypatch.setattr(research, "public_test_dataset", lambda *a: public)
+
+    result = load_benchmarks(
+        [{"animal": "train", "species": "dog", "sha256": "a", "split": "train"}, val],
+        tmp_path, private_version="v4", private_commit="pinned")
+    assert result.private is private and result.public is public
+    selection = json.loads((result.public_report / "dataset-selection.json").read_text())
+    assert selection["scope"] == "published_test_only"
+    assert selection["rows"] == [{"animal": "test", "species": "cat", "sha256": "t"}]
 
 
 def test_both_domains_receive_training_volume_and_final_receipts(tmp_path, monkeypatch):
     import mlflow
+    from contextlib import nullcontext
+    from pettrace import tracking
+    from pettrace.experiments import e3
+    from pettrace.experiments.e3 import publish_results
 
     @dataclass
     class Config:
@@ -122,22 +182,87 @@ def test_both_domains_receive_training_volume_and_final_receipts(tmp_path, monke
         get_run=lambda run: SimpleNamespace(info=SimpleNamespace(status="FINISHED")),
         log_artifact=lambda run, path, **kwargs: artifacts.update({run: json.loads(Path(path).read_text())}))
     monkeypatch.setattr(mlflow, "MlflowClient", lambda: client)
+    monkeypatch.setattr(e3, "compact_json_uploads", nullcontext)
+    monkeypatch.setattr(tracking, "save_provenance", lambda *a: None)
+    monkeypatch.setattr(tracking, "publish_evaluation", lambda evaluation, *a, **k: evaluation.domain)
     public = tmp_path / "public_test"
     public.mkdir()
-    (public / "publication.json").write_text(json.dumps({"published": True, "run_id": "public"}))
-    source = cell("e3-28").split("# Dataset coverage is published with every E3 run.")[1]
-    source = dedent(source.split("if REGISTER_E3:")[0])
-    exec(source, {"mlflow": mlflow, "json": json, "asdict": asdict, "config": Config(),
-        "train_summary": {"history": [{"epoch": 1, "train.loss": .1, "train.active_triplets": .2, "val.macro_species_mAP": .3, "training.optimizer_steps": 1, "training.examples_seen": 32, "training.unique_photos_seen": 32}], "best_epoch": 1, "best_val_mAP": .3},
-        "prepared": SimpleNamespace(fingerprint="prepared"), "training_source": {"commit": "pinned"},
-        "coverage_metrics": {"dataset.sample_requested_pct": 20, "dataset.sampled_pct": 19.999,
-                             "dataset.train_pct": 12, "dataset.train_photos": 100, "dataset.train_identities": 10},
-        "coverage_params": {"dataset.reference.scope": "original_archives_before_filtering"},
-        "SOURCE_SAMPLE_PCT": 20, "REPORT": tmp_path, "PUBLIC_REPORT": public,
-        "receipt": tmp_path / "publication.json", "run_id": "private", "public_run_id": "public"})
+    for name in ("dataset-coverage.json", "training-config.json", "training-summary.json", "sources.json"):
+        (tmp_path / name).write_text("{}")
+    dataset = SimpleNamespace(repo="benchmark", version="v1", commit="pinned", fingerprint="digest")
+    public_evaluation = SimpleNamespace(domain="public", dataset=dataset, protocol="zero-shot")
+    private_evaluation = SimpleNamespace(domain="private", dataset=dataset, protocol="zero-shot")
+    coverage = {"dataset.sample_requested_pct": 20, "dataset.sampled_pct": 19.999,
+                "dataset.train_pct": 12, "dataset.train_photos": 100, "dataset.train_identities": 10}
+    result = publish_results(
+        public_evaluation, private_evaluation, SimpleNamespace(sha256={"encoder.onnx": "hash"}),
+        tmp_path, public, "source", experiment="E3", source_sample_pct=20, config=Config(),
+        training_summary={"history": [{"epoch": 1, "train.loss": .1, "train.active_triplets": .2,
+            "val.macro_species_mAP": .3, "training.optimizer_steps": 1,
+            "training.examples_seen": 32, "training.unique_photos_seen": 32}],
+            "best_epoch": 1, "best_val_mAP": .3},
+        prepared_fingerprint="prepared", training_source={"commit": "pinned"},
+        coverage_metrics=coverage,
+        coverage_params={"dataset.reference.scope": "original_archives_before_filtering"},
+        private_dataset_version="v1")
+    assert result == {"run_id": "private", "public_run_id": "public"}
     assert batches["public"] == batches["private"]
     assert batches["public"][0]["dataset.train_photos"] == 100
     assert batches["public"][0]["dataset.sample_requested_pct"] == 20
     assert tags["public", "source_sample_pct"] == tags["private", "source_sample_pct"] == "20"
     assert artifacts["public"]["published"] and artifacts["private"]["published"]
     assert artifacts["private"]["public_run_id"] == "public"
+
+
+def test_publication_cells_can_retry_after_second_domain_fails(tmp_path, monkeypatch):
+    from contextlib import nullcontext
+    import mlflow
+    from pettrace import tracking
+    from pettrace.experiments import e3
+    from pettrace.experiments.e3 import publish_results
+
+    @dataclass
+    class Config:
+        seed: int = 42
+
+    monkeypatch.setattr(e3, "compact_json_uploads", nullcontext)
+    uploads, calls = {}, []
+    client = SimpleNamespace(
+        log_batch=lambda *a, **kw: None, set_tag=lambda *a: None,
+        get_run=lambda run: SimpleNamespace(info=SimpleNamespace(status="FINISHED")),
+        log_artifact=lambda run, path, **kw: uploads.update({run: json.loads(Path(path).read_text())}))
+    monkeypatch.setattr(mlflow, "MlflowClient", lambda: client)
+
+    fail_private = True
+
+    def publish(evaluation, model, report, source, **kwargs):
+        calls.append(evaluation)
+        assert (report / "experiment-design.json").is_file()
+        assert kwargs["expected_protocol"] == "zero-shot"
+        if evaluation.domain == "private" and fail_private:
+            raise ConnectionError("Upload interrupted")
+        return evaluation.domain
+
+    monkeypatch.setattr(tracking, "publish_evaluation", publish)
+    monkeypatch.setattr(tracking, "save_provenance", lambda *a: None)
+    public_report = tmp_path / "public_test"
+    public_report.mkdir()
+    for name in ("dataset-coverage.json", "training-config.json", "training-summary.json", "sources.json"):
+        (tmp_path / name).write_text("{}")
+    dataset = SimpleNamespace(repo="benchmark", version="v1", commit="pinned", fingerprint="digest")
+    public_evaluation = SimpleNamespace(domain="public", dataset=dataset, protocol="zero-shot")
+    private_evaluation = SimpleNamespace(domain="private", dataset=dataset, protocol="zero-shot")
+    kwargs = dict(experiment="E3", source_sample_pct=50, config=Config(),
+        training_summary={"history": [], "best_epoch": 1, "best_val_mAP": .3},
+        prepared_fingerprint="prepared", training_source={"commit": "pinned"},
+        coverage_metrics={"dataset.train_photos": 100}, coverage_params={}, private_dataset_version="v1")
+    with pytest.raises(ConnectionError, match="Upload interrupted"):
+        publish_results(public_evaluation, private_evaluation, SimpleNamespace(sha256={"encoder.onnx": "hash"}),
+                        tmp_path, public_report, "source", **kwargs)
+    assert not json.loads((tmp_path / "publication.json").read_text())["published"]
+    fail_private = False
+    publish_results(public_evaluation, private_evaluation, SimpleNamespace(sha256={"encoder.onnx": "hash"}),
+                    tmp_path, public_report, "source", **kwargs)
+    assert [evaluation.domain for evaluation in calls] == ["public", "private", "public", "private"]
+    assert uploads == {"public": {"published": True, "run_id": "public"},
+                       "private": {"published": True, "run_id": "private", "public_run_id": "public"}}
