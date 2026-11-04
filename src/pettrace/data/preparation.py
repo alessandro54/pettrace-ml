@@ -361,8 +361,7 @@ def prepare(config, *, checkpoint=None):
     inputs = {"reference_rows": [{k: r[k] for k in MANIFEST_FIELDS if k != "path"} for r in reference_rows], "config": settings, "detector_step": step, "implementation": implementation,
               "runtime": {"numpy": np.__version__, "onnxruntime": ort.__version__, "pillow": pillow_version},
               "detector_spec_sha256": sha256(model_root / "pipeline.yaml"),
-              "review_sha256": sha256(review_path), "photos": [{k: r[k] for k in ("path", "source", "species", "animal", "sha256")} for r in review],
-              "sources": sources}
+              "review_sha256": sha256(review_path), "sources": sources}
     if index_receipt_hash is not None:
         inputs["candidate_index_sha256"] = index_receipt_hash
         inputs["implementation"]["data/lookup.py"] = sha256(package_root / "data/lookup.py")
@@ -448,24 +447,27 @@ def prepare(config, *, checkpoint=None):
         retained_paths = {row["path"] for row in retained}
         duplicate_paths = {row["path"]: row["reason"] for row in audit["removed_duplicates"]}
         conflicts = set(audit["conflicting_identities_quarantined"])
-        excluded_rows = []
-        for row in review:
-            if row["path"] in retained_paths:
-                continue
-            reason = ("manual_drop" if row["decision"] == "drop" else
-                      "known_ambiguous_identity" if identity_aliases.get(row["animal"], row["animal"]) in blocked else
-                      exclusions.get(row["path"]) or
-                      ("conflicting_identity" if row["animal"] in conflicts else
-                       duplicate_paths.get(row["path"], "insufficient_distinct_photos")))
-            excluded_rows.append({"path": row["path"], "animal": row["animal"], "species": row["species"], "reason": reason})
+        exclusion_reasons = Counter()
+        processing_exclusions = {source: Counter() for source in SOURCES}
         with (folder / "excluded.csv").open("w", newline="") as stream:
             writer = csv.DictWriter(stream, ["path", "animal", "species", "reason"])
             writer.writeheader()
-            writer.writerows(excluded_rows)
+            for row in review:
+                if row["path"] in retained_paths:
+                    continue
+                reason = ("manual_drop" if row["decision"] == "drop" else
+                          "known_ambiguous_identity" if identity_aliases.get(row["animal"], row["animal"]) in blocked else
+                          exclusions.get(row["path"]) or
+                          ("conflicting_identity" if row["animal"] in conflicts else
+                           duplicate_paths.get(row["path"], "insufficient_distinct_photos")))
+                writer.writerow({"path": row["path"], "animal": row["animal"],
+                                 "species": row["species"], "reason": reason})
+                exclusion_reasons[reason] += 1
+                processing_exclusions[row["source"]][reason] += 1
         summary = {"fingerprint": fingerprint, "candidate_photos": len(selected), "retained_photos": len(retained),
                    "candidate_identities": len({r["animal"] for r in selected}),
                    "retained_identities": len({r["animal"] for r in retained}), "counts": counts,
-                   "exclusion_reasons": dict(Counter(row["reason"] for row in excluded_rows)),
+                   "exclusion_reasons": dict(exclusion_reasons),
                    "review_policy": config.review_policy, "limitation": audit["limitation"] + " " + screening["limitation"]}
         if config.source_percent is not None:
             from pettrace.data.volume import CAPACITY
@@ -473,7 +475,7 @@ def prepare(config, *, checkpoint=None):
             for source, capacity in CAPACITY.items():
                 sampled = next(r["sampled_photos"] for r in sources["sources"] if r["ref"] == capacity["ref"])
                 train_count = sum(r["source"] == source and r["split"] == "train" for r in retained)
-                reasons = Counter(r["reason"] for r in excluded_rows if r["species"] == capacity["species"])
+                reasons = processing_exclusions[source].copy()
                 reasons["missing_or_ambiguous_identity"] += sum(r["source"] == source for r in sources["skipped_paths"])
                 if train_count + sum(reasons.values()) != sampled:
                     raise ValueError("Every sampled photo must have a training or exclusion outcome")

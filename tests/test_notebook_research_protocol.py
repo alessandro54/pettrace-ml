@@ -79,7 +79,7 @@ def test_current_e3_notebooks_install_the_published_package_directly(percent):
     contents = cells(ROOT / f"notebooks/e3_mlp_head_triplet_{percent}.ipynb")
     install = next("".join(c["source"]) for c in contents if c["id"] == "e3-02")
     notebook = "\n".join("".join(c["source"]) for c in contents)
-    assert '"pettrace-ml[training,notebooks]==0.2.15"' in install
+    assert '"pettrace-ml[training,notebooks]==0.2.16"' in install
     assert "requirements-e3-runtime" not in notebook
     assert "e3-runtime.txt" not in notebook
 

@@ -71,7 +71,7 @@ Las fotos privadas no se incorporan a la presentación de resultados; se emplean
 
 Para E1 ejecuta la instalación de su notebook en una sesión nueva y continúa desde la verificación; reinicia solo si cambió una biblioteca ya cargada. Usa el wheel **v0.2.2** y `requirements/e1-runtime.txt` con hashes, sin reinstalar IPython ni el kernel. El setup no ejecuta el experimento. Python 3.11–3.13 está admitido; el entorno histórico aislado usa Python 3.11.15. [La guía](../docs/e1_colab.md) describe resultados, límites y recuperación.
 
-Los tres notebooks E3 instalan **`pettrace-ml[training,notebooks]==0.2.15` desde PyPI** con un solo comando. La versión fija el código publicado y `runtime.json` registra las dependencias que resolvió pip, la GPU, el commit y los hashes. No requieren copiar requirements, construir ni subir un wheel. Las salidas históricas conservan la versión con la que se ejecutaron. Véase [la guía E3](../docs/e3_colab.md).
+Los tres notebooks E3 instalan **`pettrace-ml[training,notebooks]==0.2.16` desde PyPI** con un solo comando. La versión fija el código publicado y `runtime.json` registra las dependencias que resolvió pip, la GPU, el commit y los hashes. No requieren copiar requirements, construir ni subir un wheel. Las salidas históricas conservan la versión con la que se ejecutaron. Véase [la guía E3](../docs/e3_colab.md).
 
 El código está en `src/pettrace/`, organizado por datos, modelos, entrenamiento y evaluación. E1/E2 no entrenan; E3 requiere GPU y entrena su MLP en la fase 2. La migración de imports conserva las salidas históricas: no constituye otra ejecución ni publica métricas nuevas.
 

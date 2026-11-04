@@ -10,7 +10,7 @@ Notebooks describe and run the experiments.
 Python 3.11–3.13 is supported. Install a published version in your Python environment:
 
 ```bash
-python -m pip install pettrace-ml==0.2.15
+python -m pip install pettrace-ml==0.2.16
 ```
 
 The default install includes plots. Colab already supplies IPython and widgets; the

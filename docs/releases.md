@@ -1,5 +1,11 @@
 # Package releases
 
+## 0.2.16 — bounded-memory E3 preparation
+
+- Removes the redundant per-photo copy from `prepared.json`; `review.csv` and its SHA-256 remain the canonical input inventory.
+- Streams exclusion rows and counters instead of retaining the complete exclusion table in memory.
+- Pins E3 notebooks to the published patch for large `v4.100` preparation.
+
 ## 0.2.15 — readable E3 experiment notebooks
 
 E3 notebooks keep their research choices visible—dataset pins, `Config`, training,

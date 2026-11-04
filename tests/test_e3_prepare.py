@@ -79,6 +79,9 @@ def test_pipeline_creates_portable_snapshot_reuses_it_and_preserves_pending_deci
 
     monkeypatch.setattr("requests.sessions.Session.request", no_network)
     dataset = prepare(config)
+    receipt = json.loads((dataset.root / "prepared.json").read_text())
+    assert "photos" not in receipt["inputs"]  # review.csv and its hash are the canonical inventory.
+    assert receipt["inputs"]["review_sha256"] == sha256(dataset.root / "review.csv")
     assert dataset.summary["candidate_photos"] == 160
     assert dataset.summary["retained_photos"] == 154  # two detections reject an entire five-photo ID, plus one corrupt cat.
     assert dataset.summary["retained_identities"] == 31

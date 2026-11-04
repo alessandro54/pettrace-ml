@@ -65,7 +65,7 @@ las cachés compatibles. Su estado queda en
 `MyDrive/PetTrace/data-lookup/inventory100/preparation-status.json`; no inicia modelos
 ni convierte una preparación parcial en un resultado experimental.
 
-El notebook **E3 100%** ya usa PetTrace **0.2.15** y exige la nueva **v4.100**.
+El notebook **E3 100%** ya usa PetTrace **0.2.16** y exige la nueva **v4.100**.
 La fase 1 lee su entrada terminada de `data-lookup/inventory100/volume-series.json`,
 verifica el fingerprint y el hash del índice de candidatos contra la base refinada,
 y conserva ese recibo en el reporte. Si falta la entrada del 100%, se detiene antes
@@ -83,7 +83,7 @@ para evitar entrenamientos duplicados. Los embeddings locales se conservan cuand
 son posteriores al último respaldo de Drive.
 
 La primera celda de código ejecuta una sola instalación desde PyPI:
-`pettrace-ml[training,notebooks]==0.2.15`. En la misma instancia de Colab, reiniciar
+`pettrace-ml[training,notebooks]==0.2.16`. En la misma instancia de Colab, reiniciar
 solo el kernel no elimina esa instalación; una instancia nueva sí requiere instalar de nuevo.
 
 E3 entrena únicamente la MLP 512→256→512 sobre YOLO y CLIP congelados. Las tres
@@ -139,7 +139,7 @@ disponible después de terminar su preparación y verificar el recibo.
 
 ## Paquete y ejecución
 
-Los tres notebooks E3 instalan **pettrace-ml 0.2.15** y los extras
+Los tres notebooks E3 instalan **pettrace-ml 0.2.16** y los extras
 `training,notebooks` desde PyPI. No descargan requirements, ni construyen o suben
 un wheel. La versión fija el código del paquete; `runtime.json` conserva las versiones
 realmente resueltas por pip, el commit, el hash del código y la GPU. Las salidas
