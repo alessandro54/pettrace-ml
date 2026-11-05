@@ -92,6 +92,7 @@ def test_transition_notebook_pins_tool_and_separates_review_from_upload():
                                if cell["cell_type"] == "markdown")
         assert markdown.count("## Fase ") == 3
         assert "MLFLOW" not in "\n".join(cells.values())
+        assert 'f"Pillow=={pillow_version}"' in cells[f"{source}-transition-install"]
         assert f'TOOL_SHA256 = "{digest}"' in cells[f"{source}-transition-build"]
         assert "force_remount=True" in cells[f"{source}-transition-input"]
         assert "exc.errno not in {103, 107}" in cells[f"{source}-transition-input"]
