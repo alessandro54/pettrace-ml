@@ -69,6 +69,8 @@ def test_transition_notebook_pins_tool_and_separates_review_from_upload():
     assert "MLFLOW" not in "\n".join(cells.values())
     digest = publish_hf_dataset._sha256(root / "tools/publish_hf_dataset.py")
     assert f'TOOL_SHA256 = "{digest}"' in cells["lcw-transition-build"]
+    assert "force_remount=True" in cells["lcw-transition-input"]
+    assert "exc.errno not in {103, 107}" in cells["lcw-transition-input"]
     assert "--upload" not in cells["lcw-transition-build"]
     assert "--upload" in cells["lcw-transition-publish"]
 
