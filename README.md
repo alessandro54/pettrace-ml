@@ -9,7 +9,7 @@ This repository documents the research questions, experimental methods, reusable
 The distribution is `pettrace-ml`, imported as `pettrace`. See the [public methods and examples](docs/package.md)
 for duplicate audits, Drive recovery, preparation, embeddings, training, evaluation and MLflow publication.
 Install the published package from [PyPI](https://pypi.org/project/pettrace-ml/):
-`pip install pettrace-ml==0.2.17`.
+`pip install pettrace-ml==0.2.18`.
 The [release guide](docs/releases.md) covers publication and locked environments. Frozen experiment notebooks
 continue to use their recorded package and runtime versions.
 
@@ -22,7 +22,7 @@ The experiments investigate incremental changes to a shared visual retrieval pip
 | [E1 — Frozen representation](notebooks/e1_clip_zero_shot.ipynb) | How well does a pretrained visual encoder retrieve individual pets without domain adaptation? | Image without animal localization → CLIP ViT-B/32 → 512-dimensional, L2-normalized embedding. No parameter updates. | Reference evaluation published on PetTrace v4. |
 | [E2 — Animal localization](notebooks/e2_yolo_crop_zero_shot.ipynb) | How does localizing the animal affect retrieval with the same encoder? | YOLOv8n → highest-confidence cat/dog box with a 10% margin → the same frozen CLIP encoder. The image is retained when no valid box is available. | Reference evaluation published on PetTrace v4, including a recalculated E1 baseline. |
 | E3 — [20%](notebooks/e3_mlp_head_triplet_20.ipynb) / [50%](notebooks/e3_mlp_head_triplet_50.ipynb) / [100%](notebooks/e3_mlp_head_triplet_100.ipynb) | Does a projection trained on public identities transfer to private PetTrace identities? | Frozen E2 → MLP 512→256→512 → L2 normalization. Only the MLP is trained with batch-hard triplet loss. | The 100% condition is published for seeds 42–44; the common-policy 20/50/100 volume comparison remains pending. |
-| [E4 — Encoder adaptation](docs/e4_protocol.md) | What additional benefit might adapting the visual encoder provide? | CLIP q/v LoRA (`r=8`, `alpha=16`) over the fixed E3-100 control. | Prospective protocol and tested adapter primitives; no completed experiment is claimed. |
+| [E4 — Encoder adaptation](notebooks/e4_clip_lora.ipynb) | What additional benefit might adapting the visual encoder provide? | CLIP q/v LoRA (`r=8`, `alpha=16`) over the fixed E3-100 control. | Protocol and runnable notebook are fixed; no result is claimed before both MLflow publications. |
 | E5 — Text-assisted retrieval | Can a sighting description improve visual candidate ranking? | Proposed integration of textual information or re-ranking. | Future research; no completed experiment is claimed. |
 
 CLIP is based on [Radford et al. (2021)](https://arxiv.org/abs/2103.00020), localization uses [Ultralytics YOLOv8](https://docs.ultralytics.com/models/yolov8/), and E3's batch-hard objective follows [Hermans, Beyer, and Leibe (2017)](https://arxiv.org/abs/1703.07737). These references motivate components; their published results are not evidence of performance on PetTrace.

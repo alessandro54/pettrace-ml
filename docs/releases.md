@@ -1,5 +1,12 @@
 # Package releases
 
+## 0.2.18 — E4 LoRA experiment
+
+- Adds the fixed E4 LoRA training/export path on top of the published E3-100 head.
+- Reuses verified YOLO boxes from `pettrace-training@v4.100`; E4 does not repeat data cleaning or screening.
+- Adds the three-phase E4 Colab notebook with mandatory dual-domain MLflow publication.
+- Adds `transformers==4.47.1` to the training extra required by the pinned CLIP source model.
+
 ## 0.2.17 — readable zero-shot notebooks
 
 E1 and E2 keep their research design, metrics, figures and interpretation visible,

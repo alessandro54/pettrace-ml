@@ -99,6 +99,15 @@ def test_current_zero_shot_notebooks_install_the_published_package_directly(name
     assert "requirements-e1-runtime" not in notebook
 
 
+def test_e4_installs_complete_published_training_package():
+    contents = cells(ROOT / "notebooks/e4_clip_lora.ipynb")
+    install = next("".join(c["source"]) for c in contents if c["id"] == "e4-setup")
+    notebook = "\n".join("".join(c["source"]) for c in contents)
+    assert '"pettrace-ml[training,notebooks]==0.2.18"' in install
+    assert "requirements" not in install
+    assert "LOG_TO_MLFLOW = True" in notebook
+
+
 def test_current_preparation_notebook_installs_the_published_package_directly():
     contents = cells(ROOT / "datasets/prepare_training.ipynb")
     install = next("".join(c["source"]) for c in contents if c["id"] == "training-data-dependencies")
@@ -120,7 +129,7 @@ def test_shared_research_structure_and_fixed_benchmark(path):
                                                 for t in n.targets))
     assert ast.literal_eval(commit.value) == COMMIT
     publication = "\n".join("".join(c["source"]) for c in contents if c["cell_type"] == "code")
-    if path.name.startswith("e3_"):
+    if path.name.startswith(("e3_", "e4_")):
         assert "publication = publish_results(" in publication
         helper = (ROOT / "src/pettrace/experiments/e3.py").read_text()
         assert helper.index('"experiment-design.json"') < helper.index("public_run_id = publish_evaluation(")

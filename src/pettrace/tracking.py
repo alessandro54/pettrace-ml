@@ -137,7 +137,7 @@ def save_provenance(report, model):
     }
     if os.environ.get("PETTRACE_EXECUTION_ID"):
         runtime["execution_id"] = os.environ["PETTRACE_EXECUTION_ID"]
-    for name in ("torch", "onnx", "pandas"):
+    for name in ("torch", "onnx", "pandas", "transformers"):
         try:
             runtime["packages"][name] = importlib.metadata.version(name)
         except importlib.metadata.PackageNotFoundError:

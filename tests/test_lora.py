@@ -6,7 +6,16 @@ import pytest
 torch = pytest.importorskip("torch")
 from torch import nn
 
-from pettrace.training.lora import LoRALinear, inject_lora, load_frozen_e3_head, merge_lora, trainable_parameters
+from pettrace.training.lora import (
+    Config,
+    LoRALinear,
+    PreparedPreprocessor,
+    fit,
+    inject_lora,
+    load_frozen_e3_head,
+    merge_lora,
+    trainable_parameters,
+)
 from pettrace.training.triplet import Head
 
 
@@ -55,3 +64,25 @@ def test_e3_head_hash_is_a_required_boundary(tmp_path):
     assert not any(parameter.requires_grad for parameter in head.parameters())
     with pytest.raises(ValueError, match="SHA-256 mismatch"):
         load_frozen_e3_head(checkpoint, "0" * 64)
+
+
+def test_e4_protocol_defaults_are_fixed():
+    assert Config().learning_rate == 1e-4
+    assert (Config().rank, Config().alpha) == (8, 16)
+    assert (Config().identities_per_batch, Config().images_per_identity) == (8, 4)
+
+
+def test_fit_rejects_test_photos_before_training():
+    with pytest.raises(ValueError, match="test data is forbidden"):
+        fit(nn.Linear(1, 1), [{"split": "test"}], None, ".", device="cpu")
+
+
+def test_preprocessor_requires_matching_detector(tmp_path):
+    model = tmp_path / "detector.onnx"
+    model.write_bytes(b"detector")
+    detector = type("Detector", (), {"session": type("Session", (), {"_model_path": str(model)})(),
+                                      "margin": 0.1})()
+    pipeline = type("Pipeline", (), {"detector": detector,
+                                      "spec": {"steps": [{"op": "detect_crop", "file": "detector.onnx"}]}})()
+    with pytest.raises(ValueError, match="different detector"):
+        PreparedPreprocessor(pipeline, {"config": {"detector_sha256": "0" * 64}})

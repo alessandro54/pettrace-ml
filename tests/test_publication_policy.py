@@ -7,7 +7,9 @@ from pathlib import Path
 import pytest
 
 
-@pytest.mark.parametrize("filename", ["e1_clip_zero_shot.ipynb", "e2_yolo_crop_zero_shot.ipynb", *[f"e3_mlp_head_triplet_{pct}.ipynb" for pct in (20, 50, 100)]])
+@pytest.mark.parametrize("filename", ["e1_clip_zero_shot.ipynb", "e2_yolo_crop_zero_shot.ipynb",
+                                      *[f"e3_mlp_head_triplet_{pct}.ipynb" for pct in (20, 50, 100)],
+                                      "e4_clip_lora.ipynb"])
 def test_notebook_publication_is_required_before_side_effects(filename):
     notebook = json.loads((Path(__file__).parents[1] / "notebooks" / filename).read_text())
     code = ["".join(c["source"]) for c in notebook["cells"] if c["cell_type"] == "code"]
@@ -15,13 +17,13 @@ def test_notebook_publication_is_required_before_side_effects(filename):
     assignment = next(n for n in ast.parse(config).body if isinstance(n, ast.Assign)
                       and any(isinstance(t, ast.Name) and t.id == "LOG_TO_MLFLOW" for t in n.targets))
     assert ast.literal_eval(assignment.value) is True
-    if filename.startswith("e3_"):
+    if filename.startswith(("e3_", "e4_")):
         from pettrace.experiments.e3 import publish_results
     else:
         from pettrace.experiments.zero_shot import publish_results
 
     publication = next(s for s in code if "publication = publish_results(" in s)
-    if not filename.startswith("e3_"):
+    if not filename.startswith(("e3_", "e4_")):
         with pytest.raises(ValueError, match="mandatory"):
             exec(publication, {"LOG_TO_MLFLOW": False})
     assert "log_to_mlflow" not in inspect.signature(publish_results).parameters

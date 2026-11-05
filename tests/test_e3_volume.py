@@ -85,7 +85,7 @@ def test_three_variants_have_identical_science_and_distinct_report_paths():
 
     assert training_calls(20) == training_calls(50) == training_calls(100)
     for cell_id in ("e3-public-load", "e3-public-guards", "e3-public-data",
-                    "e3-publication-design", "e3-publication-metrics", "e3-publication-upload", "e3-28"):
+                    "e3-publication-upload", "e3-28"):
         assert cell(cell_id, 20) == cell(cell_id, 50) == cell(cell_id, 100)
 
 

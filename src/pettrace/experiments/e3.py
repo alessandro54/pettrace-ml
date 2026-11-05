@@ -234,8 +234,8 @@ def publish_results(public_evaluation, private_evaluation, model, report, public
     return {"run_id": run_id, "public_run_id": public_run_id}
 
 
-def register_candidate(report, run_id, public_run_id):
-    """Register one idempotent E3 candidate after both published runs finish; never promote an alias."""
+def register_candidate(report, run_id, public_run_id, *, experiment="E3"):
+    """Register one idempotent candidate after both published runs finish; never promote an alias."""
     import mlflow
 
     report = Path(report)
@@ -254,7 +254,7 @@ def register_candidate(report, run_id, public_run_id):
         raise RuntimeError("Multiple model versions for this run; inspect before registering")
     version = versions[0] if versions else client.create_model_version(
         model_name, source=model_source, run_id=run_id,
-        tags={"experiment": "E3", "status": "candidate"})
+        tags={"experiment": experiment, "status": "candidate"})
     version = client.get_model_version(model_name, version.version)
     if version.status != "READY":
         raise RuntimeError(f"Model registration is not ready: {version.status}")

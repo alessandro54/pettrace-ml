@@ -13,8 +13,9 @@ Los tres cuadernos documentan una secuencia de investigación de tesis sobre rec
 | [E1](e1_clip_zero_shot.ipynb) | CLIP ViT-B/32 sin localización previa | Ninguno | Referencia descriptiva y azar uniforme entre identidades |
 | [E2](e2_yolo_crop_zero_shot.ipynb) | Recorte YOLOv8n antes del mismo CLIP | Ninguno | E1 recalculado con las mismas consultas y galerías |
 | E3: [20%](e3_mlp_head_triplet_20.ipynb), [50%](e3_mlp_head_triplet_50.ipynb), [100%](e3_mlp_head_triplet_100.ipynb) | MLP 512→256→512 sobre E2 congelado | Solo la MLP | E1/E2 congelados, leídos de sus runs publicados |
+| [E4](e4_clip_lora.ipynb) | LoRA en `q_proj`/`v_proj` de CLIP sobre E3-100 | Solo adaptadores LoRA | E3-100 semilla 42, fijado antes de entrenar |
 
-El [protocolo prospectivo de E4](../docs/e4_protocol.md) fija el control y la intervención antes de entrenar. E4 y E5 todavía no se presentan como experimentos ejecutados ni se les atribuyen resultados.
+El [protocolo prospectivo de E4](../docs/e4_protocol.md) fija el control y la intervención antes de entrenar. El notebook E4 está listo para ejecutar, pero no se le atribuyen resultados hasta publicar ambos dominios en MLflow. E5 aún no está implementado.
 
 ## Tres fases de la investigación
 

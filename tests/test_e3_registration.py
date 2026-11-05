@@ -25,7 +25,7 @@ def test_registration_retries_reuse_version(tmp_path):
             register_candidate(tmp_path, 'run', 'public')
         assert not versions
         receipt.write_text(json.dumps({'published': True, 'run_id': 'run', 'public_run_id': 'public'}))
-        register_candidate(tmp_path, 'run', 'public')
+        register_candidate(tmp_path, 'run', 'public', experiment='E4')
         register_candidate(tmp_path, 'run', 'public')
         assert len(versions)==1
         assert versions[0].source.endswith('/report/model')

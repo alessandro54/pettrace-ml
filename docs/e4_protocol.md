@@ -1,6 +1,6 @@
 # E4 · Adaptación LoRA del encoder
 
-Estado: **protocolo prospectivo; todavía no hay resultados de E4**.
+Estado: **protocolo e implementación fijados; todavía no hay resultados publicados de E4**.
 
 ## Pregunta y diseño
 
@@ -22,7 +22,7 @@ Estado: **protocolo prospectivo; todavía no hay resultados de E4**.
 | Control público E3 | run `82f4c031abc5403ebcdcd3eea1093b36` |
 | Modelo registrado de control | `pettrace-embedder` versión 12, sin promoción de alias |
 
-Antes de entrenar, la implementación debe demostrar que los adaptadores iniciales no cambian la salida del control y que la cabeza descargada coincide con el hash anterior.
+Antes de entrenar, el notebook demuestra que los adaptadores iniciales no cambian la salida del control y que la cabeza descargada coincide con el hash anterior.
 
 ## Entrenamiento y selección
 
