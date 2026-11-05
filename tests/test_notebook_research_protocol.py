@@ -108,6 +108,16 @@ def test_e4_installs_complete_published_training_package():
     assert "LOG_TO_MLFLOW = True" in notebook
 
 
+def test_e4_loads_colab_secrets_before_dataset_access():
+    contents = cells(ROOT / "notebooks/e4_clip_lora.ipynb")
+    config = next("".join(c["source"]) for c in contents if c["id"] == "e4-config")
+    load_index = next(i for i, c in enumerate(contents) if c["id"] == "e4-load-data")
+    config_index = next(i for i, c in enumerate(contents) if c["id"] == "e4-config")
+    assert config_index < load_index
+    assert "configure_access" in config
+    assert "HF_TOKEN" in config
+
+
 def test_current_preparation_notebook_installs_the_published_package_directly():
     contents = cells(ROOT / "datasets/prepare_training.ipynb")
     install = next("".join(c["source"]) for c in contents if c["id"] == "training-data-dependencies")
