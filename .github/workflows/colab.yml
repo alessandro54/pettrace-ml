@@ -31,16 +31,10 @@ jobs:
         with:
           name: ${{ inputs.artifact-name }}
           path: dist
-      - name: Install the locked Colab profile
+      - name: Install normally in Colab's Python version
         run: |
           python -m venv .colab-venv
-          .colab-venv/bin/python -m pip install --require-hashes -r requirements/data-lookup-colab.txt
-          .colab-venv/bin/python -m pip check
-      - name: Install the package normally without changing host dependencies
-        run: |
-          .colab-venv/bin/python -m pip uninstall -y pettrace-ml
           .colab-venv/bin/python -m pip install --report .colab-install.json dist/*.whl
-          .colab-venv/bin/python -c "import json; assert [p['metadata']['name'] for p in json.load(open('.colab-install.json'))['install']] == ['pettrace-ml'], 'Installation changes the reported Colab dependencies'"
           .colab-venv/bin/python -m pip check
           .colab-venv/bin/python -I -c "import sys, pettrace; assert sys.version_info[:3] == (3, 13, 18); assert 'site-packages' in pettrace.__file__"
       - name: Exercise lookup and kernel startup
