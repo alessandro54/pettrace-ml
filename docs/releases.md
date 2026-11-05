@@ -1,5 +1,11 @@
 # Package releases
 
+## 0.2.19 — linear Colab installation
+
+- Accepts Colab's compatible preloaded Pillow instead of replacing it inside the running kernel.
+- Prevents mixed in-memory/on-disk Pillow modules when E4 installs directly from PyPI.
+- Keeps the exact development and release resolution in `uv.lock`.
+
 ## 0.2.18 — E4 LoRA experiment
 
 - Adds the fixed E4 LoRA training/export path on top of the published E3-100 head.

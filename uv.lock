@@ -1465,7 +1465,7 @@ wheels = [
 
 [[package]]
 name = "pettrace-ml"
-version = "0.2.18"
+version = "0.2.19"
 source = { editable = "." }
 dependencies = [
     { name = "huggingface-hub" },
@@ -1520,7 +1520,7 @@ requires-dist = [
     { name = "onnx", marker = "extra == 'training'", specifier = ">=1.17,<2" },
     { name = "onnxruntime", specifier = "==1.31.0" },
     { name = "pandas", marker = "extra == 'training'", specifier = ">=2.2.3,<4" },
-    { name = "pillow", specifier = "==12.3.0" },
+    { name = "pillow", specifier = ">=10,<13" },
     { name = "pyyaml", specifier = ">=6,<7" },
     { name = "requests", specifier = ">=2.32,<3" },
     { name = "torch", marker = "extra == 'training'", specifier = ">=2.5,<3" },
