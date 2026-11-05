@@ -97,20 +97,22 @@ def test_archive_preserves_existing_different_notebook(archive):
     assert not client.writes
 
 
-@pytest.mark.parametrize("notebook_name,cell_id", [("e1_clip_zero_shot", "38c87fe3"), ("e2_yolo_crop_zero_shot", "e2-publication")])
-def test_notebook_uploads_final_receipts_for_both_domains(tmp_path, notebook_name, cell_id):
+def test_zero_shot_publication_uploads_final_receipts_for_both_domains(tmp_path):
     import ast
+    import inspect
+    from pettrace.experiments.zero_shot import publish_results
 
-    notebook = json.loads((Path(__file__).parents[1] / f"notebooks/{notebook_name}.ipynb").read_text())
-    source = "".join(next(c for c in notebook["cells"] if c["id"] == cell_id)["source"])
-    loop = next(n for n in ast.parse(source).body if isinstance(n, ast.For) and "published_id" in ast.unparse(n.target))
+    source = inspect.getsource(publish_results)
+    loop = next(n for n in ast.walk(ast.parse(source))
+                if isinstance(n, ast.For) and "published_id" in ast.unparse(n.target))
     client = ArtifactClient()
     public = tmp_path / "public_test"
     public.mkdir()
     (tmp_path / "publication.json").write_text(json.dumps({"published": True, "run_id": "private", "public_run_id": "public"}))
     (public / "publication.json").write_text(json.dumps({"published": True, "run_id": "public"}))
     exec(compile(ast.Module(body=[loop], type_ignores=[]), "receipt-upload", "exec"),
-         {"production_client": client, "public_run_id": "public", "run_id": "private", "REPORT": tmp_path, "PUBLIC_REPORT": public})
+         {"client": client, "public_run_id": "public", "run_id": "private",
+          "report": tmp_path, "public_report": public, "RuntimeError": RuntimeError})
     assert len(client.artifacts) == 2
     assert all(json.loads(data)["published"] for data in client.artifacts.values())
 

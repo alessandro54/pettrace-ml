@@ -10,7 +10,7 @@ Notebooks describe and run the experiments.
 Python 3.11–3.13 is supported. Install a published version in your Python environment:
 
 ```bash
-python -m pip install pettrace-ml==0.2.16
+python -m pip install pettrace-ml==0.2.17
 ```
 
 The default install includes plots. Colab already supplies IPython and widgets; the
@@ -23,16 +23,12 @@ Colab is the primary notebook target. The first cell of `datasets/data_lookup.ip
 %pip install -q "pettrace-ml==0.2.16"
 ```
 
-Use a fresh Colab CPU runtime. CI tests this ordinary installation against the reported
-Linux x86_64 / Python 3.13.18 environment and rejects changes to its existing dependencies.
-The hash-checked `requirements/data-lookup-colab.txt` profile reconstructs that CI baseline;
-it is not installed over Colab. It records the supplied runtime constraints, not Google's
-entire VM image. The hosted frontend and authenticated Drive mount need validation in Colab.
-A plain pip install resolves compatible dependencies; it does not apply a full environment lock.
+Use a fresh Colab CPU runtime. CI tests this ordinary installation. The exact package version
+identifies the published code; every run records its resolved runtime because Colab's base image
+can change. The hosted frontend and authenticated Drive mount still need validation in Colab.
 
 Model weights and datasets are separate artifacts and are not included in the package.
-Data lookup uses CPU. GPU screening requires the separately validated E3 environment;
-installing the training extra alone does not configure CUDA.
+Data lookup uses CPU. GPU screening uses Colab's CUDA runtime plus the `[training]` extra.
 
 ## Public methods
 

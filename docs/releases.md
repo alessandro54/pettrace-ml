@@ -1,5 +1,12 @@
 # Package releases
 
+## 0.2.17 — readable zero-shot notebooks
+
+E1 and E2 keep their research design, metrics, figures and interpretation visible,
+while the shared qualitative-retrieval and mandatory MLflow publication mechanics now
+live in the package. Both notebooks install the pinned PyPI package directly; their
+executed historical outputs remain unchanged.
+
 ## 0.2.16 — bounded-memory E3 preparation
 
 - Removes the redundant per-photo copy from `prepared.json`; `review.csv` and its SHA-256 remain the canonical input inventory.
@@ -171,38 +178,21 @@ directory, then run `sha256sum --check SHA256SUMS` (macOS: `shasum -a 256 -c SHA
 
 ## Colab and Jupyter
 
-Data lookup retains its existing direct PyPI installation:
+Current notebooks install an exact published version directly from PyPI:
 
 ```python
-%pip install -q "pettrace-ml==0.2.10"
+%pip install -q "pettrace-ml==0.2.17"
 ```
 
-`requirements/data-lookup-colab.txt` is a committed hash-checked CI baseline for Linux x86_64 /
-Python 3.13.18. Its `.in` file records the reported `google-colab` requirements, numerical
-versions and other host constraints observed in pip's output. The last published PetTrace
-version supplies its dependency closure; CI removes it and installs the candidate wheel
-normally, with dependency resolution enabled. Only PetTrace may change. `pip check`, data
-lookup tests and a Jupyter kernel startup must then pass before publication.
+CI validates the ordinary installation, package tests and notebook structure. Colab's hosted
+image and authenticated Drive mount remain external and are recorded by each experiment's
+`runtime.json`; an exact package version fixes PetTrace code, not Google's entire VM image.
 
-This validates the recorded dependencies, not the full hosted Google image or authenticated
-Drive mount. Do not install the reference lock over Colab. The notebook reuses compatible
-preinstalled packages; a plain pip install is not a full environment lock.
-CI never regenerates the reference profile. Update its `.in` inputs and regenerate/review it
-explicitly when the reference runtime or published baseline changes:
-
-```bash
-uv pip compile requirements/data-lookup-colab.in --python-version 3.13.18 --python-platform x86_64-unknown-linux-gnu --generate-hashes --output-file requirements/data-lookup-colab.txt --no-annotate
-```
-
-E1 and E2 install the v0.2.2 wheel with the immutable `requirements/e1-runtime.txt` profile in Python 3.11–3.13.
-This profile excludes notebook infrastructure supplied by Colab. Restart only if setup detects
-changed loaded packages, then continue from verification; research cells display results directly
-(see [E1 execution](e1_colab.md) and [E2 execution](e2_colab.md)). The historical `tools/run_e1.py` remains a separate
-Python 3.11.15 reference workflow.
-Existing E3 and source-volume preparation notebooks remain pinned to their v0.2.5.dev3 wheel
-plus `requirements/e3-runtime.txt` (Linux/Python 3.13, PyTorch 2.9.1, ONNX 1.19.1).
-Publishing 0.2.5 to PyPI does not migrate those frozen workflows. Use their documented wheel
-and checksums as described in [E3 execution](e3_colab.md). Restart only if setup requests it.
+E1 and E2 install `pettrace-ml[notebooks]==0.2.17`; E3 and preparation remain pinned to
+`pettrace-ml[training,notebooks]==0.2.16` until their next recorded release. Research cells
+display results directly (see [E1 execution](e1_colab.md),
+[E2 execution](e2_colab.md) and [E3 execution](e3_colab.md)). Historical releases retain their
+original requirements assets and the Python 3.11.15 E1 reference launcher.
 Do not replace packages in the middle of a training run. A new experiment must create a new
 report directory; retry publication in the original session without retraining.
 

@@ -7,6 +7,7 @@
 
 import json
 import os
+from pathlib import Path
 
 import numpy as np
 
@@ -240,6 +241,65 @@ def comparison_figure(evaluations, label: str):
 
 def ranking_metrics(ev, label: str):
     return comparison_figure({ev.dataset.name: ev}, label)
+
+
+def retrieval_examples(ev, output, dataset_commit):
+    """Save the first deterministic top-1 success/error panel per species."""
+    import matplotlib.pyplot as plt
+    from PIL import Image, ImageOps
+
+    output = Path(output)
+    scores = ev.embeddings @ ev.embeddings.T
+    examples, figures, messages = [], [], []
+    for species in ("cat", "dog"):
+        for success in (True, False):
+            candidates = [row for row in ev.result["test"]["per_query"]
+                          if row["species"] == species and (row["rank"] == 1) == success]
+            outcome = "acierto" if success else "error"
+            if not candidates:
+                messages.append(f"{species}: sin ejemplos de {outcome} en esta corrida.")
+                continue
+            row = min(candidates, key=lambda item: item["query"])
+            query_index = row["query"]
+            query = ev.photos[query_index]
+            gallery = [i for i, photo in enumerate(ev.photos)
+                       if i != query_index and photo.species == species]
+            representatives = {}
+            for index in gallery:
+                animal = ev.photos[index].animal
+                if animal not in representatives or scores[query_index, index] > scores[query_index, representatives[animal]]:
+                    representatives[animal] = index
+            ranked = sorted(representatives,
+                            key=lambda animal: scores[query_index, representatives[animal]], reverse=True)
+            if ranked.index(query.animal) + 1 != row["rank"]:
+                raise ValueError("Visual ranking differs from evaluation")
+            top = [representatives[animal] for animal in ranked[:5]]
+            fig, axes = plt.subplots(1, 1 + len(top), figsize=(3 * (1 + len(top)), 3.5), squeeze=False)
+            for position, (axis, index) in enumerate(zip(axes[0], [query_index, *top])):
+                photo = ev.photos[index]
+                with Image.open(photo.path) as raw:
+                    axis.imshow(ImageOps.exif_transpose(raw).convert("RGB"))
+                correct = photo.animal == query.animal
+                label = "Consulta" if position == 0 else f"#{position} · {'correcta' if correct else 'otra identidad'}"
+                score = "" if position == 0 else f"\ncos={scores[query_index, index]:.3f}"
+                axis.set_title(f"{label}\n{photo.animal}{score}", fontsize=9)
+                axis.axis("off")
+            fig.suptitle(f"Test público · {species} · {outcome} · rank correcto={row['rank']}")
+            fig.tight_layout()
+            filename = f"retrieval-{species}-{outcome}.png"
+            fig.savefig(output / filename, dpi=160, bbox_inches="tight")
+            figures.append(fig)
+            examples.append({"query": query_index, "animal": query.animal, "species": species,
+                             "rank": row["rank"], "figure": filename,
+                             "top5": [{"photo": i, "animal": ev.photos[i].animal,
+                                       "score": float(scores[query_index, i])} for i in top]})
+    (output / "retrieval-examples.json").write_text(json.dumps({
+        "dataset_commit": dataset_commit,
+        "selection": "lowest query index per species and top1 success/error, when available",
+        "gallery": "public test only; same species; query excluded; max score per identity",
+        "examples": examples,
+    }, indent=2))
+    return figures, messages
 
 
 def all_figures(ev, label: str) -> dict:

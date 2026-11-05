@@ -1,10 +1,10 @@
 # E2 en Colab
 
 Abre [`notebooks/e2_yolo_crop_zero_shot.ipynb`](../notebooks/e2_yolo_crop_zero_shot.ipynb)
-en una sesión nueva con Python 3.11–3.13. Ejecuta setup: instala el wheel **v0.2.2**
-y el mismo perfil inmutable con hashes de E1. Reinicia solo si la celda lo solicita;
-continúa desde la verificación del entorno. Las credenciales se leen del entorno,
-Colab Secrets o campos ocultos, nunca del código del notebook.
+en una sesión nueva con Python 3.11–3.13. Ejecuta setup: instala
+`pettrace-ml[notebooks]==0.2.17` directamente desde PyPI y continúa desde la
+verificación del wheel. Crea las credenciales en Colab Secrets y habilita el acceso
+del notebook; fuera de la UI se usan campos ocultos. Nunca se guardan en el código.
 
 Ejecuta las tres fases en orden. E2 mantiene CLIP congelado e incorpora el detector
 YOLO registrado: caja gato/perro de mayor confianza, margen del 10 % y fallback a

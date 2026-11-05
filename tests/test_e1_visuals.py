@@ -9,7 +9,9 @@ import numpy as np
 import pytest
 from PIL import Image, ImageOps
 
+from pettrace.evaluation.figures import retrieval_examples
 from pettrace.evaluation.metrics import retrieval
+from pettrace.experiments.zero_shot import _prepare_photo_panels
 from pettrace.models.pipeline import Pipeline
 
 
@@ -64,9 +66,10 @@ def test_visual_retrieval_handles_ties_singletons_and_separate_species(tmp_path,
     # A reversed metrics list must not change the first-query selection rule.
     metrics["per_query"].reverse()
     ev = SimpleNamespace(photos=photos, embeddings=embeddings, result={"test": metrics})
-    namespace = {"public_ev": ev, "public_ds": SimpleNamespace(commit="pinned"), "PUBLIC_REPORT": tmp_path,
-                 "PILImage": Image, "ImageOps": ImageOps, "json": json, "plt": plt, "display": lambda fig: None}
-    exec(source(f"{experiment}-retrieval-visual", experiment), namespace)
+    assert "retrieval_examples(public_ev" in source(f"{experiment}-retrieval-visual", experiment)
+    figures, _ = retrieval_examples(ev, tmp_path, "pinned")
+    for figure in figures:
+        plt.close(figure)
     manifest = json.loads((tmp_path / "retrieval-examples.json").read_text())
     examples = manifest["examples"]
     assert [e["query"] for e in examples] == [0, 2, 5, 7]
@@ -80,15 +83,15 @@ def test_visual_retrieval_handles_ties_singletons_and_separate_species(tmp_path,
         assert (tmp_path / example["figure"]).is_file()
     # No errors is a valid result; never fabricate a failure panel.
     ev.result["test"]["per_query"] = [r for r in metrics["per_query"] if r["rank"] == 1]
-    exec(source(f"{experiment}-retrieval-visual", experiment), namespace)
+    figures, _ = retrieval_examples(ev, tmp_path, "pinned")
+    for figure in figures:
+        plt.close(figure)
     manifest = json.loads((tmp_path / "retrieval-examples.json").read_text())
     assert len(manifest["examples"]) == 2
 
 
 @pytest.mark.parametrize("experiment,panel_name,manifest_name", [("e1", "retrieval-cat-error", "retrieval-examples"), ("e2", "retrieval-cat-error", "retrieval-examples"), ("e2", "preprocessing-cat-crop", "preprocessing-examples")])
 def test_photo_upload_previews_fit_limit_preserve_originals_and_retry(tmp_path, experiment, panel_name, manifest_name):
-    import ast
-
     report = tmp_path / "run"
     public = report / "public_test"
     public.mkdir(parents=True)
@@ -105,13 +108,7 @@ def test_photo_upload_previews_fit_limit_preserve_originals_and_retry(tmp_path, 
     chart = public / "cmc.png"
     Image.new("RGB", (12, 12), "white").save(chart)
     chart_bytes = chart.read_bytes()
-    tree = ast.parse(source("38c87fe3" if experiment == "e1" else "e2-publication", experiment))
-    stop = next(i for i, node in enumerate(tree.body) if isinstance(node, ast.Assign)
-                and any(isinstance(t, ast.Name) and t.id == "experiment_design" for t in node.targets))
-    code = compile(ast.Module(body=tree.body[:stop], type_ignores=[]), "publication-preview", "exec")
-    namespace = {"LOG_TO_MLFLOW": True, "REPORT": report, "PUBLIC_REPORT": public,
-                 "PILImage": Image, "json": json}
-    exec(code, namespace)
+    _prepare_photo_panels(report, public)
     preview = public / f"{panel_name}.jpg"
     assert preview.stat().st_size <= 512 * 1024
     assert not panel.exists()
@@ -120,5 +117,5 @@ def test_photo_upload_previews_fit_limit_preserve_originals_and_retry(tmp_path, 
     assert chart.read_bytes() == chart_bytes
     assert metrics.read_text() == '{"mAP": 0.5}'
     first = preview.read_bytes()
-    exec(code, namespace)
+    _prepare_photo_panels(report, public)
     assert preview.read_bytes() == first

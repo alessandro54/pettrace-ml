@@ -17,25 +17,18 @@ def test_notebook_publication_is_required_before_side_effects(filename):
     assert ast.literal_eval(assignment.value) is True
     if filename.startswith("e3_"):
         from pettrace.experiments.e3 import publish_results
+    else:
+        from pettrace.experiments.zero_shot import publish_results
 
-        publication = next(s for s in code if "publication = publish_results(" in s)
-        assert "LOG_TO_MLFLOW" not in publication
-        assert "log_to_mlflow" not in inspect.signature(publish_results).parameters
-        calls = [node for node in ast.walk(ast.parse(inspect.getsource(publish_results)))
-                 if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
-                 and node.func.id == "publish_evaluation"]
-        assert len(calls) == 2
-        return
-    publication = next(s for s in code if "run_id = publish_evaluation(" in s)
-    with pytest.raises(ValueError, match="mandatory"):
-        exec(publication, {"LOG_TO_MLFLOW": False})
-    # There is an unconditional publication call after the guard, not an opt-out branch.
-    statements = ast.parse(publication).body
-    statements = [child for node in statements
-                  for child in (node.body if isinstance(node, ast.With) else [node])]
-    assert any(isinstance(n, ast.Assign) and isinstance(n.value, ast.Call)
-               and isinstance(n.value.func, ast.Name) and n.value.func.id == "publish_evaluation"
-               for n in statements)
+    publication = next(s for s in code if "publication = publish_results(" in s)
+    if not filename.startswith("e3_"):
+        with pytest.raises(ValueError, match="mandatory"):
+            exec(publication, {"LOG_TO_MLFLOW": False})
+    assert "log_to_mlflow" not in inspect.signature(publish_results).parameters
+    calls = [node for node in ast.walk(ast.parse(inspect.getsource(publish_results)))
+             if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
+             and node.func.id == "publish_evaluation"]
+    assert len(calls) == 2
 
 
 def test_cli_rejects_tracking_opt_out_before_loading_models(monkeypatch):

@@ -6,7 +6,6 @@ Retry with the same output to reuse completed fits and publication receipts.
 import csv
 from dataclasses import asdict
 import fcntl
-from importlib.metadata import version
 import json
 from pathlib import Path
 import shutil
@@ -16,7 +15,6 @@ import time
 DRIVE = Path('/content/drive/MyDrive/PetTrace')
 RECEIPTS = DRIVE / 'data-lookup/inventory100'
 PERCENTAGES = (20, 50, 100)
-RUNTIME_SHA = '906d040f5ea4881e4750b553908afd65cf3bc88a64d8e741951e9f9ffd64aa3a'
 SOURCE_SHA = 'a15ddf99952a0d76f6e6b3cd1a8fb2dccafe3c10d09478be86e3bc69ad5b0b26'
 PRIVATE_COMMIT = '8b12db0dce41040a821f9792bea5b352342263ce'
 BASE_HASHES = {
@@ -63,7 +61,6 @@ def run_series(output, series, record):
     import torch
     import mlflow
     from huggingface_hub import snapshot_download
-    from packaging.requirements import Requirement
     from pettrace import data
     from pettrace.data import benchmark
     from pettrace.data.checkpoints import DriveBackup
@@ -80,14 +77,6 @@ def run_series(output, series, record):
     from pettrace.artifact_upload import compact_json_uploads
     import repeat_e3
 
-    runtime = Path('/content/e3-runtime.txt')
-    if sha256(runtime) != RUNTIME_SHA or version('pettrace-ml') != '0.2.14':
-        raise ValueError('Package or runtime lock changed')
-    for line in runtime.read_text().splitlines():
-        if line and not line[0].isspace() and not line.startswith('#'):
-            req = Requirement(line.rstrip('\\ '))
-            if (req.marker is None or req.marker.evaluate()) and version(req.name) not in req.specifier:
-                raise ValueError(f'{req.name} differs from the E3 runtime lock')
     source = source_identity()
     if source['source_sha256'] != SOURCE_SHA or not torch.cuda.is_available():
         raise ValueError('Pinned package source and CUDA are required')
@@ -151,7 +140,6 @@ def run_series(output, series, record):
                              'excluded.csv', 'sources.json', 'animal-screening.json'):
                 shutil.copy2(prepared.root / filename, folder / filename)
             shutil.copy2(index / 'lookup.json', folder / 'lookup.json')
-            shutil.copy2(runtime, folder / 'requirements-e3-runtime.txt')
             metrics, params = training_volume(prepared, percent, folder)
             prepared_versions[percent] = (prepared, provenance, folder, metrics, params)
         with features_backup:
@@ -167,7 +155,7 @@ def run_series(output, series, record):
                           'base_model': base.uri, 'base_model_sha256': base.sha256, 'cache_sha256': digest,
                           'manifest_sha256': sha256(folder / 'manifest.csv'), 'review_sha256': sha256(folder / 'review.csv'),
                           'animal_screening_sha256': sha256(folder / 'animal-screening.json'), 'source': source,
-                          'runtime_lock_sha256': RUNTIME_SHA, 'log_to_mlflow': True, 'register_model': True}
+                          'log_to_mlflow': True, 'register_model': True}
                 repeat_e3.write_json(folder / 'training-config.json', config)
                 inputs[f'v4.{percent}'] = folder
         record('training_and_publication')

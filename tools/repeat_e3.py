@@ -25,8 +25,7 @@ ORIGINS = {
 MODEL_KEY = "34b5868b55efae9fabf7b79c3e49c6d3c91edf5895a89ba784872c1c80975a26"
 PREPARATION_EVIDENCE = (
     "manifest.csv", "review.csv", "prepared.json", "audit.json", "summary.json",
-    "excluded.csv", "sources.json", "animal-screening.json", "lookup.json",
-    "requirements-e3-runtime.txt", "dataset-coverage.json",
+    "excluded.csv", "sources.json", "animal-screening.json", "lookup.json", "dataset-coverage.json",
 )
 
 

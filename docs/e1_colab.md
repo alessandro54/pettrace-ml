@@ -4,9 +4,9 @@
 
 Abre [`e1_clip_zero_shot.ipynb`](../notebooks/e1_clip_zero_shot.ipynb) en una sesión nueva con Python 3.11–3.13.
 
-1. Ejecuta setup. Instala el wheel v0.2.2 y el [perfil de dependencias](../requirements/e1-runtime.txt) con hashes, sin reinstalar las herramientas de Jupyter de Colab.
-2. Continúa desde la verificación. **Reinicia la misma sesión solo si setup lo solicita** porque cambió una biblioteca cargada. No elimines el runtime.
-3. Proporciona `HF_TOKEN`, `MLFLOW_TRACKING_USERNAME` y `MLFLOW_TRACKING_PASSWORD` mediante Secrets o campos ocultos. La `.env` local no se transfiere a Colab.
+1. Ejecuta setup. Instala `pettrace-ml[notebooks]==0.2.17` directamente desde PyPI.
+2. Continúa desde la verificación del wheel publicado.
+3. Crea `HF_TOKEN`, `MLFLOW_TRACKING_USERNAME` y `MLFLOW_TRACKING_PASSWORD` en Colab Secrets y habilita el acceso del notebook. La `.env` local no se transfiere a Colab; fuera de la UI se usan campos ocultos.
 4. Ejecuta las tres fases en orden. Las tablas y figuras aparecen debajo de sus celdas.
 
 La última celda también sube los recibos finales a ambos runs. Para archivar el notebook completo, **guárdalo primero con sus salidas** y ejecuta en el equipo donde está ese archivo:
@@ -18,7 +18,7 @@ python tools/attach_notebook.py notebooks/e1_clip_zero_shot.ipynb \
 
 Sustituye los IDs por los del recibo. El comando comprueba ambos runs, sube el notebook por partes, lo descarga para verificarlo y sincroniza los recibos. Puede reintentarse sin inferencia; rechaza reemplazar un notebook diferente ya archivado. El kernel remoto no puede guardar por sí solo el archivo abierto en VS Code.
 
-Los errores de instalación quedan en `e1-install.log`. «Ejecutar todo» se detiene en la verificación si necesita un reinicio.
+Si falla la instalación, conserva la salida de pip y no continúes con una versión distinta.
 
 ## Resultados y recuperación
 

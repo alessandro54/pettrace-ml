@@ -17,6 +17,11 @@ def cells(path):
     return json.loads(path.read_text())["cells"]
 
 
+def python_source(cell):
+    """Return executable Python while ignoring supported IPython magic lines."""
+    return "".join(line for line in cell["source"] if not line.lstrip().startswith("%"))
+
+
 def test_preparation_download_is_quiet_and_waits_out_hub_quota(tmp_path, monkeypatch):
     import huggingface_hub
     from huggingface_hub.utils import are_progress_bars_disabled, enable_progress_bars
@@ -61,6 +66,7 @@ def test_preparation_download_is_quiet_and_waits_out_hub_quota(tmp_path, monkeyp
 def test_notebook_python_support_matches_dependency_profile(path, version):
     source = next("".join(c["source"]) for c in cells(path)
                   if c["cell_type"] == "code" and "sys.version_info" in "".join(c["source"]))
+    source = "\n".join(line for line in source.splitlines() if not line.lstrip().startswith("%"))
     guard = next(n for n in ast.parse(source).body
                  if isinstance(n, ast.If) and "version_info" in ast.unparse(n.test))
     code = compile(ast.Module(body=[guard], type_ignores=[]), str(path), "exec")
@@ -84,6 +90,23 @@ def test_current_e3_notebooks_install_the_published_package_directly(percent):
     assert "e3-runtime.txt" not in notebook
 
 
+@pytest.mark.parametrize("name", ["e1_clip_zero_shot.ipynb", "e2_yolo_crop_zero_shot.ipynb"])
+def test_current_zero_shot_notebooks_install_the_published_package_directly(name):
+    contents = cells(ROOT / "notebooks" / name)
+    install = next("".join(c["source"]) for c in contents if c["id"].endswith("setup"))
+    notebook = "\n".join("".join(c["source"]) for c in contents)
+    assert '"pettrace-ml[notebooks]==0.2.17"' in install
+    assert "requirements-e1-runtime" not in notebook
+
+
+def test_current_preparation_notebook_installs_the_published_package_directly():
+    contents = cells(ROOT / "datasets/prepare_training.ipynb")
+    install = next("".join(c["source"]) for c in contents if c["id"] == "training-data-dependencies")
+    notebook = "\n".join("".join(c["source"]) for c in contents)
+    assert '"pettrace-ml[training,notebooks]==0.2.16"' in install
+    assert "e3-runtime.txt" not in notebook
+
+
 @pytest.mark.parametrize("path", NOTEBOOKS, ids=lambda p: p.stem)
 def test_shared_research_structure_and_fixed_benchmark(path):
     contents = cells(path)
@@ -102,7 +125,9 @@ def test_shared_research_structure_and_fixed_benchmark(path):
         helper = (ROOT / "src/pettrace/experiments/e3.py").read_text()
         assert helper.index('"experiment-design.json"') < helper.index("public_run_id = publish_evaluation(")
     else:
-        assert publication.index('"experiment-design.json"') < publication.index("run_id = publish_evaluation(")
+        assert "publication = publish_results(" in publication
+        helper = (ROOT / "src/pettrace/experiments/zero_shot.py").read_text()
+        assert helper.index('"experiment-design.json"') < helper.index("public_run_id = publish_evaluation(")
 
 
 @pytest.mark.parametrize("name", ["e1_clip_zero_shot.ipynb", "e2_yolo_crop_zero_shot.ipynb"])
@@ -147,7 +172,7 @@ def test_single_preparation_notebook_delegates_to_package():
     contents = cells(path)
     for cell in contents:
         if cell['cell_type'] == 'code':
-            ast.parse(''.join(cell['source']))
+            ast.parse(python_source(cell))
     source = next(''.join(c['source']) for c in contents if 'prepared = preparation.prepare(' in ''.join(c['source']))
     prepared = SimpleNamespace(fingerprint='verified')
     workflow = SimpleNamespace(prepare=lambda **kw: prepared, version_path='v2.50.json')

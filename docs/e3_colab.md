@@ -222,8 +222,8 @@ y referencias siguen junto a las celdas; la adquisición se documenta en
 
 ### Persistencia con Drive (v0.2.4)
 
-Instalar el wheel v0.2.4 y sus checksums antes de una nueva corrida. Mantener el
-mismo perfil `requirements-e3-runtime.txt`; no hay dependencias nuevas. Los ZIP
+Las corridas actuales instalan una versión exacta del wheel desde PyPI y registran
+el runtime resuelto; los perfiles históricos permanecen en sus releases. Los ZIP
 originales opcionales van en `MyDrive/PetTrace/raw/`. El notebook de preparación
 restaura y respalda el trabajo local mediante bloques verificados. E3 restaura
 las versiones preparadas `v2.20`, `v2.50` o `v2.100` cuando existen y no se ha
