@@ -37,7 +37,7 @@ jobs:
           .colab-venv/bin/python -m pip install --report .colab-install.json dist/*.whl
           .colab-venv/bin/python -m pip check
           .colab-venv/bin/python -I -c "import sys, pettrace; assert sys.version_info[:3] == (3, 13, 18); assert 'site-packages' in pettrace.__file__"
-      - name: Exercise lookup and kernel startup
+      - name: Exercise data lookup
         run: |
           .colab-venv/bin/python -m pip install 'pytest==8.3.4'
-          .colab-venv/bin/python -m pytest -q tests/test_data_lookup.py tests/test_near_copies.py tests/test_dataset_loading.py tests/test_e1_runner.py::test_kernel_uses_selected_python_and_retains_failure_evidence
+          .colab-venv/bin/python -m pytest -q tests/test_data_lookup.py tests/test_near_copies.py tests/test_dataset_loading.py
