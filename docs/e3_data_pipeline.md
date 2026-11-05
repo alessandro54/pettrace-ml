@@ -15,9 +15,9 @@ flowchart LR
 
 ## Notebook de datos compartido
 
-El pipeline de preparación se presenta en [datasets/prepare_training.ipynb](../datasets/prepare_training.ipynb), separado de los notebooks experimentales. Produce `pettrace-training`, una base de entrenamiento con versiones locales como `v1` y publicación privada opcional en HF. El benchmark `pettrace-reid@v4` permanece independiente. Véase [datasets/README.md](../datasets/README.md) para la organización y el consumo de versiones.
+El pipeline de preparación se presenta en [datasets/prepare_training.ipynb](../datasets/prepare_training.ipynb), separado de los notebooks experimentales. Produce `pettrace-training`, una base de entrenamiento con versiones locales verificadas. No publica ni modifica repositorios remotos. El benchmark `pettrace-reid@v4` permanece independiente. Véase [datasets/README.md](../datasets/README.md) para la organización y el consumo de versiones.
 
-El piloto mantiene hasta 300 perros y 300 gatos, diez fotos por individuo y semilla 42; reutiliza las fuentes ya descargadas bajo `public/e3-body`. Los snapshots compartidos se guardan en `datasets/build/pettrace-training` y pueden reutilizarse en otros experimentos. `PUBLISH_TO_HF = False` deja todos los datos locales hasta activar explícitamente la publicación.
+El piloto mantiene hasta 300 perros y 300 gatos, diez fotos por individuo y semilla 42; reutiliza las fuentes ya descargadas bajo `public/e3-body`. Los snapshots compartidos se guardan en `datasets/build/pettrace-training` y pueden reutilizarse en otros experimentos.
 
 ## Alternativa por comando
 

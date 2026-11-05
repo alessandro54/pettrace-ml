@@ -1,4 +1,3 @@
-import fnmatch
 import json
 import shutil
 from dataclasses import replace
@@ -8,60 +7,19 @@ from types import SimpleNamespace
 import pytest
 
 from pettrace.data.preparation import prepare
-from pettrace.data.versions import load_local_training, load_training, publish_training, record_version
+from pettrace.data.versions import load_local_training, load_training, record_version
 from test_e3_prepare import setup_pipeline
 
 
 class Hub:
     def __init__(self, root):
-        self.root, self.private, self.tags = root, True, {}
+        self.root, self.tags = root, {}
         self.root.mkdir()
-        self.commit = "a" * 40
-        self.uploads = []
+        self.commit = "c" * 40
         self.downloads = []
 
-    def create_repo(self, repo_id, **kwargs):
-        assert kwargs == {"repo_type": "dataset", "private": True, "exist_ok": True}
-
     def dataset_info(self, repo_id, revision=None):
-        return SimpleNamespace(private=self.private, sha=self.tags.get(revision, self.commit))
-
-    def list_repo_refs(self, repo_id, **kwargs):
-        return SimpleNamespace(tags=[SimpleNamespace(name=k, target_commit=v) for k, v in self.tags.items()],
-                               branches=[SimpleNamespace(name="main", target_commit=self.commit)])
-
-    def file_exists(self, repo_id, filename, **kwargs):
-        return (self.root / filename).exists()
-
-    def upload_folder(self, **kwargs):
-        self.uploads.append(kwargs)
-        for path in Path(kwargs["folder_path"]).rglob("*"):
-            if not path.is_file():
-                continue
-            relative = path.relative_to(kwargs["folder_path"]).as_posix()
-            if not any(fnmatch.fnmatchcase(relative, pattern) for pattern in kwargs["allow_patterns"]):
-                continue
-            target = self.root / kwargs["path_in_repo"] / relative
-            target.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(path, target)
-        self.commit = "b" * 40
-        return SimpleNamespace(oid=self.commit)
-
-    def upload_file(self, **kwargs):
-        assert kwargs["parent_commit"] == self.commit
-        (self.root / kwargs["path_in_repo"]).write_bytes(kwargs["path_or_fileobj"])
-        self.commit = "c" * 40
-        return SimpleNamespace(oid=self.commit)
-
-    def list_repo_files(self, repo_id, **kwargs):
-        return [p.relative_to(self.root).as_posix() for p in self.root.rglob("*") if p.is_file()]
-
-    def create_tag(self, repo_id, **kwargs):
-        assert not kwargs["exist_ok"] and kwargs["tag"] not in self.tags
-        self.tags[kwargs["tag"]] = kwargs["revision"]
-
-    def download_file(self, repo_id, *, filename, revision, **kwargs):
-        return str(self.root / filename)
+        return SimpleNamespace(sha=self.tags.get(revision, self.commit))
 
     def download_snapshot(self, repo_id, **kwargs):
         self.downloads.append(kwargs)
@@ -76,9 +34,15 @@ class Hub:
 def install_hub(tmp_path, monkeypatch):
     hub = Hub(tmp_path / "hub")
     monkeypatch.setattr("pettrace.data.versions.HfApi", lambda: hub)
-    monkeypatch.setattr("pettrace.data.versions.hf_hub_download", hub.download_file)
     monkeypatch.setattr("pettrace.data.versions.snapshot_download", hub.download_snapshot)
     return hub
+
+
+def publish_fixture(dataset, hub):
+    shutil.copytree(dataset.root, hub.root / "versions/v1")
+    hub.tags["v1"] = hub.commit
+    return {"repo": "alessandro54/pettrace-training", "version": "v1", "commit": hub.commit,
+            "fingerprint": dataset.fingerprint, "path_in_repo": "versions/v1"}
 
 
 def test_named_versions_are_stable_reusable_and_do_not_move_to_other_snapshots(tmp_path, monkeypatch):
@@ -100,16 +64,11 @@ def test_named_versions_are_stable_reusable_and_do_not_move_to_other_snapshots(t
         load_local_training(alias)
 
 
-def test_private_hub_release_is_idempotent_inventory_only_and_loads_by_commit(tmp_path, monkeypatch):
+def test_hub_snapshot_loads_by_commit(tmp_path, monkeypatch):
     config = setup_pipeline(tmp_path, monkeypatch)
     dataset = prepare(config)
-    (dataset.root / ".env").write_text("DO_NOT_UPLOAD=test fixture")
     hub = install_hub(tmp_path, monkeypatch)
-    release = publish_training(dataset.root)
-    assert release["commit"] == "c" * 40 and release["fingerprint"] == dataset.fingerprint
-    assert not (hub.root / "versions/v1/.env").exists()
-    assert "pettrace-reid" in (hub.root / "README.md").read_text()
-    assert publish_training(dataset.root) == release and len(hub.uploads) == 1
+    release = publish_fixture(dataset, hub)
     loaded, source = load_training(expected_fingerprint=dataset.fingerprint, cache_dir=tmp_path / "cache")
     assert loaded.fingerprint == dataset.fingerprint and source == release
     assert all(Path(row["path"]).is_relative_to(tmp_path / "cache") for row in loaded.rows)
@@ -117,58 +76,17 @@ def test_private_hub_release_is_idempotent_inventory_only_and_loads_by_commit(tm
         load_training(expected_fingerprint="0" * 64, cache_dir=tmp_path / "cache")
     # A moved external tag cannot change the commit between resolution and download.
     def resolve_and_move(repo, revision=None):
-        result = SimpleNamespace(private=True, sha="c" * 40)
+        result = SimpleNamespace(sha="c" * 40)
         hub.tags["v1"] = "d" * 40
         return result
     monkeypatch.setattr(hub, "dataset_info", resolve_and_move)
     assert load_training(cache_dir=tmp_path / "cache")[1]["commit"] == "c" * 40
 
 
-def test_public_repository_benchmark_and_release_overwrite_are_rejected(tmp_path, monkeypatch):
-    config = setup_pipeline(tmp_path, monkeypatch)
-    dataset = prepare(config)
-    hub = install_hub(tmp_path, monkeypatch)
-    with pytest.raises(ValueError, match="benchmark"):
-        publish_training(dataset.root, repo_id="alessandro54/pettrace-reid")
-    with pytest.raises(ValueError, match="version"):
-        publish_training(dataset.root, version="../v1")
-    hub.private = False
-    with pytest.raises(ValueError, match="private"):
-        publish_training(dataset.root)
-    assert not hub.uploads
-    hub.private = True
-    publish_training(dataset.root)
-    remote = hub.root / "versions/v1/prepared.json"
-    content = json.loads(remote.read_text())
-    content["fingerprint"] = "0" * 64
-    remote.write_text(json.dumps(content))
-    with pytest.raises(ValueError, match="another dataset"):
-        publish_training(dataset.root)
-    assert len(hub.uploads) == 1
-
-
-def test_notebook_defaults_do_not_publish_or_prompt_for_hf_access():
+def test_preparation_notebook_has_no_publication_controls():
     notebook = json.loads((Path(__file__).parents[1] / "datasets/prepare_training.ipynb").read_text())
-    cells = {c["id"]: "".join(c["source"]) for c in notebook["cells"]}
-    assert "PUBLISH_TO_HF = False" in cells["training-data-config"]
-    calls = []
-    namespace = {"PUBLISH_TO_HF": False, "preparation": SimpleNamespace(publish=lambda: calls.append("publish"))}
-    exec(compile(cells["training-data-publish"], "publication-default", "exec"), namespace)
-    assert namespace["release"] is None and not calls
-
-
-def test_incomplete_hub_upload_does_not_create_a_version_tag(tmp_path, monkeypatch):
-    config = setup_pipeline(tmp_path, monkeypatch)
-    dataset = prepare(config)
-    hub = install_hub(tmp_path, monkeypatch)
-    real_inventory = hub.list_repo_files
-    monkeypatch.setattr(hub, "list_repo_files", lambda *args, **kwargs: ["README.md"])
-    with pytest.raises(ValueError, match="incomplete"):
-        publish_training(dataset.root)
-    assert not hub.tags
-    monkeypatch.setattr(hub, "list_repo_files", real_inventory)
-    assert publish_training(dataset.root)["version"] == "v1"
-    assert "v1" in hub.tags
+    source = "\n".join("".join(cell["source"]) for cell in notebook["cells"])
+    assert "PUBLISH_TO_HF" not in source and ".publish(" not in source
 
 
 def test_pinned_local_snapshot_needs_no_hub_queries_and_still_checks_contents(tmp_path, monkeypatch):

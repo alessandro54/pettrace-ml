@@ -2,6 +2,11 @@
 
 Esta carpeta contiene el pipeline de datos compartido. Los notebooks de `notebooks/` siguen dedicados a los experimentos.
 
+La transición pública de la porción LCW ya refinada se ejecuta una sola vez desde
+[`lcw_refined_transition.ipynb`](lcw_refined_transition.ipynb). Recupera y verifica `v4.100`,
+construye `lcw-refined@v1`, permite revisar su evidencia y publica únicamente en la última fase.
+La lógica de empaquetado y las defensas de publicación permanecen en `tools/publish_hf_dataset.py`.
+
 | Dataset | Función | Versiones |
 |---|---|---|
 | `pettrace-training` | Identidades públicas de perros y gatos para entrenar y validar representaciones | `v1`, `v2`, …; cada versión fija imágenes, splits y fingerprint |
@@ -235,7 +240,6 @@ job = TrainingPreparation(drive_root="/content/drive/MyDrive/PetTrace", work_dir
                           source_percent=50, screening_provider="cuda")
 prepared = job.restore()   # Solo refined; devuelve None si todavía falta.
 prepared = job.prepare()   # Reutiliza refined o amplía la caché y prepara la versión.
-# job.publish()           # Publicación HF explícita e independiente.
 ```
 
 Drive debe estar montado previamente. Las credenciales se leen del entorno, Colab Secrets o campos
@@ -266,9 +270,9 @@ La ruta histórica `public/e3-body` se conserva para reutilizar las descargas ex
 
 ## Hugging Face y consumo
 
-`PUBLISH_TO_HF = False` conserva la preparación local y su respaldo en Drive. Al activarlo, el cuaderno solicita `HF_TOKEN` mediante entorno, Secrets o campo oculto y publica únicamente el inventario verificado en el repositorio privado `alessandro54/pettrace-training`, bajo `versions/<versión>/`. La versión es `v2.20`, `v2.50` o `v2.100`, según el porcentaje solicitado. Su etiqueta queda ligada al commit; no se sobrescriben etiquetas existentes con otro dataset. Se necesita permiso de escritura HF para publicar y solo lectura para consumir.
+El paquete y este notebook no publican ni modifican repositorios de datos. `pettrace.data` carga y verifica snapshots inmutables. Las publicaciones excepcionales se hacen fuera del paquete con herramientas operativas revisables; por ejemplo, `tools/publish_hf_dataset.py` convierte únicamente la porción LCW de `v4.100` en la release pública `lcw-refined@v1`. La etiqueta se crea después de verificar el inventario remoto y no se mueve.
 
-La publicación de datos no activa el registro de modelos ni la publicación de resultados en MLflow. El benchmark `pettrace-reid` está protegido contra usos como repositorio de entrenamiento.
+La publicación de datos no activa el registro de modelos ni la publicación de resultados en MLflow. El benchmark `pettrace-reid` permanece separado.
 
 Un experimento puede cargar:
 

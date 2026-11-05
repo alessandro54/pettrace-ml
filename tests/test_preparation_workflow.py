@@ -82,10 +82,8 @@ def test_methods_backup_interruptions_and_skip_complete_acquisitions(job, monkey
     assert any('prepared/v2.50.json' in r['files'] for r in receipts)
 
 
-def test_publish_cannot_trigger_preparation(job, monkeypatch):
-    monkeypatch.setattr(workflow, 'prepare', lambda *a, **kw: pytest.fail('Publish cannot prepare data'))
-    with pytest.raises(FileNotFoundError, match='before publishing'):
-        job.publish()
+def test_workflow_does_not_publish(job):
+    assert not hasattr(job, 'publish')
 
 
 @pytest.mark.parametrize('kwargs', [{'source_percent': 25}, {'workers': 0}, {'screening_provider': 'auto'}])

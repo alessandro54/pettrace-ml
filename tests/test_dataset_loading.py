@@ -8,7 +8,7 @@ from pettrace.data import versions
 from pettrace.data.checkpoints import DriveBackup
 from pettrace.data.preparation import prepare
 from test_e3_prepare import setup_pipeline
-from test_training_data import install_hub
+from test_training_data import install_hub, publish_fixture
 
 
 @pytest.fixture
@@ -80,7 +80,7 @@ def test_broken_drive_backup_is_not_treated_as_missing(refined, tmp_path, monkey
 @pytest.mark.parametrize("drive_available", [False, True])
 def test_hub_fallback_is_pinned_and_next_load_is_offline(refined, tmp_path, monkeypatch, drive_available):
     hub = install_hub(tmp_path, monkeypatch)
-    versions.publish_training(refined.root)
+    publish_fixture(refined, hub)
     cache, drive = tmp_path / "cache", tmp_path / "drive"
     drive.mkdir()
     loaded, provenance = data.load("v1", cache_dir=cache, drive_root=drive if drive_available else None)
@@ -96,7 +96,7 @@ def test_hub_fallback_is_pinned_and_next_load_is_offline(refined, tmp_path, monk
 
 def test_missing_hub_photo_is_downloaded_from_original_commit(refined, tmp_path, monkeypatch):
     hub = install_hub(tmp_path, monkeypatch)
-    versions.publish_training(refined.root)
+    publish_fixture(refined, hub)
     cache = tmp_path / "cache"
     loaded, provenance = data.load("v1", cache_dir=cache)
     photo = Path(loaded.rows[0]["path"])

@@ -90,7 +90,7 @@ start with `_` are internal. Existing experiment imports continue to work.
 | `pettrace.data.lookup` | `lookup_duplicates`, `load_candidates`, `restore_lookup_review` | Audit duplicates, index pre-YOLO candidates and recover the raw inventory from Drive. |
 | `pettrace.data.sources` | `discover_body_ids`, `write_review` | Build a SHA-256 inventory from locally extracted source photos and publisher labels. |
 | `pettrace.data.review` | `exclusion_summary`, `quarantine_groups`, `quarantine_gallery`, `save_decisions` | Inspect filtering, review conflicting labels and record explicit decisions. |
-| `pettrace.data.workflow` | `TrainingPreparation.restore`, `.stage`, `.prepare`, `.publish` | Stage indexed inputs on CPU, screen on GPU, or reuse refined data; HF publication is explicit. |
+| `pettrace.data.workflow` | `TrainingPreparation.restore`, `.stage`, `.prepare` | Stage indexed inputs on CPU, screen on GPU, or reuse refined data. Dataset publication is separate operational tooling. |
 | `pettrace.data.checkpoints` | `DriveBackup.restore`, `stage_archive` | Verify and restore checkpoints; stage a source ZIP on local scratch storage. |
 | `pettrace.data.versions` | `load_local_training`, `load_training`, `record_version` | Load verified local or Hub snapshots and assign immutable version names. |
 | `pettrace.models.pipeline` | `Pipeline.preprocess`, `.embed` | Apply the artifact-defined preprocessing and ONNX encoder. |

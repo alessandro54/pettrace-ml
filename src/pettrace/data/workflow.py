@@ -8,7 +8,7 @@ from pettrace.data.checkpoints import BackupNotFoundError, DriveBackup, stage_ar
 from pettrace.data.preparation import (
     BASE_MODEL, DetectorAuthenticationError, PrepareConfig, acquire_detector, prepare,
 )
-from pettrace.data.versions import REPO, _local_reference, load_local_training, load_training, publish_training, record_version
+from pettrace.data.versions import REPO, _local_reference, load_local_training, load_training, record_version
 from pettrace.data.verification import verification_session
 
 
@@ -213,14 +213,3 @@ class TrainingPreparation:
             compact(force=True, paths=[])  # Flush completed work without scanning historical raw roots.
         self.prepared = result
         return result
-
-    def publish(self):
-        """Explicit optional HF publication of an already prepared version; never starts preparation."""
-        if self.prepared is None and self.restore() is None:
-            raise FileNotFoundError("Prepare the refined version before publishing")
-        configure_access(names=('HF_TOKEN',))
-        receipt = publish_training(self.prepared.root, repo_id=REPO, version=self.version)
-        path = self.output_root / f'{self.version}-hub-release.json'
-        path.write_text(json.dumps(receipt, indent=2))
-        self.backup(force=True, paths=[path])
-        return receipt
