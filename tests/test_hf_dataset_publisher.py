@@ -49,6 +49,27 @@ def test_lcw_v4_100_builds_public_v1_shards_without_dogs(tmp_path, monkeypatch):
         reference, staging, shard_size=1024**2, license_text=b"unused") == staging.resolve()
 
 
+def test_dogs_world_v4_100_builds_public_v1_shards_without_cats(tmp_path, monkeypatch):
+    dataset = prepare(setup_pipeline(tmp_path, monkeypatch))
+    reference = record_version(dataset.root, dataset.root.parent, version="v4.100")
+    staging = tmp_path / "dogs-of-the-world-refined"
+    monkeypatch.setattr(publish_hf_dataset, "_source_receipt",
+                        lambda *args: {"ref": "lextoumbourou/dogs-world",
+                                      "license": "CC0 (publisher)"})
+
+    publish_hf_dataset.build_release(
+        reference, staging, source="dogs-world", shard_size=1024**2,
+        license_text=b"CC0 fixture")
+    evidence = json.loads((staging / "versions/v1/dataset.json").read_text())
+    rows = list(csv.DictReader((staging / "versions/v1/metadata.csv").open()))
+    assert evidence["source"] == "dogs-world" and evidence["license"] == "cc0-1.0"
+    assert rows and {row["source"] for row in rows} == {"dogs-world"}
+    assert all(shard["path"].split("/")[-1].startswith("dogs-world-")
+               for shard in evidence["shards"])
+    card = (staging / "README.md").read_text()
+    assert "# Dogs of the World Refined" in card and "license: cc0-1.0" in card
+
+
 def test_source_receipt_requires_publisher_license(tmp_path):
     root = tmp_path / "prepared"
     root.mkdir()
@@ -61,18 +82,21 @@ def test_source_receipt_requires_publisher_license(tmp_path):
 
 def test_transition_notebook_pins_tool_and_separates_review_from_upload():
     root = Path(__file__).parents[1]
-    notebook = json.loads((root / "datasets/lcw_refined_transition.ipynb").read_text())
-    cells = {cell["id"]: "".join(cell["source"]) for cell in notebook["cells"]}
-    markdown = "\n".join("".join(cell["source"]) for cell in notebook["cells"]
-                           if cell["cell_type"] == "markdown")
-    assert markdown.count("## Fase ") == 3
-    assert "MLFLOW" not in "\n".join(cells.values())
     digest = publish_hf_dataset._sha256(root / "tools/publish_hf_dataset.py")
-    assert f'TOOL_SHA256 = "{digest}"' in cells["lcw-transition-build"]
-    assert "force_remount=True" in cells["lcw-transition-input"]
-    assert "exc.errno not in {103, 107}" in cells["lcw-transition-input"]
-    assert "--upload" not in cells["lcw-transition-build"]
-    assert "--upload" in cells["lcw-transition-publish"]
+    notebooks = (("lcw_refined_transition.ipynb", "lcw"),
+                 ("dogs_of_the_world_refined_transition.ipynb", "dogs"))
+    for filename, source in notebooks:
+        notebook = json.loads((root / "datasets" / filename).read_text())
+        cells = {cell["id"]: "".join(cell["source"]) for cell in notebook["cells"]}
+        markdown = "\n".join("".join(cell["source"]) for cell in notebook["cells"]
+                               if cell["cell_type"] == "markdown")
+        assert markdown.count("## Fase ") == 3
+        assert "MLFLOW" not in "\n".join(cells.values())
+        assert f'TOOL_SHA256 = "{digest}"' in cells[f"{source}-transition-build"]
+        assert "force_remount=True" in cells[f"{source}-transition-input"]
+        assert "exc.errno not in {103, 107}" in cells[f"{source}-transition-input"]
+        assert "--upload" not in cells[f"{source}-transition-build"]
+        assert "--upload" in cells[f"{source}-transition-publish"]
 
 
 class PublicHub:
@@ -117,6 +141,6 @@ def test_publication_tags_only_after_complete_upload(tmp_path, monkeypatch):
         publish_hf_dataset.publish_release(staging)
     secret.unlink()
     receipt = publish_hf_dataset.publish_release(staging)
-    assert receipt == {"repo": "alessandro54/lcw-refined", "version": "v1", "commit": "c" * 40,
+    assert receipt == {"repo": "alessandro54/labeled-cats-in-the-wild-refined", "version": "v1", "commit": "c" * 40,
                        "prepared_fingerprint": dataset.fingerprint}
     assert hub.tags == {"v1": "c" * 40}

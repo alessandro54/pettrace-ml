@@ -2,9 +2,10 @@
 
 Esta carpeta contiene el pipeline de datos compartido. Los notebooks de `notebooks/` siguen dedicados a los experimentos.
 
-La transición pública de la porción LCW ya refinada se ejecuta una sola vez desde
-[`lcw_refined_transition.ipynb`](lcw_refined_transition.ipynb). Recupera y verifica `v4.100`,
-construye `lcw-refined@v1`, permite revisar su evidencia y publica únicamente en la última fase.
+Las transiciones públicas se ejecutan una sola vez desde
+[`lcw_refined_transition.ipynb`](lcw_refined_transition.ipynb) y
+[`dogs_of_the_world_refined_transition.ipynb`](dogs_of_the_world_refined_transition.ipynb).
+Recuperan y verifican `v4.100`, permiten revisar la evidencia y publican solo en la última fase.
 La lógica de empaquetado y las defensas de publicación permanecen en `tools/publish_hf_dataset.py`.
 
 | Dataset | Función | Versiones |

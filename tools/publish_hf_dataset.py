@@ -24,13 +24,28 @@ from pettrace.data.versions import load_local_training
 
 SOURCES = {
     "lcw": {
-        "repo": "alessandro54/lcw-refined",
+        "repo": "alessandro54/labeled-cats-in-the-wild-refined",
+        "title": "Labeled Cats in the Wild Refined",
+        "name": "LCW",
+        "tag": "cats",
         "license": "apache-2.0",
         "license_name": "Apache 2.0",
         "license_url": "https://www.apache.org/licenses/LICENSE-2.0.txt",
         "license_sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
         "source_url": "https://www.kaggle.com/datasets/dseidli/lcwlabeled-cats-in-the-wild",
         "ref": "dseidli/lcwlabeled-cats-in-the-wild",
+    },
+    "dogs-world": {
+        "repo": "alessandro54/dogs-of-the-world-refined",
+        "title": "Dogs of the World Refined",
+        "name": "Dogs of the World",
+        "tag": "dogs",
+        "license": "cc0-1.0",
+        "license_name": "CC0",
+        "license_url": "https://creativecommons.org/publicdomain/zero/1.0/legalcode.txt",
+        "license_sha256": "a2010f343487d3f7618affe54f789f5487602331c0a8d03f49e9a7c547cf0499",
+        "source_url": "https://www.kaggle.com/datasets/lextoumbourou/dogs-world",
+        "ref": "lextoumbourou/dogs-world",
     },
 }
 
@@ -100,18 +115,18 @@ task_categories:
 - image-classification
 tags:
 - animal-re-identification
-- cats
+- {spec['tag']}
 configs:
 - config_name: default
   data_files:
 {data_files}
 ---
 
-# LCW Refined
+# {spec['title']}
 
-Deterministic, refined LCW cat identities for PetTrace representation-learning experiments.
+Deterministic, refined {spec['name']} identities for PetTrace representation-learning experiments.
 
-- Upstream: [LCW on Kaggle]({spec['source_url']}), version 1.
+- Upstream: [{spec['name']} on Kaggle]({spec['source_url']}), version 1.
 - Upstream license declared by the publisher: {spec['license_name']}.
 - PetTrace source snapshot: `pettrace-training@{prepared_version}`.
 - Refined release: `{release_version}`.
@@ -125,9 +140,9 @@ recorded animal-screening policy, and preserves immutable train/validation/test 
 operations do not prove that every source identity is correct. See
 `versions/{release_version}/dataset.json` and `metadata.csv` for lineage and hashes.
 
-This repository redistributes only the refined LCW subset, not the original Kaggle archive. The
-original publisher and source remain attributed above. PetTrace does not claim ownership of the
-underlying photographs or the LCW name. Apache-2.0 is the license declared by the dataset publisher;
+This repository redistributes only the refined {spec['name']} subset, not the original Kaggle archive.
+The original publisher and source remain attributed above. PetTrace does not claim ownership of the
+underlying photographs or dataset name. {spec['license_name']} is the license declared by the dataset publisher;
 users remain responsible for checking any third-party image rights that may apply.
 """
 
@@ -156,7 +171,7 @@ def build_release(prepared_path, destination, *, source="lcw", release_version="
     if source not in SOURCES:
         raise ValueError(f"Unsupported source: {source}")
     if release_version != "v1" or prepared_version != "v4.100":
-        raise ValueError("The first LCW release must map pettrace-training@v4.100 to v1")
+        raise ValueError("The first refined source release must map pettrace-training@v4.100 to v1")
     if shard_size < 1024**2:
         raise ValueError("Shard size must be at least 1 MiB")
     prepared, reference = load_local_training(prepared_path)
