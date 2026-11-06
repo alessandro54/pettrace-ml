@@ -109,6 +109,14 @@ def test_e4_installs_complete_published_training_package():
     assert 'TRAINING_DATASET_VERSION, SOURCE_SAMPLE_PCT, SEED = "v2", 100, 46' in notebook
 
 
+@pytest.mark.parametrize("path", NOTEBOOKS, ids=lambda p: p.stem)
+def test_experiment_notebooks_do_not_use_google_drive(path):
+    source = "\n".join("".join(cell["source"]) for cell in cells(path))
+    assert "DriveBackup" not in source
+    assert "/content/drive" not in source
+    assert "google.colab import drive" not in source
+
+
 def test_e4_loads_colab_secrets_before_dataset_access():
     contents = cells(ROOT / "notebooks/e4_clip_lora.ipynb")
     config = next("".join(c["source"]) for c in contents if c["id"] == "e4-config")

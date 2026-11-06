@@ -1,6 +1,6 @@
 # E4 · Adaptación LoRA del encoder
 
-Estado: **E4 v1 (semilla 42) está publicado; E4 v2 prueba la semilla 46 sobre el E3 seleccionado**.
+Estado: **E4 v2 (semilla 46) publicado en ambos dominios; candidato 19 registrado sin promoción de alias**.
 
 ## Pregunta y diseño
 
@@ -23,7 +23,7 @@ Estado: **E4 v1 (semilla 42) está publicado; E4 v2 prueba la semilla 46 sobre e
 | Control público E3 | run `922c9e67d53b4c6f924d1339673e059f` |
 | Modelo registrado de control | `pettrace-embedder` versión 18, sin promoción de alias |
 
-Antes de entrenar, el notebook verifica commits, manifests, shards y cajas, demuestra que los adaptadores iniciales no cambian la salida del control y que la cabeza descargada coincide con el hash anterior. Drive no es la fuente de datos; se usa únicamente para respaldar una corrida reanudable.
+Antes de entrenar, el notebook verifica commits, manifests, shards y cajas, demuestra que los adaptadores iniciales no cambian la salida del control y que la cabeza descargada coincide con el hash anterior. Hugging Face es la fuente inmutable de datos y MLflow conserva los resultados, artefactos y modelos publicados; E4 no usa Google Drive.
 
 ## Entrenamiento y selección
 
@@ -36,11 +36,18 @@ Antes de entrenar, el notebook verifica commits, manifests, shards y cajas, demu
 
 ## Evaluación y cierre
 
-Se mantienen las galerías separadas del test público v1 y `pettrace-reid@v4`. Se reportan Rank-1/2/5/10, mAP, EER descriptiva, resultados por especie y comparación pareada con E3-100. Cada dominio debe publicarse en MLflow; un fallo de publicación deja la corrida incompleta pero conserva el checkpoint para reintentar sin entrenar otra vez. El registro de candidato es posterior y no mueve alias.
+Se mantienen las galerías separadas del test público v1 y `pettrace-reid@v4`. Se reportan Rank-1/2/5/10, mAP, EER descriptiva, resultados por especie y comparación pareada con E3-100. Cada dominio debe publicarse en MLflow; un fallo de publicación deja la corrida incompleta, pero puede reintentarse desde el reporte local mientras el runtime siga activo. El registro de candidato es posterior y no mueve alias.
+
+| Dominio | E3 Rank-1 | E4 Rank-1 | E3 mAP | E4 mAP | E3 EER | E4 EER |
+|---|---:|---:|---:|---:|---:|---:|
+| Test público v1 | 80.1 % | **85.6 %** | 0.764 | **0.813** | 9.5 % | **8.4 %** |
+| PetTrace v4 | 78.4 % | **83.6 %** | 0.688 | **0.722** | 12.8 % | **11.7 %** |
+
+Recibos: público `2302b302772b4349894e1d1b58d438ed`; PetTrace `5bc216d03afc4a31a15c53fc3bfbc747`.
 
 LoRA sigue a Hu et al. (2022). La elección de capas, hiperparámetros, control y protocolo de transferencia es una decisión de esta investigación. Las pruebas unitarias de equivalencia y merge validan implementación, no rendimiento.
 
-## Limitaciones previstas
+## Limitaciones
 
 - El test público y PetTrace ya fueron observados en experimentos anteriores; no son benchmarks vírgenes.
 - Una corrida de LoRA no estima variabilidad de optimización ni incertidumbre poblacional.

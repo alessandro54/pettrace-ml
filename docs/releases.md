@@ -1,5 +1,12 @@
 # Package releases
 
+## Unreleased — Drive-free E4 runtime
+
+- Removes Google Drive from E4 training, publication and candidate registration.
+- Keeps Hugging Face as the immutable dataset source and MLflow as the published evidence and model store.
+- Retains local evidence for publication retries while the Colab runtime remains active.
+- Records the completed seed-46 E4 run and candidate 19 without promoting a serving alias.
+
 ## 0.2.27 — E4 on the selected E3 control
 
 - Pins E4 to the E3 seed-46 winner selected only by validation, registered as model version 18.
@@ -18,7 +25,7 @@
 
 - Adds `pettrace.data.training(version="v2")` for the verified union of the two public refined sources.
 - Pins both Hugging Face v2 commits and proves their images, labels, splits and preparation fingerprint match v4.100.
-- Makes E4 consume those public shards and YOLO boxes directly; Drive remains only a resumable run backup.
+- Makes E4 consume those public shards and YOLO boxes directly.
 - Preserves mandatory separate MLflow publication for the public v1 and PetTrace benchmarks.
 
 ## 0.2.24 — matching Colab CUDA plugins
