@@ -114,8 +114,8 @@ class LoRALinear(nn.Module):
         self.base = base
         self.rank = rank
         self.scale = alpha / rank
-        self.a = nn.Parameter(torch.empty(rank, base.in_features))
-        self.b = nn.Parameter(torch.zeros(base.out_features, rank))
+        self.a = nn.Parameter(base.weight.new_empty((rank, base.in_features)))
+        self.b = nn.Parameter(base.weight.new_zeros((base.out_features, rank)))
         nn.init.kaiming_uniform_(self.a, a=math.sqrt(5))
         self.base.requires_grad_(False)
 

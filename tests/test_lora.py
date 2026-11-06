@@ -43,6 +43,15 @@ def test_lora_starts_equivalent_and_only_targets_are_trainable():
     assert trainable_parameters(model) == 2 * (8 * 4 + 4 * 8)
 
 
+def test_lora_parameters_follow_the_base_layer():
+    base = nn.Linear(4, 4, dtype=torch.float64)
+    adapter = LoRALinear(base, rank=2)
+    assert adapter.a.device == base.weight.device
+    assert adapter.b.device == base.weight.device
+    assert adapter.a.dtype == base.weight.dtype
+    assert adapter.b.dtype == base.weight.dtype
+
+
 def test_merge_preserves_adapted_output():
     model = Attention().eval()
     inject_lora(model, rank=2, alpha=4)
