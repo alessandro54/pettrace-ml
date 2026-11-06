@@ -1,0 +1,44 @@
+name: Auto release package
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "src/pettrace/**"
+
+permissions:
+  contents: write
+  id-token: write
+
+concurrency:
+  group: package-auto-release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: version
+        run: |
+          version=$(python -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')
+          echo "tag=v${version}" >> "$GITHUB_OUTPUT"
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "::error::Release $TAG already exists; bump the package version before merging package changes."
+            exit 1
+          fi
+          gh release create "$TAG" --target "$GITHUB_SHA" --title "PetTrace ML ${TAG#v}" --generate-notes
+
+  publish:
+    needs: release
+    uses: ./.github/workflows/publish.yml
+    with:
+      tag: ${{ needs.release.outputs.tag }}
+    secrets: inherit
