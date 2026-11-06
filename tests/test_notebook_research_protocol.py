@@ -129,6 +129,18 @@ def test_e4_loads_colab_secrets_before_dataset_access():
     assert "configure_access" not in config
 
 
+def test_e4_inference_ablation_is_validation_only_and_publishes():
+    contents = cells(ROOT / "notebooks/e4_inference_ablation.ipynb")
+    notebook = "\n".join("".join(cell["source"]) for cell in contents)
+    install = next("".join(cell["source"]) for cell in contents if cell["id"] == "ablation-setup")
+    assert '"pettrace-ml[notebooks]==0.2.28"' in install
+    assert 'MODEL_URI = "models:/pettrace-embedder/19"' in notebook
+    assert 'row["split"] == "val"' in notebook
+    assert "public_test_dataset" not in notebook and "pettrace-reid@v4" not in notebook
+    assert "publish_validation_diagnostic(" in notebook
+    assert "LOG_TO_MLFLOW = True" in notebook
+
+
 @pytest.mark.parametrize("path", NOTEBOOKS, ids=lambda p: p.stem)
 def test_shared_research_structure_and_fixed_benchmark(path):
     contents = cells(path)
@@ -142,7 +154,9 @@ def test_shared_research_structure_and_fixed_benchmark(path):
                                                 for t in n.targets))
     assert ast.literal_eval(commit.value) == COMMIT
     publication = "\n".join("".join(c["source"]) for c in contents if c["cell_type"] == "code")
-    if path.name.startswith(("e3_", "e4_")):
+    if path.name == "e4_inference_ablation.ipynb":
+        assert "run_id = publish_validation_diagnostic(" in publication
+    elif path.name.startswith(("e3_", "e4_")):
         assert "publication = publish_results(" in publication
         helper = (ROOT / "src/pettrace/experiments/e3.py").read_text()
         assert helper.index('"experiment-design.json"') < helper.index("public_run_id = publish_evaluation(")

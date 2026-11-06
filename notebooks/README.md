@@ -13,6 +13,7 @@ Los tres cuadernos documentan una secuencia de investigación de tesis sobre rec
 | [E2](e2_yolo_crop_zero_shot.ipynb) | Recorte YOLOv8n antes del mismo CLIP | Ninguno | E1 recalculado con las mismas consultas y galerías |
 | [E3](e3_mlp_head_triplet.ipynb) | MLP 512→256→512 sobre E2 congelado; barrido 45–49 | Solo la MLP | E1/E2 congelados; ganador elegido solo con validación pública |
 | [E4](e4_clip_lora.ipynb) | LoRA en `q_proj`/`v_proj` de CLIP sobre un E3 fijado | Solo adaptadores LoRA | Control E3 declarado antes de entrenar |
+| [E4 · ablación de inferencia](e4_inference_ablation.ipynb) | Flip horizontal y agregación por identidad sobre E4 fijado | Ninguno | `single + max`, únicamente en validación |
 
 El [protocolo de E4](../docs/e4_protocol.md) fija el control y la intervención antes de entrenar. Las siguientes iteraciones de E4/E5 deberán consumir el recibo `e3-handoff.json` del ganador prospectivo; el resultado histórico de E4 no se reinterpreta retrospectivamente. E5 aún no está implementado.
 

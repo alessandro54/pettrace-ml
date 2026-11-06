@@ -122,7 +122,7 @@ start with `_` are internal. Existing experiment imports continue to work.
 | `pettrace.training.triplet` | `Config`, `Head`, `fit`, `export_encoder` | Train the MLP projection using validation identities and export it with the frozen encoder. |
 | `pettrace.evaluation.core` | `load_model`, `evaluate`, `report` | Verify registered models and calculate retrieval results. |
 | `pettrace.evaluation.metrics` | `retrieval`, `pair_scores`, `eer`, `at_threshold` | Calculate same-species retrieval and pair-score metrics. |
-| `pettrace.tracking` | `publish_evaluation`, `source_identity`, `save_provenance` | Publish experiment evidence and record its code/runtime identity. |
+| `pettrace.tracking` | `publish_evaluation`, `publish_validation_diagnostic`, `source_identity`, `save_provenance` | Publish experiment evidence and record its code/runtime identity. |
 | `pettrace.experiments.e1` | `resume_publication` | Retry publication from saved evidence without repeating inference. |
 | `pettrace.experiments.e3` | `select_validation_candidate`, `load_benchmarks`, `load_published`, `publish_results`, `register_candidate` | Select an E3 candidate using validation only, load separated pinned benchmarks, publish both domains and register the winner without promoting an alias. |
 

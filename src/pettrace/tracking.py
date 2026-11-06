@@ -90,6 +90,72 @@ def publish_evaluation(ev, model, report, source_sha256, *, experiment,
     )
 
 
+def publish_validation_diagnostic(diagnostic, model, prepared, report, source_sha256, *, experiment,
+                                  expected_model_uri=None):
+    """Publish one validation-only inference ablation; retries resume the same MLflow run."""
+    import mlflow
+    from pettrace import __version__
+
+    client, tracking_experiment = production_context()
+    if mlflow.active_run() is not None:
+        raise RuntimeError("Finish the active MLflow run before publishing a diagnostic.")
+    if not model.golden_ok or (expected_model_uri and model.uri != expected_model_uri):
+        raise ValueError("Publication requires the verified expected model.")
+    if diagnostic.get("scope") != "validation_only" or len(diagnostic.get("records", ())) != 6:
+        raise ValueError("Publication requires the complete validation-only inference diagnostic.")
+    if prepared.version != "v2" or not prepared.fingerprint:
+        raise ValueError("Publication requires the pinned public v2 training corpus.")
+    report = Path(report)
+    result_path, runtime_path = report / "validation-inference-diagnostic.json", report / "runtime.json"
+    if not result_path.is_file() or not runtime_path.is_file():
+        raise ValueError("Save the diagnostic and runtime provenance before publishing.")
+
+    identity = {
+        "experiment": experiment, "dataset_version": prepared.version,
+        "dataset_fingerprint": prepared.fingerprint, "model_sha256": model.sha256,
+        "source_sha256": source_sha256, "diagnostic": diagnostic,
+    }
+    execution_id = json.loads(runtime_path.read_text()).get("execution_id")
+    if execution_id:
+        identity["execution_id"] = execution_id
+    key = hashlib.sha256(json.dumps(identity, sort_keys=True, default=float).encode()).hexdigest()
+    matches = client.search_runs(
+        [tracking_experiment.experiment_id], filter_string=f"tags.`{PUBLICATION_TAG}` = '{key}'", max_results=2,
+    )
+    if len(matches) > 1:
+        raise RuntimeError("Multiple diagnostic runs have this publication key; inspect them before publishing.")
+    run = matches[0] if matches else client.create_run(
+        tracking_experiment.experiment_id,
+        tags={PUBLICATION_TAG: key, "experiment": experiment, "purpose": "validation_inference_diagnostic",
+              "mlflow.runName": f"{experiment} · {model.model_version} · validation inference ablation"},
+    )
+    run_id = run.info.run_id
+    receipt_path = report / "publication.json"
+    receipt_path.write_text(json.dumps({"published": False, "run_id": run_id}, indent=2) + "\n")
+    if run.info.status != "FINISHED":
+        params = {
+            "code.source_sha256": source_sha256, "code.package_version": __version__,
+            "dataset.version": prepared.version, "dataset.fingerprint": prepared.fingerprint,
+            "model.uri": model.uri, "model.registry_version": model.registry_version,
+            "scope": diagnostic["scope"], "selection_metric": diagnostic["selection_metric"],
+        }
+        metrics = {}
+        for record in diagnostic["records"]:
+            prefix = f"{record['representation']}.{record['identity_aggregation']}"
+            for name, value in record.items():
+                if name.startswith("validation."):
+                    metrics[f"{prefix}.{name}"] = float(value)
+        with mlflow.start_run(run_id=run_id, experiment_id=tracking_experiment.experiment_id):
+            mlflow.log_params(params)
+            mlflow.log_metrics(metrics)
+            mlflow.log_artifacts(str(report), artifact_path="report")
+    if client.get_run(run_id).info.status != "FINISHED":
+        raise RuntimeError(f"Diagnostic publication is incomplete: {run_id}")
+    receipt_path.write_text(json.dumps({"published": True, "run_id": run_id}, indent=2) + "\n")
+    client.log_artifact(run_id, str(receipt_path), artifact_path="report")
+    return run_id
+
+
 def source_identity():
     """Identify installed package code; a repository root is never required by the notebook."""
     import subprocess

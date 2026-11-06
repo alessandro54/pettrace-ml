@@ -1,7 +1,11 @@
 # Package releases
 
-## Unreleased — Drive-free E4 runtime
+## 0.2.28 — E4 validation inference ablation
 
+- Adds a validation-only notebook for deterministic horizontal-flip TTA and identity aggregation.
+- Loads the frozen seed-46 E4 candidate from MLflow without retraining or evaluating either test benchmark.
+- Publishes the six-condition diagnostic unconditionally to MLflow with an idempotent receipt.
+- Keeps the E4 runtime free of Google Drive.
 - Removes Google Drive from E4 training, publication and candidate registration.
 - Keeps Hugging Face as the immutable dataset source and MLflow as the published evidence and model store.
 - Retains local evidence for publication retries while the Colab runtime remains active.

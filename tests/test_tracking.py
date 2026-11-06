@@ -196,6 +196,53 @@ def test_shared_publication_accepts_another_experiment(publication):
     assert json.loads((report / "run.json").read_text())["experiment"] == "E2"
 
 
+def test_validation_diagnostic_publication_is_validation_only_and_retryable(tmp_path, monkeypatch):
+    import mlflow
+
+    experiment = SimpleNamespace(experiment_id="3", lifecycle_stage="active")
+    running = SimpleNamespace(info=SimpleNamespace(run_id="diagnostic-run", status="RUNNING"))
+    finished = SimpleNamespace(info=SimpleNamespace(run_id="diagnostic-run", status="FINISHED"))
+    client = Mock()
+    client.search_runs.return_value = []
+    client.create_run.return_value = running
+    client.get_run.return_value = finished
+    monkeypatch.setattr(tracking, "production_context", lambda: (client, experiment))
+    monkeypatch.setattr(mlflow, "active_run", lambda: None)
+    start = Mock()
+    start.return_value.__enter__ = Mock(return_value=running)
+    start.return_value.__exit__ = Mock(return_value=False)
+    monkeypatch.setattr(mlflow, "start_run", start)
+    monkeypatch.setattr(mlflow, "log_params", Mock())
+    monkeypatch.setattr(mlflow, "log_metrics", Mock())
+    monkeypatch.setattr(mlflow, "log_artifacts", Mock())
+    model = SimpleNamespace(golden_ok=True, uri="models:/pettrace-embedder/19",
+                            model_version="e4@v2", registry_version="19", sha256={"encoder.onnx": "a"})
+    prepared = SimpleNamespace(version="v2", fingerprint="b" * 64)
+    records = [{
+        "representation": representation, "identity_aggregation": aggregation,
+        "validation.macro_species_rank1": 0.8, "validation.macro_species_mAP": 0.7,
+    } for representation in ("single", "horizontal_flip_tta")
+        for aggregation in ("max", "top2_mean", "prototype")]
+    diagnostic = {"scope": "validation_only", "selection_metric": "validation.macro_species_rank1",
+                  "records": records}
+    (tmp_path / "validation-inference-diagnostic.json").write_text(json.dumps(diagnostic))
+    (tmp_path / "runtime.json").write_text("{}")
+
+    assert tracking.publish_validation_diagnostic(
+        diagnostic, model, prepared, tmp_path, "source", experiment="E4-TTA",
+        expected_model_uri=model.uri) == "diagnostic-run"
+    assert json.loads((tmp_path / "publication.json").read_text())["published"] is True
+    assert len(mlflow.log_metrics.call_args.args[0]) == 12
+    client.log_artifact.assert_called_once()
+
+    client.search_runs.return_value = [finished]
+    assert tracking.publish_validation_diagnostic(
+        diagnostic, model, prepared, tmp_path, "source", experiment="E4-TTA",
+        expected_model_uri=model.uri) == "diagnostic-run"
+    client.create_run.assert_called_once()
+    mlflow.start_run.assert_called_once()
+
+
 def test_source_identity_does_not_require_a_repository_in_the_working_directory(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     identity = tracking.source_identity()
