@@ -342,3 +342,8 @@ Once checks succeed, publish the matching GitHub Release. Keep wheel/sdist/check
 as before; `uv.lock`, runtime profiles and notebooks remain in the tagged repository.
 Verify the published PyPI version and distribution hashes before updating notebook installation
 instructions to rely on PyPI. A failed upload is not a completed release.
+
+Package changes merged into `main` are released automatically when `src/pettrace/**` changes.
+The branch must bump `project.version` in `pyproject.toml` and refresh `uv.lock`; reusing an
+existing version fails CI instead of replacing a release. Documentation, notebooks and tests
+alone do not publish a package. Manual GitHub Releases remain supported by the same pipeline.
