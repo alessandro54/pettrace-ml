@@ -131,7 +131,7 @@ def test_yolo_v2_notebook_is_colab_ui_data_preparation():
     contents = cells(ROOT / "datasets/yolo_v2.ipynb")
     install = next("".join(c["source"]) for c in contents if c["id"] == "yolo-v2-setup")
     notebook = "\n".join("".join(c["source"]) for c in contents)
-    assert '"pettrace-ml[training,notebooks]==0.2.22"' in install
+    assert '"pettrace-ml[training,notebooks]==0.2.23"' in install
     assert "prepare_yolo_overlay" in notebook
     assert "HF_TOKEN" in notebook and "userdata.get(name)" in notebook
     assert "isinstance(value, str)" in notebook

@@ -79,8 +79,8 @@ def check_cuda_environment():
     import torch  # Loads the profile's CUDA 12/cuDNN 9 libraries before registering the plugin.
     if not torch.cuda.is_available():
         raise RuntimeError('No CUDA device. Select a GPU runtime before starting preparation.')
-    if not torch.version.cuda or tuple(map(int, torch.version.cuda.split('.')[:2])) < (12, 8) or not torch.version.cuda.startswith('12.'):
-        raise RuntimeError('The preparation profile requires PyTorch with CUDA 12.8 or newer CUDA 12.x')
+    if not torch.version.cuda or not torch.version.cuda.startswith('12.'):
+        raise RuntimeError('The preparation profile requires PyTorch with CUDA 12.x')
     return torch
 
 

@@ -287,7 +287,7 @@ también debe mejorar el tiempo mediano de screening. Son criterios de esta inve
 de equivalencia sobre todo el dataset. Los tiempos incluyen preprocesamiento y NMS, sin lectura del disco.
 El diagnóstico queda en `animal-screening-cache/cuda/<clave>/gpu-validation.json` incluso si falla.
 Las detecciones CPU previas se reutilizan sin reescribir; CUDA tiene caché separada y el reporte distingue
-su procedencia. Se requiere Linux x86_64, Python 3.13 y el perfil E3 con Torch/CUDA 12.8.
+su procedencia. Se requiere Linux x86_64, Python 3.13 y el perfil E3 con Torch/CUDA 12.x.
 
 En una sesión nueva, ejecuta el setup del notebook: instala `pettrace-ml==0.2.14`
 desde PyPI y las dependencias del perfil E3 con hashes. El perfil se descarga desde

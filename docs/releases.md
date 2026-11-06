@@ -1,5 +1,10 @@
 # Package releases
 
+## 0.2.23 — Colab CUDA 12 compatibility
+
+- Accepts Colab PyTorch builds using any CUDA 12.x minor release instead of requiring CUDA 12.8.
+- Keeps the pinned CUDA provider, graph-assignment check and CPU/GPU equivalence gate unchanged.
+
 ## 0.2.22 — explicit Colab Secrets
 
 - Experiment and preparation notebooks now load credentials directly with `google.colab.userdata`.

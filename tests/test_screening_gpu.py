@@ -1,5 +1,6 @@
 import io
 import json
+import sys
 import tarfile
 from itertools import cycle
 from types import SimpleNamespace
@@ -28,6 +29,27 @@ class Detector:
         raw[0, :4, 0] = (8, 8, 6, 6)
         raw[0, 19 if inputs['images'][0, 0, 0, 0] == 40 else 20, 0] = .95
         return [raw]
+
+
+def test_cuda_preflight_accepts_colab_cuda_12(monkeypatch):
+    torch = SimpleNamespace(cuda=SimpleNamespace(is_available=lambda: True),
+                            version=SimpleNamespace(cuda='12.6'))
+    monkeypatch.setitem(sys.modules, 'torch', torch)
+    monkeypatch.setattr(cuda.ort, '__version__', '1.31.0')
+    monkeypatch.setattr(cuda.sys, 'platform', 'linux')
+    monkeypatch.setattr(cuda.platform, 'machine', lambda: 'x86_64')
+    assert cuda.check_cuda_environment() is torch
+
+
+def test_cuda_preflight_rejects_other_cuda_majors(monkeypatch):
+    torch = SimpleNamespace(cuda=SimpleNamespace(is_available=lambda: True),
+                            version=SimpleNamespace(cuda='11.8'))
+    monkeypatch.setitem(sys.modules, 'torch', torch)
+    monkeypatch.setattr(cuda.ort, '__version__', '1.31.0')
+    monkeypatch.setattr(cuda.sys, 'platform', 'linux')
+    monkeypatch.setattr(cuda.platform, 'machine', lambda: 'x86_64')
+    with pytest.raises(RuntimeError, match='CUDA 12.x'):
+        cuda.check_cuda_environment()
 
 
 @pytest.fixture
