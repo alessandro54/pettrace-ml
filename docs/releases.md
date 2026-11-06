@@ -1,5 +1,11 @@
 # Package releases
 
+## 0.2.27 — E4 on the selected E3 control
+
+- Pins E4 to the E3 seed-46 winner selected only by validation, registered as model version 18.
+- Runs LoRA with seed 46 and publishes it as a distinct v2 experiment candidate without moving an alias.
+- Keeps the previous seed-42 E4 run as historical evidence rather than silently changing its control.
+
 ## 0.2.26 — canonical E3 notebook
 
 - Consolidates E3 into one thesis-facing 100% experiment notebook backed by the immutable Hugging Face v2 corpus.

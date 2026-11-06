@@ -101,11 +101,12 @@ def test_e4_installs_complete_published_training_package():
     contents = cells(ROOT / "notebooks/e4_clip_lora.ipynb")
     install = next("".join(c["source"]) for c in contents if c["id"] == "e4-setup")
     notebook = "\n".join("".join(c["source"]) for c in contents)
-    assert '"pettrace-ml[training,notebooks]==0.2.25"' in install
+    assert '"pettrace-ml[training,notebooks]==0.2.27"' in install
     assert "requirements" not in install
     assert "LOG_TO_MLFLOW = True" in notebook
     assert "training(version=TRAINING_DATASET_VERSION" in notebook
     assert "drive_root" not in notebook
+    assert 'TRAINING_DATASET_VERSION, SOURCE_SAMPLE_PCT, SEED = "v2", 100, 46' in notebook
 
 
 def test_e4_loads_colab_secrets_before_dataset_access():
