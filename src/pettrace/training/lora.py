@@ -53,9 +53,12 @@ class PreparedPreprocessor:
         self.clip.detector = None
         if pipeline.detector is None:
             raise ValueError("E4 requires the E2 detector pipeline")
-        if screening.get("config", {}).get("detector_sha256") != _detector_hash(pipeline):
+        detector_sha256 = getattr(screening, "detector_sha256", None)
+        if detector_sha256 is None:
+            detector_sha256 = screening.get("config", {}).get("detector_sha256")
+        if detector_sha256 != _detector_hash(pipeline):
             raise ValueError("Prepared YOLO boxes use a different detector")
-        self.boxes = {
+        self.boxes = {} if hasattr(screening, "detector_sha256") else {
             record["image_sha256"]: record["boxes"][0]["box"]
             for record in screening.get("records", [])
             if record.get("reason") == "single_expected_animal" and len(record.get("boxes", [])) == 1
@@ -66,7 +69,7 @@ class PreparedPreprocessor:
 
         with Image.open(row["path"]) as source:
             image = ImageOps.exif_transpose(source).convert("RGB")
-        box = self.boxes.get(row["sha256"])
+        box = row.get("box") or self.boxes.get(row["sha256"])
         if box is None:
             if row["split"] == "train":
                 raise ValueError(f"Missing prepared YOLO box for training photo {row['sha256']}")

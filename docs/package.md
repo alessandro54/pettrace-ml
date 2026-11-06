@@ -40,6 +40,14 @@ cats = data.labeled_cats_in_the_wild(version="v1")
 print(dogs.commit, dogs.shards("train"))
 ```
 
+Load the audited v2 union ready for E4. This pins both Hub commits, verifies the
+v4.100 fingerprint and YOLO overlays, and materializes the image shards locally:
+
+```python
+training = data.training(version="v2", cache_dir="/content/datasets/pettrace-refined")
+print(training.fingerprint, training.summary)
+```
+
 The returned object exposes `root`, `commit`, `manifest`, `metadata_path`,
 `metadata()` and `shards()`. Hugging Face owns the download cache. The loader does not
 extract shards, run YOLO or create a new dataset version. Once the verified `v2` overlays
@@ -101,7 +109,7 @@ start with `_` are internal. Existing experiment imports continue to work.
 
 | Module | Methods | Purpose |
 |---|---|---|
-| `pettrace.data` | `load`, `dogs_of_the_world`, `labeled_cats_in_the_wild` | Load prepared training snapshots or the two immutable public refined sources. |
+| `pettrace.data` | `load`, `training`, `dogs_of_the_world`, `labeled_cats_in_the_wild` | Load prepared snapshots or the immutable public refined sources. |
 | `pettrace.data.lookup` | `lookup_duplicates`, `load_candidates`, `restore_lookup_review` | Audit duplicates, index pre-YOLO candidates and recover the raw inventory from Drive. |
 | `pettrace.data.sources` | `discover_body_ids`, `write_review` | Build a SHA-256 inventory from locally extracted source photos and publisher labels. |
 | `pettrace.data.review` | `exclusion_summary`, `quarantine_groups`, `quarantine_gallery`, `save_decisions` | Inspect filtering, review conflicting labels and record explicit decisions. |

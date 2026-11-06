@@ -20,3 +20,10 @@ def labeled_cats_in_the_wild(*, version="v1", cache_dir=None, token=None):
     from pettrace.data.refined_sources import load_refined_source
 
     return load_refined_source("lcw", version=version, cache_dir=cache_dir, token=token)
+
+
+def training(*, version="v2", cache_dir=None, token=None):
+    """Load the combined public refined corpus ready for PetTrace training."""
+    from pettrace.data.refined_sources import load_training
+
+    return load_training(version=version, cache_dir=cache_dir, token=token)

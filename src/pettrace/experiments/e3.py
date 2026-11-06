@@ -202,6 +202,8 @@ def publish_results(public_evaluation, private_evaluation, model, report, public
     (public_report / "experiment-design.json").write_text(encoded_design)
     for filename in ("dataset-coverage.json", "training-config.json", "training-summary.json", "sources.json"):
         shutil.copy2(report / filename, public_report / filename)
+    if (report / "transport-equivalence.json").is_file():
+        shutil.copy2(report / "transport-equivalence.json", public_report / "transport-equivalence.json")
     save_provenance(report, model)
 
     timestamp = int(time.time() * 1000)

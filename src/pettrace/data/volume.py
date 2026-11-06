@@ -243,6 +243,33 @@ def dataset_coverage(rows, sources, capacities):
 
 def training_volume(prepared, percent, report):
     """Require completed processing evidence, report acquisition and effective train separately."""
+    if hasattr(prepared, "provenance") and not hasattr(prepared, "root"):
+        if percent != 100:
+            raise ValueError("The public refined corpus represents the complete 100% source preparation")
+        sources = [{key: value for key, value in reference.items()
+                    if key in {"ref", "version", "archive_index_sha256"}}
+                   for reference in CAPACITY.values()]
+        metrics, params = dataset_coverage(prepared.rows, sources, CAPACITY)
+        for source, reference in CAPACITY.items():
+            prefix = f"dataset.{reference['species']}"
+            metrics[f"{prefix}.sampled_photos"] = reference["photos"]
+            metrics[f"{prefix}.sampled_pct"] = 100.0
+            metrics[f"{prefix}.processed_photos"] = reference["photos"]
+            metrics[f"{prefix}.processed_pct"] = 100.0
+            metrics[f"{prefix}.excluded_photos"] = reference["photos"] - metrics[f"{prefix}.retained_photos"]
+        for key in ("sampled_photos", "processed_photos", "excluded_photos"):
+            metrics[f"dataset.{key}"] = sum(metrics[f"dataset.{species}.{key}"] for species in ("cat", "dog"))
+        metrics.update({"dataset.sample_requested_pct": 100, "dataset.sampled_pct": 100.0,
+                        "dataset.processed_pct": 100.0})
+        params.update({"dataset.sample_basis": "original_source_photo_entries_before_cleaning",
+                       "dataset.sample_requested_pct": "100", "dataset.transport": "huggingface_refined_v2",
+                       "dataset.prepared_fingerprint": prepared.fingerprint})
+        report = Path(report)
+        (report / "sources.json").write_text(json.dumps(prepared.provenance, indent=2))
+        (report / "dataset-coverage.json").write_text(json.dumps(
+            {"metrics": metrics, "params": params, "reference": CAPACITY,
+             "transport": prepared.provenance}, indent=2))
+        return metrics, params
     sources = json.loads((prepared.root / "sources.json").read_text())["sources"]
     metrics, params = dataset_coverage(prepared.rows, sources, CAPACITY)
     metrics.update(source_sample_metrics(sources, CAPACITY, percent))

@@ -15,14 +15,15 @@ Estado: **protocolo e implementación fijados; todavía no hay resultados public
 
 | Elemento | Valor |
 |---|---|
-| Datos de entrenamiento | `pettrace-training@v4.100` |
+| Datos de entrenamiento | LCW refined `v2` commit `581e44a04fd461ef1ba248177b84aff61a2ada21` + Dogs refined `v2` commit `9fdd6e5f7eaa752f16bd4dae54cd32b88c7e09ba` |
+| Equivalencia | Mismos bytes, identidades, splits y fingerprint `d0ca5c0b1bed8844f943b9fd355ce912524797d0dc71b50c7a1624e39f49fe58` de `v4.100`; v2 añade solo cajas YOLO |
 | Encoder base | `openai/clip-vit-base-patch32` revisión `3d74acf9a28c67741b2f4f2ea7635f0aaf6f0268` |
 | Cabeza E3 | `report/head.pt` del run privado `a58f3a42642648f2ab85ab0f83fa8e4b` |
 | SHA-256 de la cabeza | `aeccdfb0d91e404c3abe1d5f17ac1429d5a2d2497941e0d68f661c4891a1ea06` |
 | Control público E3 | run `82f4c031abc5403ebcdcd3eea1093b36` |
 | Modelo registrado de control | `pettrace-embedder` versión 12, sin promoción de alias |
 
-Antes de entrenar, el notebook demuestra que los adaptadores iniciales no cambian la salida del control y que la cabeza descargada coincide con el hash anterior.
+Antes de entrenar, el notebook verifica commits, manifests, shards y cajas, demuestra que los adaptadores iniciales no cambian la salida del control y que la cabeza descargada coincide con el hash anterior. Drive no es la fuente de datos; se usa únicamente para respaldar una corrida reanudable.
 
 ## Entrenamiento y selección
 

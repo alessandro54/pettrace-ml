@@ -1,6 +1,6 @@
 [project]
 name = "pettrace-ml"
-version = "0.2.24"
+version = "0.2.25"
 description = "Reproducible pet re-identification: dataset audits, embeddings, metric learning and evaluation"
 readme = "docs/package.md"
 license = "MIT"

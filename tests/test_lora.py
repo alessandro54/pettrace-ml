@@ -1,4 +1,5 @@
 import hashlib
+from types import SimpleNamespace
 
 import pytest
 
@@ -86,3 +87,6 @@ def test_preprocessor_requires_matching_detector(tmp_path):
                                       "spec": {"steps": [{"op": "detect_crop", "file": "detector.onnx"}]}})()
     with pytest.raises(ValueError, match="different detector"):
         PreparedPreprocessor(pipeline, {"config": {"detector_sha256": "0" * 64}})
+
+    prepared = SimpleNamespace(detector_sha256=hashlib.sha256(b"detector").hexdigest())
+    assert PreparedPreprocessor(pipeline, prepared).boxes == {}

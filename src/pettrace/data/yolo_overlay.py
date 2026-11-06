@@ -96,7 +96,8 @@ def _extract_rows(root, evidence, destination):
             raise ValueError(f"Missing images in v1 shard: {shard_name}")
 
     rows = [{"path": str(photos[row["sha256"]]), "source": row["source"],
-             "species": row["species"], "animal": row["identity_id"], "sha256": row["sha256"]}
+             "species": row["species"], "animal": row["identity_id"], "sha256": row["sha256"],
+             "split": row["split"]}
             for row in metadata]
     return rows, {row["sha256"]: row for row in metadata}
 

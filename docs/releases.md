@@ -1,5 +1,12 @@
 # Package releases
 
+## 0.2.25 — public v2 training corpus
+
+- Adds `pettrace.data.training(version="v2")` for the verified union of the two public refined sources.
+- Pins both Hugging Face v2 commits and proves their images, labels, splits and preparation fingerprint match v4.100.
+- Makes E4 consume those public shards and YOLO boxes directly; Drive remains only a resumable run backup.
+- Preserves mandatory separate MLflow publication for the public v1 and PetTrace benchmarks.
+
 ## 0.2.24 — matching Colab CUDA plugins
 
 - Selects the official, hash-pinned ONNX Runtime CUDA 12 or CUDA 13 plugin that matches PyTorch.

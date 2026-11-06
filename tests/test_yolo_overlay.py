@@ -47,7 +47,7 @@ def test_extracts_verified_v1_and_writes_compact_overlay(tmp_path):
     root, evidence, metadata, digest = release_fixture(tmp_path)
     rows, indexed = _extract_rows(root, evidence, tmp_path / "images")
     assert rows == [{"path": str(tmp_path / "images" / f"{digest}.jpg"), "source": "lcw",
-                     "species": "cat", "animal": "lcw:cat:1", "sha256": digest}]
+                     "species": "cat", "animal": "lcw:cat:1", "sha256": digest, "split": "train"}]
     report = {
         "records": [{"image_sha256": digest, "reason": "single_expected_animal",
                      "boxes": [{"score": 0.9, "class_id": 15, "box": [1, 2, 10, 11]}]}],
