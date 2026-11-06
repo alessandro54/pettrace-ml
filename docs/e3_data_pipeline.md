@@ -17,6 +17,13 @@ flowchart LR
 
 El pipeline de preparación se presenta en [datasets/prepare_training.ipynb](../datasets/prepare_training.ipynb), separado de los notebooks experimentales. Produce `pettrace-training`, una base de entrenamiento con versiones locales verificadas. No publica ni modifica repositorios remotos. El benchmark `pettrace-reid@v4` permanece independiente. Véase [datasets/README.md](../datasets/README.md) para la organización y el consumo de versiones.
 
+Las releases públicas por fuente conservan las fotos completas. Su `v1` registra la limpieza y el
+screening de calidad; [datasets/yolo_v2.ipynb](../datasets/yolo_v2.ipynb) crea después una capa
+inmutable `v2` con las cajas del detector E2 sobre exactamente los mismos bytes. Así, el
+entrenamiento puede reproducir el recorte sin volver a inferir YOLO, mientras evaluación y servicio
+siguen verificando el pipeline de su propio artefacto. La capa no mezcla las galerías públicas con
+PetTrace ni modifica los splits.
+
 El piloto mantiene hasta 300 perros y 300 gatos, diez fotos por individuo y semilla 42; reutiliza las fuentes ya descargadas bajo `public/e3-body`. Los snapshots compartidos se guardan en `datasets/build/pettrace-training` y pueden reutilizarse en otros experimentos.
 
 ## Alternativa por comando

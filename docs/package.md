@@ -30,6 +30,21 @@ can change. The hosted frontend and authenticated Drive mount still need validat
 Model weights and datasets are separate artifacts and are not included in the package.
 Data lookup uses CPU. GPU screening uses Colab's CUDA runtime plus the `[training]` extra.
 
+Download either public refined source directly from its immutable Hugging Face release:
+
+```python
+from pettrace import data
+
+dogs = data.dogs_of_the_world(version="v1")
+cats = data.labeled_cats_in_the_wild(version="v1")
+print(dogs.commit, dogs.shards("train"))
+```
+
+The returned object exposes `root`, `commit`, `manifest`, `metadata_path`,
+`metadata()` and `shards()`. Hugging Face owns the download cache. The loader does not
+extract shards, run YOLO or create a new dataset version. Once the verified `v2` overlays
+are published, pass `version="v2"` to download v1 images plus their compact bounding boxes.
+
 ## Public methods
 
 `lookup_duplicates(..., near_cache="/content/data-lookup/signatures", drive_root=...)`
@@ -86,13 +101,14 @@ start with `_` are internal. Existing experiment imports continue to work.
 
 | Module | Methods | Purpose |
 |---|---|---|
-| `pettrace.data` | `load` | Load a verified refined version: local cache, mounted Drive backup, then its published Hub release. |
+| `pettrace.data` | `load`, `dogs_of_the_world`, `labeled_cats_in_the_wild` | Load prepared training snapshots or the two immutable public refined sources. |
 | `pettrace.data.lookup` | `lookup_duplicates`, `load_candidates`, `restore_lookup_review` | Audit duplicates, index pre-YOLO candidates and recover the raw inventory from Drive. |
 | `pettrace.data.sources` | `discover_body_ids`, `write_review` | Build a SHA-256 inventory from locally extracted source photos and publisher labels. |
 | `pettrace.data.review` | `exclusion_summary`, `quarantine_groups`, `quarantine_gallery`, `save_decisions` | Inspect filtering, review conflicting labels and record explicit decisions. |
 | `pettrace.data.workflow` | `TrainingPreparation.restore`, `.stage`, `.prepare` | Stage indexed inputs on CPU, screen on GPU, or reuse refined data. Dataset publication is separate operational tooling. |
 | `pettrace.data.checkpoints` | `DriveBackup.restore`, `stage_archive` | Verify and restore checkpoints; stage a source ZIP on local scratch storage. |
 | `pettrace.data.versions` | `load_local_training`, `load_training`, `record_version` | Load verified local or Hub snapshots and assign immutable version names. |
+| `pettrace.data.yolo_overlay` | `prepare_yolo_overlay`, `update_dataset_card` | Derive a resumable, pinned YOLO box overlay from the immutable public source releases without publishing it. |
 | `pettrace.models.pipeline` | `Pipeline.preprocess`, `.embed` | Apply the artifact-defined preprocessing and ONNX encoder. |
 | `pettrace.training.features` | `feature_cache` | Reuse frozen embeddings by image and model hashes. |
 | `pettrace.training.triplet` | `Config`, `Head`, `fit`, `export_encoder` | Train the MLP projection using validation identities and export it with the frozen encoder. |

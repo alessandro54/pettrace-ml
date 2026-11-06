@@ -1,5 +1,14 @@
 # Package releases
 
+## 0.2.21 — immutable YOLO localization overlays
+
+- Adds a Colab data-preparation notebook that derives `v2` from the two immutable public `v1` releases.
+- Reuses the full-frame images, identities and splits; only a compact, hash-verified YOLO box overlay is added.
+- Requires the pinned E2 detector and a CPU/GPU equivalence gate before bulk screening.
+- Keeps resumable inference caches on Drive while Hugging Face remains the canonical public dataset source.
+- Updates each dataset card in the same verified publication step; the package itself never mutates a repository.
+- Adds `pettrace.data.dogs_of_the_world()` and `labeled_cats_in_the_wild()` as pinned, cached Hugging Face loaders.
+
 ## 0.2.20 — visible benchmark loading
 
 - Shows the immutable benchmark load as five explicit stages with a final duration and photo counts.

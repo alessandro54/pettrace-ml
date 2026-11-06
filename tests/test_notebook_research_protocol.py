@@ -126,6 +126,18 @@ def test_current_preparation_notebook_installs_the_published_package_directly():
     assert "e3-runtime.txt" not in notebook
 
 
+def test_yolo_v2_notebook_is_colab_ui_data_preparation():
+    contents = cells(ROOT / "datasets/yolo_v2.ipynb")
+    install = next("".join(c["source"]) for c in contents if c["id"] == "yolo-v2-setup")
+    notebook = "\n".join("".join(c["source"]) for c in contents)
+    assert '"pettrace-ml[training,notebooks]==0.2.21"' in install
+    assert "prepare_yolo_overlay" in notebook
+    assert "HF_TOKEN" in notebook and "configure_access" in notebook
+    assert "MLFLOW_TRACKING_USERNAME" in notebook and "MLFLOW_TRACKING_PASSWORD" in notebook
+    assert "versions/v2" in notebook and 'tag="v2"' in notebook
+    assert notebook.index("prepare_yolo_overlay") < notebook.index("create_commit")
+
+
 @pytest.mark.parametrize("path", NOTEBOOKS, ids=lambda p: p.stem)
 def test_shared_research_structure_and_fixed_benchmark(path):
     contents = cells(path)

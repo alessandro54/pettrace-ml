@@ -7,13 +7,43 @@ Las fuentes refinadas canónicas ya están publicadas como releases inmutables:
 - [`labeled-cats-in-the-wild-refined@v1`](https://huggingface.co/datasets/alessandro54/labeled-cats-in-the-wild-refined/tree/v1), commit `089518b`.
 - [`dogs-of-the-world-refined@v1`](https://huggingface.co/datasets/alessandro54/dogs-of-the-world-refined/tree/v1), commit `26a3619`.
 
+El paquete las descarga directamente con la caché estándar de Hugging Face:
+
+```python
+from pettrace import data
+
+dogs = data.dogs_of_the_world(version="v1")
+cats = data.labeled_cats_in_the_wild(version="v1")
+```
+
+Cada resultado conserva el commit resuelto, manifiesto, metadata y shards locales. Esta API
+solo consume releases: no ejecuta limpieza, YOLO ni publicación.
+
 Los notebooks y la herramienta one-shot usados para crear esas releases se retiraron después de
 verificar sus inventarios remotos. Git conserva el procedimiento histórico.
+
+[`yolo_v2.ipynb`](yolo_v2.ipynb) deriva una capa `v2` de localización sobre ambas releases.
+`v1` ya había excluido fotos ilegibles, sin mascota, con varias mascotas o de especie inesperada;
+sin embargo, sus TAR conservan la imagen completa. `v2` vuelve a ejecutar el detector E2 fijado
+sobre esos mismos bytes y publica una caja por foto en `versions/v2/screening.csv.gz`. No cambia
+identidades, splits ni fotos, y no duplica los TAR. La caché reanudable vive en Drive; la entrada y
+la evidencia final viven en Hugging Face y quedan fijadas por commit y SHA-256.
 
 | Dataset | Función | Versiones |
 |---|---|---|
 | `pettrace-training` | Identidades públicas de perros y gatos para entrenar y validar representaciones | `v1`, `v2`, …; cada versión fija imágenes, splits y fingerprint |
 | `pettrace-reid` | Benchmark privado de mascotas de PetTrace | `v4` permanece como referencia de evaluación |
+
+### Crear las capas YOLO v2
+
+Abre `yolo_v2.ipynb` en Colab UI con una T4 y concede acceso a los Secrets `HF_TOKEN`,
+`MLFLOW_TRACKING_USERNAME` y `MLFLOW_TRACKING_PASSWORD`. Las tres fases son: verificar los `v1`
+y el detector, calcular/restaurar las cajas y publicar/documentar `v2`. La última celda es la única
+que modifica Hugging Face y solo crea el tag después de volver a verificar los artefactos remotos.
+
+Las coordenadas están expresadas sobre la imagen completa después de aplicar la orientación EXIF.
+El dataset no guarda crops: el consumidor aplica de forma determinista el margen declarado por el
+artefacto del modelo. Para conservar la auditabilidad, `v1` sigue siendo un tag inmutable separado.
 
 ## Pipeline común
 
