@@ -24,9 +24,13 @@ from pettrace.data.curation import sha256
 from pettrace.models import pipeline
 
 PLUGIN_VERSION = '0.3.0'
-PLUGIN_URL = ('https://github.com/microsoft/onnxruntime/releases/download/plugin-ep-cuda/v0.3.0/'
-              'cuda_ep_cuda12_0.3.0_linux-x64.tar.gz')
-PLUGIN_SHA256 = 'ef6864a088b8c2a74e46b18a016eac8dd47950cd3a2a224603998c4fbb09d332'
+PLUGIN_BASE = 'https://github.com/microsoft/onnxruntime/releases/download/plugin-ep-cuda/v0.3.0/'
+PLUGIN_SPECS = {
+    '12': {'minimum': (12, 8), 'file': 'cuda_ep_cuda12_0.3.0_linux-x64.tar.gz',
+           'sha256': 'ef6864a088b8c2a74e46b18a016eac8dd47950cd3a2a224603998c4fbb09d332'},
+    '13': {'minimum': (13, 0), 'file': 'cuda_ep_cuda13_0.3.0_linux-x64.tar.gz',
+           'sha256': '0818121f81fc4461f9ba2b588dbcd03d62efb039a1d87169dfe74e03c37acd44'},
+}
 OPTIONS = {'use_tf32': '0', 'cudnn_conv_algo_search': 'HEURISTIC'}
 _REGISTERED = False
 
@@ -43,21 +47,33 @@ def _key(digest, config):
     return hashlib.sha256(json.dumps({'image': digest, 'config': config}, sort_keys=True).encode()).hexdigest()
 
 
-def _plugin(cache):
+def _plugin_spec(cuda_version):
+    try:
+        version = tuple(map(int, cuda_version.split('.')[:2]))
+    except (AttributeError, ValueError):
+        version = ()
+    spec = PLUGIN_SPECS.get(str(version[0])) if version else None
+    if spec is None or version < spec['minimum']:
+        raise RuntimeError(f'Unsupported PyTorch CUDA {cuda_version!r}; requires CUDA 12.8+ or CUDA 13.x')
+    return str(version[0]), spec
+
+
+def _plugin(cache, cuda_version):
     """Download a pinned official binary; no package replacement or manual library copying."""
-    cache = Path(cache)
+    major, spec = _plugin_spec(cuda_version)
+    cache = Path(cache) / f'cuda{major}'
     library, receipt = cache / 'libonnxruntime_providers_cuda.so', cache / 'plugin.json'
     if library.is_file() and receipt.is_file():
         saved = json.loads(receipt.read_text())
-        if saved.get('archive_sha256') != PLUGIN_SHA256 or saved.get('library_sha256') != sha256(library):
+        if saved.get('archive_sha256') != spec['sha256'] or saved.get('library_sha256') != sha256(library):
             raise ValueError('CUDA plugin checksum mismatch')
         return library
     cache.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(dir=cache, prefix='.download-') as folder:
         archive_path = Path(folder) / 'plugin.tar.gz'
-        with urlopen(PLUGIN_URL, timeout=120) as incoming, archive_path.open('wb') as outgoing:
+        with urlopen(PLUGIN_BASE + spec['file'], timeout=120) as incoming, archive_path.open('wb') as outgoing:
             shutil.copyfileobj(incoming, outgoing)
-        if sha256(archive_path) != PLUGIN_SHA256:
+        if sha256(archive_path) != spec['sha256']:
             raise ValueError('CUDA plugin archive checksum mismatch')
         with tarfile.open(archive_path) as archive:
             members = [m for m in archive if Path(m.name).name == library.name]
@@ -68,7 +84,7 @@ def _plugin(cache):
                 shutil.copyfileobj(incoming, outgoing)
         digest = sha256(partial)
         partial.replace(library)
-        receipt.write_text(json.dumps({'archive_sha256': PLUGIN_SHA256, 'library_sha256': digest}))
+        receipt.write_text(json.dumps({'archive_sha256': spec['sha256'], 'library_sha256': digest}))
     return library
 
 
@@ -76,11 +92,10 @@ def check_cuda_environment():
     """Fail before source acquisition when this runtime cannot use the pinned plugin."""
     if ort.__version__ != '1.31.0' or sys.platform != 'linux' or platform.machine() != 'x86_64':
         raise RuntimeError('CUDA preparation requires Linux x86_64 and ONNX Runtime 1.31.0')
-    import torch  # Loads the profile's CUDA 12/cuDNN 9 libraries before registering the plugin.
+    import torch  # Loads the runtime's CUDA/cuDNN libraries before registering the matching plugin.
     if not torch.cuda.is_available():
         raise RuntimeError('No CUDA device. Select a GPU runtime before starting preparation.')
-    if not torch.version.cuda or not torch.version.cuda.startswith('12.'):
-        raise RuntimeError('The preparation profile requires PyTorch with CUDA 12.x')
+    _plugin_spec(torch.version.cuda)
     return torch
 
 
@@ -88,7 +103,8 @@ def cuda_detector(cpu, model_file, cache):
     """Require the pinned runtime, real CUDA devices and CUDA-assigned convolutions."""
     global _REGISTERED
     torch = check_cuda_environment()
-    library = _plugin(cache)
+    _, spec = _plugin_spec(torch.version.cuda)
+    library = _plugin(cache, torch.version.cuda)
     if not _REGISTERED:
         ort.register_execution_provider_library('CUDAExecutionProvider', str(library))
         _REGISTERED = True
@@ -106,7 +122,7 @@ def cuda_detector(cpu, model_file, cache):
     if not convolutions or any(ep != 'CUDAExecutionProvider' for ep in convolutions):
         raise RuntimeError('YOLO convolutions are not all assigned to CUDA; bulk screening was not started')
     evidence = {'provider': 'CUDAExecutionProvider', 'plugin_version': PLUGIN_VERSION,
-                'plugin_archive_sha256': PLUGIN_SHA256, 'library_sha256': sha256(library),
+                'plugin_archive_sha256': spec['sha256'], 'library_sha256': sha256(library),
                 'options': OPTIONS, 'gpu': torch.cuda.get_device_name(0), 'torch_cuda': torch.version.cuda,
                 'graph_nodes': {g.ep_name: sum(len(x.get_nodes()) for x in assignments if x.ep_name == g.ep_name)
                                 for g in assignments}}
@@ -191,7 +207,8 @@ def screen_cuda(rows, cpu, cache, model_file, *, detector_sha256, confidence=0.2
     timings = {'cache_planning': 0, 'validation': 0, 'cached_cpu': 0, 'cuda': 0, 'checkpoints': 0}
     config = cache_config(cpu, detector_sha256, confidence, iou)
     # Version this policy if CUDA computation/options change; logging changes do not invalidate results.
-    namespace = _key('validated-cuda-v1', {**config, 'plugin': PLUGIN_SHA256, 'options': OPTIONS})
+    _, plugin = _plugin_spec(check_cuda_environment().version.cuda)
+    namespace = _key('validated-cuda-v1', {**config, 'plugin': plugin['sha256'], 'options': OPTIONS})
     gpu_cache = cache / 'cuda' / namespace
     gpu_cache.mkdir(parents=True, exist_ok=True)
     entries = {p.stem for p in cache.glob('*.json')}

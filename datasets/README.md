@@ -279,21 +279,18 @@ Drive debe estar montado previamente. Antes de llamar al paquete, la celda de ac
 en el entorno. `prepare()` también funciona sin llamar antes a `restore()`. El modo CPU sigue disponible
 con `screening_provider="cpu"`; el notebook exige CUDA para nuevas detecciones y no cae silenciosamente a CPU.
 
-La GPU usa el [plugin oficial CUDA 12 v0.3.0](https://github.com/microsoft/onnxruntime/releases/tag/plugin-ep-cuda/v0.3.0),
-verificado por SHA256, sin reemplazar ONNX Runtime 1.31.0. Se comprueba la asignación de las convoluciones
+La GPU usa el [plugin oficial CUDA v0.3.0](https://github.com/microsoft/onnxruntime/releases/tag/plugin-ep-cuda/v0.3.0)
+que coincide con CUDA 12 o 13, verificado por SHA256, sin reemplazar ONNX Runtime 1.31.0. Se comprueba la asignación de las convoluciones
 a CUDA y hasta 32 imágenes (16 por especie) contra CPU antes de procesar el lote pendiente. Deben coincidir
 cantidad, clase y orden de detecciones, con tolerancias de 1e-4 en puntuación y 0,1 píxeles en cajas;
 también debe mejorar el tiempo mediano de screening. Son criterios de esta investigación, no una garantía
 de equivalencia sobre todo el dataset. Los tiempos incluyen preprocesamiento y NMS, sin lectura del disco.
 El diagnóstico queda en `animal-screening-cache/cuda/<clave>/gpu-validation.json` incluso si falla.
 Las detecciones CPU previas se reutilizan sin reescribir; CUDA tiene caché separada y el reporte distingue
-su procedencia. Se requiere Linux x86_64, Python 3.13 y el perfil E3 con Torch/CUDA 12.x.
+su procedencia. Se requiere Linux x86_64, Python 3.13 y Torch con CUDA 12.8+ o CUDA 13.x.
 
-En una sesión nueva, ejecuta el setup del notebook: instala `pettrace-ml==0.2.14`
-desde PyPI y las dependencias del perfil E3 con hashes. El perfil se descarga desde
-la etiqueta `v0.2.14` de GitHub y se verifica por SHA-256. No hace falta compilar el
-paquete ni subir archivos de instalación. Reinicia solo si el setup lo solicita
-porque reemplazó una biblioteca ya cargada.
+En una sesión nueva, ejecuta el setup del notebook: instala `pettrace-ml==0.2.24`
+desde PyPI. No hace falta compilar el paquete ni subir archivos de instalación.
 Solo una sesión puede preparar datos en la misma carpeta de Drive; no actualices
 una sesión que sigue procesando ni elimines sus archivos locales.
 La procedencia registra los cambios de implementación; las versiones refinadas existentes no se

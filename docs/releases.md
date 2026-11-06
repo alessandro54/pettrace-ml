@@ -1,5 +1,11 @@
 # Package releases
 
+## 0.2.24 — matching Colab CUDA plugins
+
+- Selects the official, hash-pinned ONNX Runtime CUDA 12 or CUDA 13 plugin that matches PyTorch.
+- Requires CUDA 12.8+ or CUDA 13.x and keeps their inference caches separate.
+- Prints the observed PyTorch and CUDA versions in the YOLO v2 notebook setup.
+
 ## 0.2.23 — Colab CUDA 12 compatibility
 
 - Accepts Colab PyTorch builds using any CUDA 12.x minor release instead of requiring CUDA 12.8.

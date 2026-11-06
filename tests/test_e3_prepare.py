@@ -241,6 +241,8 @@ def test_cuda_preparation_retains_cpu_detections_and_filter_outcomes(tmp_path, m
     original = {p.name: p.read_bytes() for p in cache.glob('*.json')}
     times = cycle((0, .02, 1, 1.005))
     monkeypatch.setattr(screening_gpu, 'perf_counter', lambda: next(times))
+    monkeypatch.setattr(screening_gpu, 'check_cuda_environment', lambda: SimpleNamespace(
+        version=SimpleNamespace(cuda='13.0')))
     monkeypatch.setattr(screening_gpu, 'cuda_detector', lambda *a: (FakeDetector('', {}), {'provider': 'CUDAExecutionProvider'}))
     accelerated = prepare(replace(config, screening_provider='cuda'))
     assert accelerated.fingerprint != baseline.fingerprint

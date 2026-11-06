@@ -31,9 +31,10 @@ class Detector:
         return [raw]
 
 
-def test_cuda_preflight_accepts_colab_cuda_12(monkeypatch):
+@pytest.mark.parametrize('version', ['12.8', '13.0', '13.1'])
+def test_cuda_preflight_accepts_supported_colab_cuda(monkeypatch, version):
     torch = SimpleNamespace(cuda=SimpleNamespace(is_available=lambda: True),
-                            version=SimpleNamespace(cuda='12.6'))
+                            version=SimpleNamespace(cuda=version))
     monkeypatch.setitem(sys.modules, 'torch', torch)
     monkeypatch.setattr(cuda.ort, '__version__', '1.31.0')
     monkeypatch.setattr(cuda.sys, 'platform', 'linux')
@@ -41,14 +42,15 @@ def test_cuda_preflight_accepts_colab_cuda_12(monkeypatch):
     assert cuda.check_cuda_environment() is torch
 
 
-def test_cuda_preflight_rejects_other_cuda_majors(monkeypatch):
+@pytest.mark.parametrize('version', ['11.8', '12.6', '14.0', None])
+def test_cuda_preflight_rejects_unsupported_cuda(monkeypatch, version):
     torch = SimpleNamespace(cuda=SimpleNamespace(is_available=lambda: True),
-                            version=SimpleNamespace(cuda='11.8'))
+                            version=SimpleNamespace(cuda=version))
     monkeypatch.setitem(sys.modules, 'torch', torch)
     monkeypatch.setattr(cuda.ort, '__version__', '1.31.0')
     monkeypatch.setattr(cuda.sys, 'platform', 'linux')
     monkeypatch.setattr(cuda.platform, 'machine', lambda: 'x86_64')
-    with pytest.raises(RuntimeError, match='CUDA 12.x'):
+    with pytest.raises(RuntimeError, match=r'CUDA 12\.8\+ or CUDA 13\.x'):
         cuda.check_cuda_environment()
 
 
@@ -70,6 +72,8 @@ def faster_gpu(monkeypatch):
     # Clock controls measured latency only; real image preprocessing/NMS/cache code still executes.
     times = cycle((0, .02, 1, 1.005))
     monkeypatch.setattr(cuda, 'perf_counter', lambda: next(times))
+    monkeypatch.setattr(cuda, 'check_cuda_environment', lambda: SimpleNamespace(
+        version=SimpleNamespace(cuda='13.0')))
     gpu = Detector()
     monkeypatch.setattr(cuda, 'cuda_detector', lambda *a: (gpu, {'provider': 'CUDAExecutionProvider'}))
     return gpu
@@ -141,7 +145,8 @@ def test_corrupt_cpu_cache_is_not_silently_recomputed(tmp_path, photos, faster_g
     assert faster_gpu.calls == 7  # Validation only.
 
 
-def test_plugin_is_hash_verified_and_cannot_extract_arbitrary_paths(tmp_path, monkeypatch):
+@pytest.mark.parametrize(('version', 'major'), [('12.8', '12'), ('13.0', '13')])
+def test_plugin_is_hash_verified_and_cannot_extract_arbitrary_paths(tmp_path, monkeypatch, version, major):
     archive = io.BytesIO()
     with tarfile.open(fileobj=archive, mode='w:gz') as tar:
         data = b'provider-binary'
@@ -149,18 +154,21 @@ def test_plugin_is_hash_verified_and_cannot_extract_arbitrary_paths(tmp_path, mo
         member.size = len(data)
         tar.addfile(member, io.BytesIO(data))
     payload = archive.getvalue()
-    monkeypatch.setattr(cuda, 'urlopen', lambda *a, **kw: io.BytesIO(payload))
+    urls = []
+    monkeypatch.setattr(cuda, 'urlopen', lambda url, **kw: urls.append(url) or io.BytesIO(payload))
     with pytest.raises(ValueError, match='archive checksum'):
-        cuda._plugin(tmp_path / 'plugin')
+        cuda._plugin(tmp_path / 'plugin', version)
     import hashlib
-    monkeypatch.setattr(cuda, 'PLUGIN_SHA256', hashlib.sha256(payload).hexdigest())
-    library = cuda._plugin(tmp_path / 'plugin')
-    assert library.parent == tmp_path / 'plugin' and library.read_bytes() == data
+    monkeypatch.setitem(cuda.PLUGIN_SPECS, major,
+                        {**cuda.PLUGIN_SPECS[major], 'sha256': hashlib.sha256(payload).hexdigest()})
+    library = cuda._plugin(tmp_path / 'plugin', version)
+    assert f'cuda{major}_' in urls[-1]
+    assert library.parent == tmp_path / 'plugin' / f'cuda{major}' and library.read_bytes() == data
     monkeypatch.setattr(cuda, 'urlopen', lambda *a, **kw: pytest.fail('Should reuse verified plugin'))
-    assert cuda._plugin(tmp_path / 'plugin') == library
+    assert cuda._plugin(tmp_path / 'plugin', version) == library
     library.write_bytes(b'corrupt')
     with pytest.raises(ValueError, match='checksum mismatch'):
-        cuda._plugin(tmp_path / 'plugin')
+        cuda._plugin(tmp_path / 'plugin', version)
 
 
 @pytest.mark.parametrize('provider', ['CPUExecutionProvider', 'CUDAExecutionProvider'])

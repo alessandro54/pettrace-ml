@@ -150,11 +150,12 @@ def stage(job, *, detector_dir=None):
     if not Path(detector).resolve().is_relative_to(job.data_root):
         raise ValueError('Stage the detector inside data_root/detector-models')
     cache_config = _cache_config(detector)
-    from pettrace.data.screening_gpu import _key, PLUGIN_SHA256, OPTIONS
-    namespace = _key('validated-cuda-v1', {**cache_config, 'plugin': PLUGIN_SHA256, 'options': OPTIONS})
+    from pettrace.data.screening_gpu import _key, PLUGIN_SPECS, OPTIONS
     keys = {_key(row['sha256'], cache_config) for row in candidates}
     cache_names = {f'data/animal-screening-cache/{key}.json' for key in keys}
-    cache_names |= {f'data/animal-screening-cache/cuda/{namespace}/{key}.json' for key in keys}
+    for plugin in PLUGIN_SPECS.values():
+        namespace = _key('validated-cuda-v1', {**cache_config, 'plugin': plugin['sha256'], 'options': OPTIONS})
+        cache_names |= {f'data/animal-screening-cache/cuda/{namespace}/{key}.json' for key in keys}
     recover(cache_names, optional=True)
     cache_names = {name for name in cache_names if job.backup._target(name).is_file()}
     paths = [job.backup._target(name) for name in photo_names | receipts | cache_names]
