@@ -9,19 +9,20 @@ from pettrace.tracking import production_context
 from pettrace.training.lora import load_frozen_e3_head
 
 CONTROL_RUNS = {
-    "public": "82f4c031abc5403ebcdcd3eea1093b36",
-    "private": "a58f3a42642648f2ab85ab0f83fa8e4b",
+    "public": "922c9e67d53b4c6f924d1339673e059f",
+    "private": "cf84059462574151835a7542223a00a4",
 }
-CONTROL_MODEL_VERSION = "12"
-CONTROL_HEAD_SHA256 = "aeccdfb0d91e404c3abe1d5f17ac1429d5a2d2497941e0d68f661c4891a1ea06"
+CONTROL_MODEL_VERSION = "18"
+CONTROL_HEAD_SHA256 = "70aa5a8423b3f6a5c36b8c68d32b2417f1e20699f31b510de8747be7509e26aa"
+CONTROL_SEED = "46"
 
 
 def _run(client, run_id):
     run = client.get_run(run_id)
     if (run.info.status != "FINISHED" or run.data.tags.get("experiment") != "E3"
-            or run.data.params.get("training.seed") != "42"
+            or run.data.params.get("training.seed") != CONTROL_SEED
             or not run.data.params.get("protocol", "").startswith("zero-shot:")):
-        raise ValueError("The fixed E3-100 seed-42 control is unavailable or changed")
+        raise ValueError("The fixed E3-100 seed-46 control is unavailable or changed")
     return run
 
 
