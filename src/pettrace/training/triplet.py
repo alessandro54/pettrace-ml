@@ -184,7 +184,8 @@ def fit(features, rows, output, config=None, device=None, callback=None):
         (output / "history.json").write_text(json.dumps(history, indent=2))
         if callback:
             callback(record)
-        print(record, flush=True)
+        else:
+            print(record, flush=True)
         if stale >= config.patience:
             break
     checkpoint = torch.load(output / "head.pt", map_location="cpu", weights_only=True)

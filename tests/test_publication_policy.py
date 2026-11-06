@@ -8,7 +8,7 @@ import pytest
 
 
 @pytest.mark.parametrize("filename", ["e1_clip_zero_shot.ipynb", "e2_yolo_crop_zero_shot.ipynb",
-                                      *[f"e3_mlp_head_triplet_{pct}.ipynb" for pct in (20, 50, 100)],
+                                      "e3_mlp_head_triplet.ipynb",
                                       "e4_clip_lora.ipynb"])
 def test_notebook_publication_is_required_before_side_effects(filename):
     notebook = json.loads((Path(__file__).parents[1] / "notebooks" / filename).read_text())

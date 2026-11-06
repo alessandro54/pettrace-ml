@@ -9,8 +9,8 @@ import pytest
 from pettrace.experiments.e3 import load_published
 
 
-def test_e3_100_published_summary_is_read_only():
-    path = Path(__file__).parents[1] / "notebooks/e3_mlp_head_triplet_100.ipynb"
+def test_e3_published_summary_is_read_only():
+    path = Path(__file__).parents[1] / "notebooks/e3_mlp_head_triplet.ipynb"
     cell = next(c for c in json.loads(path.read_text())["cells"]
                 if c.get("id") == "e3-published-seed-summary")
     source = "".join(cell["source"])
@@ -20,17 +20,12 @@ def test_e3_100_published_summary_is_read_only():
                    ("publish_results", "register_candidate", "start_run", "log_batch", "log_artifact"))
 
 
-@pytest.mark.parametrize("percent", [20, 50])
 @pytest.mark.parametrize("failure", [None, "receipt", "benchmark", "evaluation", "model", "golden", "registry", "source"])
-def test_recover_published_e3_and_reuse_local_artifacts(tmp_path, monkeypatch, percent, failure):
+def test_recover_published_e3_and_reuse_local_artifacts(tmp_path, monkeypatch, failure):
     import mlflow
     from pettrace.evaluation import core
     from pettrace.experiments import e3
 
-    path = Path(__file__).parents[1] / f"notebooks/e3_mlp_head_triplet_{percent}.ipynb"
-    cell = next(c for c in json.loads(path.read_text())["cells"] if c.get("id") == "e3-reuse-published")
-    source = "".join(cell["source"])
-    assert "load_published(" in source
     values = {d: json.dumps({"dataset": d, "test": {}}).encode() for d in ("public", "private")}
     expected = {d: {"run_id": d, "commit": d + "-commit",
                     "evaluation_sha256": hashlib.sha256(values[d]).hexdigest()} for d in values}
@@ -72,10 +67,10 @@ def test_recover_published_e3_and_reuse_local_artifacts(tmp_path, monkeypatch, p
     monkeypatch.setattr(core, "report", lambda result: result["dataset"])
     if failure:
         with pytest.raises(ValueError):
-            load_published(expected, model_hashes, "3" if percent == 20 else "5")
+            load_published(expected, model_hashes, "3")
     else:
-        model, results = load_published(expected, model_hashes, "3" if percent == 20 else "5")
-        model, results = load_published(expected, model_hashes, "3" if percent == 20 else "5")
+        model, results = load_published(expected, model_hashes, "3")
+        model, results = load_published(expected, model_hashes, "3")
         assert model.golden_ok
         assert set(results) == {"public", "private"}
         assert calls.count(("private", "report/model")) == 1

@@ -2,6 +2,7 @@
 from dataclasses import asdict
 import hashlib
 import json
+import math
 from pathlib import Path
 import shutil
 import time
@@ -14,6 +15,20 @@ FROZEN_RUNS = {
     "public": {"E1": "670af363cda5492899ce6466cc0962e9", "E2": "59011833455c4190bc4d92e156bf5b64"},
     "private": {"E1": "4e6391cc267940ba952aa75aee43dad7", "E2": "4b09272fa13e48d7af6e5b694d416cfe"},
 }
+
+
+def select_validation_candidate(candidates):
+    """Select the highest validation mAP, breaking exact ties with the lower seed."""
+    if not candidates:
+        raise ValueError("At least one trained candidate is required")
+    seeds = [int(candidate["seed"]) for candidate in candidates]
+    scores = [float(candidate["best_val_mAP"]) for candidate in candidates]
+    if len(seeds) != len(set(seeds)):
+        raise ValueError("Candidate seeds must be unique")
+    if not all(math.isfinite(score) for score in scores):
+        raise ValueError("Candidate validation scores must be finite")
+    return max(candidates, key=lambda candidate: (
+        float(candidate["best_val_mAP"]), -int(candidate["seed"])))
 
 
 def frozen_controls(evaluation, domain, output):
@@ -121,7 +136,6 @@ def load_benchmarks(manifest_rows, report, *, private_version, private_commit,
                     public_cache="/content/datasets/build/hub-training"):
     """Load the pinned public/private E3 benchmarks and reject identity or image leakage."""
     from huggingface_hub import HfApi, configure_http_backend, snapshot_download
-    from huggingface_hub.utils import enable_progress_bars
     from pettrace.data import benchmark
     from pettrace.data.curation import sha256
     from pettrace.data.versions import load_training
@@ -132,7 +146,6 @@ def load_benchmarks(manifest_rows, report, *, private_version, private_commit,
 
     started = time.monotonic()
     configure_http_backend(backend_factory=hub_session)
-    enable_progress_bars()
     print("Benchmarks [1/5] Verifying immutable versions…", flush=True)
     resolved = HfApi().dataset_info(benchmark.REPO, revision=private_version).sha
     if resolved != private_commit:

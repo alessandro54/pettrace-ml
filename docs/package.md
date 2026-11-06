@@ -17,18 +17,18 @@ The default install includes plots. Colab already supplies IPython and widgets; 
 `[notebooks]` extra adds them for standalone Jupyter environments. Use `[training]`
 to also install PyTorch, Transformers, ONNX export and pandas. For development, use `pip install -e .`.
 
-Colab is the primary notebook target. The first cell of `datasets/data_lookup.ipynb` is:
+Colab is the primary notebook target. Experiment notebooks install an exact package version directly:
 
 ```python
-%pip install -q "pettrace-ml==0.2.16"
+%pip install -q "pettrace-ml[training,notebooks]==0.2.26"
 ```
 
-Use a fresh Colab CPU runtime. CI tests this ordinary installation. The exact package version
+Use a fresh runtime appropriate for the notebook. CI tests this ordinary installation. The exact package version
 identifies the published code; every run records its resolved runtime because Colab's base image
-can change. The hosted frontend and authenticated Drive mount still need validation in Colab.
+can change. The hosted frontend and authenticated services still need validation in Colab.
 
 Model weights and datasets are separate artifacts and are not included in the package.
-Data lookup uses CPU. GPU screening uses Colab's CUDA runtime plus the `[training]` extra.
+GPU screening and training use Colab's CUDA runtime plus the `[training]` extra.
 
 Download either public refined source directly from its immutable Hugging Face release:
 
@@ -124,7 +124,7 @@ start with `_` are internal. Existing experiment imports continue to work.
 | `pettrace.evaluation.metrics` | `retrieval`, `pair_scores`, `eer`, `at_threshold` | Calculate same-species retrieval and pair-score metrics. |
 | `pettrace.tracking` | `publish_evaluation`, `source_identity`, `save_provenance` | Publish experiment evidence and record its code/runtime identity. |
 | `pettrace.experiments.e1` | `resume_publication` | Retry publication from saved evidence without repeating inference. |
-| `pettrace.experiments.e3` | `load_benchmarks`, `load_published`, `publish_results`, `register_candidate` | Load separated pinned benchmarks, verify prior E3 evidence, publish both domains and register a candidate without promoting an alias. |
+| `pettrace.experiments.e3` | `select_validation_candidate`, `load_benchmarks`, `load_published`, `publish_results`, `register_candidate` | Select an E3 candidate using validation only, load separated pinned benchmarks, publish both domains and register the winner without promoting an alias. |
 
 ## Duplicate audit without model inference
 

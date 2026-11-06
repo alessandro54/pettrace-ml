@@ -1,5 +1,13 @@
 # Package releases
 
+## 0.2.26 — canonical E3 notebook
+
+- Consolidates E3 into one thesis-facing 100% experiment notebook backed by the immutable Hugging Face v2 corpus.
+- Removes Drive and the historical 20%/50% launchers from the experiment workflow; their published MLflow runs remain unchanged.
+- Keeps Hub progress quiet and lets notebook callbacks render compact epoch updates without duplicate raw dictionaries.
+- Runs prospective seeds 45–49, selects the winner only by public validation mAP before test evaluation, and publishes both test domains for every seed.
+- Registers only the selected candidate and records an `e3-handoff.json` receipt for E4/E5 without promoting a serving alias.
+
 ## 0.2.25 — public v2 training corpus
 
 - Adds `pettrace.data.training(version="v2")` for the verified union of the two public refined sources.

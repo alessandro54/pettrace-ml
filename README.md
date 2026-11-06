@@ -7,7 +7,7 @@ This repository documents the research questions, experimental methods, reusable
 ## Python package
 
 The distribution is `pettrace-ml`, imported as `pettrace`. See the [public methods and examples](docs/package.md)
-for duplicate audits, Drive recovery, preparation, embeddings, training, evaluation and MLflow publication.
+for refined-dataset loading, preparation, embeddings, training, evaluation and MLflow publication.
 Install the published package from [PyPI](https://pypi.org/project/pettrace-ml/):
 `pip install pettrace-ml==0.2.19`.
 The [release guide](docs/releases.md) covers publication and locked environments. Frozen experiment notebooks
@@ -21,8 +21,8 @@ The experiments investigate incremental changes to a shared visual retrieval pip
 |---|---|---|---|
 | [E1 — Frozen representation](notebooks/e1_clip_zero_shot.ipynb) | How well does a pretrained visual encoder retrieve individual pets without domain adaptation? | Image without animal localization → CLIP ViT-B/32 → 512-dimensional, L2-normalized embedding. No parameter updates. | Reference evaluation published on PetTrace v4. |
 | [E2 — Animal localization](notebooks/e2_yolo_crop_zero_shot.ipynb) | How does localizing the animal affect retrieval with the same encoder? | YOLOv8n → highest-confidence cat/dog box with a 10% margin → the same frozen CLIP encoder. The image is retained when no valid box is available. | Reference evaluation published on PetTrace v4, including a recalculated E1 baseline. |
-| E3 — [20%](notebooks/e3_mlp_head_triplet_20.ipynb) / [50%](notebooks/e3_mlp_head_triplet_50.ipynb) / [100%](notebooks/e3_mlp_head_triplet_100.ipynb) | Does a projection trained on public identities transfer to private PetTrace identities? | Frozen E2 → MLP 512→256→512 → L2 normalization. Only the MLP is trained with batch-hard triplet loss. | The 100% condition is published for seeds 42–44; the common-policy 20/50/100 volume comparison remains pending. |
-| [E4 — Encoder adaptation](notebooks/e4_clip_lora.ipynb) | What additional benefit might adapting the visual encoder provide? | CLIP q/v LoRA (`r=8`, `alpha=16`) over the fixed E3-100 control. | Protocol and runnable notebook are fixed; no result is claimed before both MLflow publications. |
+| [E3 — Projection learning](notebooks/e3_mlp_head_triplet.ipynb) | Does a projection trained on public identities transfer to private PetTrace identities, and how variable is training across seeds? | Frozen E2 → MLP 512→256→512 → L2 normalization. Only the MLP is trained with batch-hard triplet loss. Seeds 45–49 are selected by public validation only. | Every seed publishes both evaluation domains; only the validation winner is registered for E4/E5. Historical seeds 42–44 and volume runs remain in MLflow. |
+| [E4 — Encoder adaptation](notebooks/e4_clip_lora.ipynb) | What additional benefit might adapting the visual encoder provide? | CLIP q/v LoRA (`r=8`, `alpha=16`) over a fixed E3 control. | The completed reference run remains historical; later E4/E5 studies consume the selected E3 handoff without using test metrics for selection. |
 | E5 — Text-assisted retrieval | Can a sighting description improve visual candidate ranking? | Proposed integration of textual information or re-ranking. | Future research; no completed experiment is claimed. |
 
 CLIP is based on [Radford et al. (2021)](https://arxiv.org/abs/2103.00020), localization uses [Ultralytics YOLOv8](https://docs.ultralytics.com/models/yolov8/), and E3's batch-hard objective follows [Hermans, Beyer, and Leibe (2017)](https://arxiv.org/abs/1703.07737). These references motivate components; their published results are not evidence of performance on PetTrace.
@@ -33,7 +33,9 @@ E4 uses low-rank updates following [Hu et al. (2022)](https://arxiv.org/abs/2106
 
 ### Phase 1 — Data preparation and preprocessing
 
-The shared [dataset preparation notebook](datasets/prepare_training.ipynb) lives under `datasets/`, independently of the experiment notebooks. It acquires a bounded public-source pilot, checks files, filters ambiguous scenes, removes duplicates, and creates versioned snapshots with identity-disjoint partitions.
+The source releases and their YOLO localization layer were prepared once, audited and published
+immutably on Hugging Face. Experiment notebooks load verified releases and never repeat raw
+acquisition, cleaning or publication.
 
 The pipeline records:
 
@@ -59,7 +61,7 @@ E1 and E2 perform inference with frozen pretrained components. E3 caches frozen 
 | Objective | Batch-hard triplet loss, margin `0.2` |
 | Sampling | 8 identities × 4 images; same-species batches alternating cats and dogs |
 | Schedule | Up to 30 epochs, 100 steps per epoch, early-stopping patience 7 |
-| Seeds | 42, 43 and 44 for the completed 100% condition |
+| Seeds | 45–49 in the prospective sweep; 42–44 remain historical evidence |
 | Checkpoint selection | Mean of the public validation mAP values for cats and dogs |
 | Private benchmark participation | No private images or identities used for fitting or checkpoint selection |
 | Execution | GPU training of the MLP; frozen ONNX inference uses CPU |
@@ -83,7 +85,7 @@ The public split is **15.2% of the prepared photographs and 14.9% of the prepare
 
 The reports contain confusion matrices, CMC curves, Rank-1/Rank-2/mAP charts, score distributions, similarity matrices, and per-identity analysis. E3 also includes training/validation curves. Long identity strings receive compact plot labels with a reversible `identity-labels.json` mapping. Figures are calculated by this project rather than copied from the literature.
 
-The completed E3 100% condition reports public v1 and PetTrace v4 separately for three seeds. Its notebook is the canonical record; historical metrics below remain labeled as a different pilot.
+The canonical E3 study reports public v1 and PetTrace v4 separately for every seed. Its winner is fixed by public validation before either test is evaluated. Historical volume conditions and seeds 42–44 remain available in MLflow but are not part of the new selection pool.
 
 ## Datasets and version identities
 
@@ -116,7 +118,9 @@ Dataset coverage measures experiment scale against a fixed source denominator, i
 dataset.train_pct = 100 × training photographs / original source image entries
 ```
 
-The new E3 20/50/100 notebooks refer to acquisition fractions of **each original source**, before cleaning. They record `dataset.sample_requested_pct` and `dataset.sampled_pct` separately from `dataset.train_pct`; actual training photo and identity counts are published in both domains. The 20% sample (138,918 photos) is not prepared yet; see [the E3 guide](docs/e3_colab.md).
+The historical E3 20/50/100 runs refer to acquisition fractions of **each original source**, before
+cleaning. Their actual training photo and identity counts remain published in MLflow. The canonical
+E3 study now uses the complete refined v2 corpus and treats those volume runs as historical evidence.
 
 For the historical E3 pilot:
 
@@ -240,11 +244,9 @@ The separate command `python tools/run_e1.py --work-dir reports/my-e1 --env-file
 retains the historical isolated Python 3.11.15 workflow with the published v0.2.2 notebook.
 Notebooks are reserved for experiments and preprocessing.
 
-For E3, use the [20/50/100 workflow](docs/e3_colab.md): one shared, incremental
-preparation pipeline, fixed v1 held-out identities, and frozen E1/E2 run artifacts as
-controls. The new v0.2.3 wheel and hashed Linux/Python 3.13 training profile are built
-locally before release publication; the setup cell explains which files to upload.
-Each volume trains a fresh MLP while reusing verified photographs, detections and embeddings.
+For E3, use the [canonical multiseed workflow](docs/e3_colab.md). It loads the refined v2 corpus
+from Hugging Face, computes frozen E2 features once, selects the winning seed only with public
+validation, and then publishes both evaluation domains for every candidate.
 
 Package tests validate implementation, not empirical E1/E2/E3 results. Preserved notebook outputs belong to their recorded runtime and code, not automatically to the new release.
 

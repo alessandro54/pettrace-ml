@@ -1,5 +1,4 @@
 """Source acquisition percentages must not be confused with effective training volume."""
-import ast
 from dataclasses import dataclass
 import json
 from pathlib import Path
@@ -8,11 +7,6 @@ from types import SimpleNamespace
 import pytest
 
 ROOT = Path(__file__).parents[1]
-
-
-def cell(cell_id, pct=20):
-    notebook = json.loads((ROOT / f"notebooks/e3_mlp_head_triplet_{pct}.ipynb").read_text())
-    return "".join(next(c for c in notebook["cells"] if c["id"] == cell_id)["source"])
 
 
 def coverage_functions():
@@ -67,26 +61,6 @@ def test_sample_rejects_pilot_unverified_receipts_and_bad_hashes():
         sample(sources, capacities, 20)
     with pytest.raises(ValueError, match="one receipt"):
         sample(sources + [sources[0]], capacities, 20)
-
-
-def test_three_variants_have_identical_science_and_distinct_report_paths():
-    for pct in (20, 50, 100):
-        config = ast.parse(cell("e3-05", pct))
-        assignment = next(n for n in config.body if isinstance(n, ast.Assign)
-                          and any(isinstance(t, ast.Name) and t.id == "SOURCE_SAMPLE_PCT" for t in n.targets))
-        assert ast.literal_eval(assignment.value) == pct
-        assert 'f"e3_{SOURCE_SAMPLE_PCT}_{DATASET}"' in cell("e3-05", pct)
-        assert 'REGISTER_E3 = True' in cell("e3-05", pct)
-    assert len(list((ROOT / "notebooks").glob("e3_mlp_head_triplet*.ipynb"))) == 3
-    # Cache restoration can differ without changing the fit or its configuration.
-    def training_calls(pct):
-        return [ast.dump(n) for n in ast.walk(ast.parse(cell("e3-17", pct)))
-                if isinstance(n, ast.Call) and isinstance(n.func, ast.Name) and n.func.id in {"Config", "fit"}]
-
-    assert training_calls(20) == training_calls(50) == training_calls(100)
-    for cell_id in ("e3-public-load", "e3-public-guards", "e3-public-data",
-                    "e3-publication-upload", "e3-28"):
-        assert cell(cell_id, 20) == cell(cell_id, 50) == cell(cell_id, 100)
 
 
 def test_expanded_training_rejects_test_leakage_and_changed_validation():

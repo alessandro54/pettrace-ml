@@ -2,9 +2,8 @@
 
 Los notebooks se reservan para experimentos y preparación/preprocesamiento de datos. Los lanzadores y herramientas de instalación se mantienen como scripts Python, sin notebooks adicionales.
 
-La auditoría raw de duplicados y conflictos, sin YOLO, está en
-[`datasets/data_lookup.ipynb`](../datasets/data_lookup.ipynb); exporta inventarios para revisión,
-sin reemplazar los snapshots de los experimentos.
+Los experimentos consumen releases refinadas e inmutables de Hugging Face. La capa v2 agrega
+localización YOLO sin cambiar fotos, identidades o splits.
 
 Los tres cuadernos documentan una secuencia de investigación de tesis sobre recuperación visual de identidades individuales de perros y gatos. Cada condición modifica un componente del pipeline y conserva el mismo benchmark privado de evaluación. La raza no es la etiqueta del problema.
 
@@ -12,14 +11,14 @@ Los tres cuadernos documentan una secuencia de investigación de tesis sobre rec
 |---|---|---|---|
 | [E1](e1_clip_zero_shot.ipynb) | CLIP ViT-B/32 sin localización previa | Ninguno | Referencia descriptiva y azar uniforme entre identidades |
 | [E2](e2_yolo_crop_zero_shot.ipynb) | Recorte YOLOv8n antes del mismo CLIP | Ninguno | E1 recalculado con las mismas consultas y galerías |
-| E3: [20%](e3_mlp_head_triplet_20.ipynb), [50%](e3_mlp_head_triplet_50.ipynb), [100%](e3_mlp_head_triplet_100.ipynb) | MLP 512→256→512 sobre E2 congelado | Solo la MLP | E1/E2 congelados, leídos de sus runs publicados |
-| [E4](e4_clip_lora.ipynb) | LoRA en `q_proj`/`v_proj` de CLIP sobre E3-100 | Solo adaptadores LoRA | E3-100 semilla 42, fijado antes de entrenar |
+| [E3](e3_mlp_head_triplet.ipynb) | MLP 512→256→512 sobre E2 congelado; barrido 45–49 | Solo la MLP | E1/E2 congelados; ganador elegido solo con validación pública |
+| [E4](e4_clip_lora.ipynb) | LoRA en `q_proj`/`v_proj` de CLIP sobre un E3 fijado | Solo adaptadores LoRA | Control E3 declarado antes de entrenar |
 
-El [protocolo prospectivo de E4](../docs/e4_protocol.md) fija el control y la intervención antes de entrenar. E4 carga las fuentes públicas refinadas v2 —equivalentes por fingerprint a v4.100— y usa Drive solo para checkpoints. El notebook está listo para ejecutar, pero no se le atribuyen resultados hasta publicar ambos dominios en MLflow. E5 aún no está implementado.
+El [protocolo de E4](../docs/e4_protocol.md) fija el control y la intervención antes de entrenar. Las siguientes iteraciones de E4/E5 deberán consumir el recibo `e3-handoff.json` del ganador prospectivo; el resultado histórico de E4 no se reinterpreta retrospectivamente. E5 aún no está implementado.
 
 ## Tres fases de la investigación
 
-1. **Preparación y preprocesamiento de datos.** `datasets/prepare_training.ipynb` realiza adquisición, filtros, deduplicación y splits mediante el paquete, reutilizando cachés entre volúmenes. Los experimentos cargan y verifican los snapshots preparados; no repiten su limpieza. PetTrace v4 procede de su flujo privado de curación/exportación.
+1. **Preparación y preprocesamiento de datos.** Las releases públicas refinadas conservan la limpieza, deduplicación, splits y localización auditados; los experimentos solo cargan y verifican snapshots. PetTrace v4 procede de su flujo privado de curación/exportación.
 2. **Representación y entrenamiento.** Se verifica el modelo y se calculan representaciones. E1/E2 mantienen todos los pesos congelados. E3 entrena la MLP y selecciona su checkpoint únicamente con validación pública; muestra curvas de pérdida y validación.
 3. **Evaluación y análisis de resultados.** Cada condición se evalúa por separado en el test público de v1 y PetTrace v4. Incluye tablas por especie, Rank-1/Rank-2/mAP, CMC, matrices de confusión, diagnósticos por identidad, discusión, referencias y publicación obligatoria en MLflow.
 
@@ -72,20 +71,15 @@ Las fotos privadas no se incorporan a la presentación de resultados; se emplean
 
 Para E1 y E2 ejecuta la instalación de su notebook en una sesión nueva y continúa desde la verificación. Usan `pettrace-ml[notebooks]==0.2.17` desde PyPI; setup no ejecuta el experimento. Python 3.11–3.13 está admitido. La evidencia histórica conserva el runtime con el que fue producida. [La guía E1](../docs/e1_colab.md) describe resultados, límites y recuperación.
 
-Los tres notebooks E3 instalan **`pettrace-ml[training,notebooks]==0.2.16` desde PyPI** con un solo comando. La versión fija el código publicado y `runtime.json` registra las dependencias que resolvió pip, la GPU, el commit y los hashes. No requieren copiar requirements, construir ni subir un wheel. Las salidas históricas conservan la versión con la que se ejecutaron. Véase [la guía E3](../docs/e3_colab.md).
+El notebook E3 instala **`pettrace-ml[training,notebooks]==0.2.26` desde PyPI** con un solo comando. Carga el corpus refinado v2 desde Hugging Face, calcula una vez las representaciones E2 congeladas y entrena las semillas 45–49. No requiere Drive, requirements copiados ni construir un wheel. Véase [la guía E3](../docs/e3_colab.md).
 
 El código está en `src/pettrace/`, organizado por datos, modelos, entrenamiento y evaluación. E1/E2 no entrenan; E3 requiere GPU y entrena su MLP en la fase 2. La migración de imports conserva las salidas históricas: no constituye otra ejecución ni publica métricas nuevas.
 
-### E3 por volumen de fuente
+### E3 multisemilla
 
-Las variantes 20/50/100 miden la muestra adquirida de Dogs of the World y LCW antes
-de limpieza, no una fracción del piloto preparado. El 20% solicita 138.918 fotos
-en total. `dataset.sampled_pct` registra adquisición y `dataset.train_pct` mantiene
-su denominador de 694.594 fotos originales, contando solo train. Fotos e identidades
-por split/especie se publican en ambos runs MLflow.
-
-La preparación v4.100 y sus tres semillas (42–44) ya terminaron y están publicadas; el
-contraste común 20/50/100 sigue pendiente. Los notebooks rechazan el piloto v1 como si
-fuese un 20%. La validación y el test públicos v1 quedan fijos. Las salidas conservadas
-en E3 20 son del piloto histórico, no resultados del nuevo volumen.
-Véanse [cuotas, requisitos y ejecución](../docs/e3_colab.md).
+Las semillas 45–49 comparten exactamente datos, features e hiperparámetros. Cada una
+selecciona su checkpoint con validación pública; después se elige la semilla ganadora
+por esa misma métrica, con desempate por la semilla menor. Recién entonces se evalúan
+los tests público v1 y PetTrace v4. Todas las semillas publican ambos dominios en MLflow,
+pero solo la ganadora se registra y produce el handoff para E4/E5. Las semillas 42–44 y
+los estudios 20/50/100 son evidencia histórica publicada, no candidatos de esta selección.

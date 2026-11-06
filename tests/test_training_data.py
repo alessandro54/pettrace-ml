@@ -83,12 +83,6 @@ def test_hub_snapshot_loads_by_commit(tmp_path, monkeypatch):
     assert load_training(cache_dir=tmp_path / "cache")[1]["commit"] == "c" * 40
 
 
-def test_preparation_notebook_has_no_publication_controls():
-    notebook = json.loads((Path(__file__).parents[1] / "datasets/prepare_training.ipynb").read_text())
-    source = "\n".join("".join(cell["source"]) for cell in notebook["cells"])
-    assert "PUBLISH_TO_HF" not in source and ".publish(" not in source
-
-
 def test_pinned_local_snapshot_needs_no_hub_queries_and_still_checks_contents(tmp_path, monkeypatch):
     from pettrace.data.versions import REPO
     from pettrace.data.verification import verification_session

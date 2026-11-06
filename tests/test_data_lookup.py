@@ -1,11 +1,8 @@
 import csv
 import json
-import re
-from pathlib import Path
 
 import pytest
 
-from pettrace.data.checkpoints import DriveBackup
 from pettrace.data.lookup import load_candidates, lookup_duplicates, restore_lookup_review
 from pettrace.data.review import quarantine_groups
 from pettrace.data.sources import REVIEW_FIELDS
@@ -86,47 +83,6 @@ def test_lookup_new_input_keeps_previous_report_and_cross_source_conflict(tmp_pa
     unique = read(second / "unique-images.csv")
     assert json.loads(unique[0]["species_labels"]) == ["cat", "dog"]
     assert unique[0]["status"] == "identity_review_pending"
-
-
-def test_data_lookup_notebook_runs_on_inventory_without_photos(tmp_path, monkeypatch):
-    import IPython.display
-    import matplotlib
-    matplotlib.use("Agg")
-    import matplotlib.pyplot as plt
-    monkeypatch.setattr(plt, "show", lambda: None)
-    monkeypatch.setattr(IPython.display, "display", lambda *args: None)
-    path, _ = inventory(tmp_path)
-    data = tmp_path / "preparation"
-    review = data / "source-100-seed42/review.csv"
-    review.parent.mkdir(parents=True)
-    review.write_bytes(path.read_bytes())
-    drive = tmp_path / "drive"
-    DriveBackup({"data": data}, drive / "checkpoints/preparation")(force=True)
-    notebook = json.loads((Path(__file__).parents[1] / "datasets/data_lookup.ipynb").read_text())
-    # The unit fixture skips pip; emulate its pinned version while exercising the current API.
-    from importlib import metadata
-    installed_version = metadata.version
-    install = next(''.join(c['source']) for c in notebook['cells'] if c['id'] == 'lookup-install')
-    pinned_version = re.search(r'pettrace-ml==([0-9.]+)', install).group(1)
-    monkeypatch.setattr(metadata, 'version', lambda name: pinned_version if name == 'pettrace-ml' else installed_version(name))
-    namespace = {}
-    for cell in notebook["cells"]:
-        # The recorded eight-group annotation belongs to the real 50% audit, not this fixture.
-        if cell["cell_type"] != "code" or cell["id"] in {"lookup-install", "lookup-identity-apply"}:
-            continue
-        if cell["id"] == "lookup-inputs":
-            namespace.update(WORK=tmp_path / "new-runtime", DRIVE_ROOT=drive,
-                             SOURCE_SAMPLE_PCT=100, OUTPUT_ROOT=drive / "data-lookup", CHECK_NEAR_COPIES=False)
-        else:
-            exec(compile("".join(cell["source"]), cell["id"], "exec"), namespace)
-    assert namespace["summary"]["duplicate_copies"] == 3
-    assert namespace["REVIEW_CSV"].read_bytes() == path.read_bytes()
-    # A different runtime recovers only the CSV and reuses the same persistent report.
-    again = restore_lookup_review(drive, tmp_path / "another-runtime", percent=100)
-    assert lookup_duplicates(again, drive / "data-lookup") == namespace["REPORT"]
-    headings = [line for cell in notebook["cells"] if cell["cell_type"] == "markdown"
-                for line in "".join(cell["source"]).splitlines() if line.startswith("## ")]
-    assert len(headings) == 3 and all(f"Fase {i}." in line for i, line in enumerate(headings, 1))
 
 
 def test_lookup_restore_requires_mount_and_matching_volume(tmp_path):

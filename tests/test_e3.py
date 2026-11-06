@@ -13,6 +13,7 @@ pytest.importorskip("onnx")
 from torch import nn
 from torch.nn import functional as F
 
+from pettrace.experiments.e3 import select_validation_candidate
 from pettrace.training.triplet import Config, Head, batch_hard_triplet, export_encoder, fast_eer, fit, pk_batch
 from pettrace.evaluation.metrics import eer
 from pettrace.data.curation import audit_and_split, discover
@@ -54,7 +55,7 @@ def fixture_features():
     return np.asarray(features, dtype=np.float32), rows
 
 
-def test_fit_checkpoints_trained_weights_and_rejects_test_and_identity_leakage(tmp_path):
+def test_fit_checkpoints_trained_weights_and_rejects_test_and_identity_leakage(tmp_path, capsys):
     features, rows = fixture_features()
     config = Config(epochs=2, steps_per_epoch=2, identities_per_batch=2, images_per_identity=2)
     trained, result = fit(features, rows, tmp_path, config, device="cpu")
@@ -73,6 +74,24 @@ def test_fit_checkpoints_trained_weights_and_rejects_test_and_identity_leakage(t
     invalid[-1]["animal"] = rows[0]["animal"]
     with pytest.raises(ValueError, match="Identity leakage"):
         fit(features, invalid, tmp_path / "leak", config)
+
+    capsys.readouterr()
+    messages = []
+    fit(features, rows, tmp_path / "callback", config, device="cpu",
+        callback=lambda record: messages.append(f"epoch {record['epoch']}"))
+    assert messages == ["epoch 1", "epoch 2"]
+    assert "train.active_triplets" not in capsys.readouterr().out
+
+
+def test_candidate_selection_uses_validation_only_and_has_a_stable_tie_break():
+    candidates = [
+        {"seed": 47, "best_val_mAP": .81, "private_test_mAP": .99},
+        {"seed": 46, "best_val_mAP": .82, "private_test_mAP": .10},
+        {"seed": 45, "best_val_mAP": .82, "private_test_mAP": .05},
+    ]
+    assert select_validation_candidate(candidates)["seed"] == 45
+    with pytest.raises(ValueError, match="unique"):
+        select_validation_candidate([candidates[0], candidates[0]])
 
 
 def test_fast_eer_matches_existing_threshold_including_ties():
