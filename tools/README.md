@@ -7,7 +7,6 @@ Interactive Colab experiments do not require running them. Install `pettrace-ml`
 |---|---|
 | `attach_notebook.py` | After saving an executed notebook: archive its outputs in MLflow. E1/E2/E3 use both run IDs (`--experiment E3` for E3); see [E1](../docs/e1_colab.md) or [E2](../docs/e2_colab.md). |
 | `build_release.py` | Before publishing a package release: build wheel, sdist and checksums. |
-| `publish_hf_dataset.py` | One-shot public source release: stage one verified `v4.100` source as an immutable public `v1`, then upload only with `--upload`. |
 | `sync_experiments.py` | After publishing experiments: refresh `experiments.yaml` with `make manifest` (read-only on MLflow). |
 | `repeat_e3.py` | Paired v2.50/v3.50 checks with seeds 42/43/44 in an already verified E3 kernel. `run(globals(), output)` reuses checksum-verified frozen embeddings, selects only on public validation, and publishes both benchmarks plus candidate models. |
 | `run_e3_volume.py` | Queue the planned v4.20/50/100 series in the existing Colab runtime. Waits for successful preparation receipts and its process to exit, then uses `repeat_e3.py` for nine fits and mandatory MLflow publication. Requires the adjacent `volume-plan.json` and existing credentials. |
@@ -29,21 +28,3 @@ The historical dataset-squashing and synthetic MLflow smoke scripts were retired
 Reusable dataset acquisition is in `pettrace.data.acquisition`; optional E3 orchestration is in
 `pettrace.experiments.legacy`. The evaluation CLI is `pettrace-evaluate` or `python -m pettrace.cli`.
 Tests live only in `tests/` and are excluded from the runtime wheel.
-
-## Public refined source releases
-
-Run this from the repository in the Colab session that already restored `v4.100`. The input must be
-the immutable `v4.100.json` reference, not an unlabelled snapshot directory:
-
-```sh
-python tools/publish_hf_dataset.py \
-  --prepared /content/datasets/build/pettrace-training/v4.100.json \
-  --staging /content/drive/MyDrive/PetTrace/releases/lcw-refined-v1 \
-  --source lcw
-```
-
-Inspect `README.md`, `versions/v1/dataset.json`, `metadata.csv`, and the shard hashes in that staging
-folder. Then publish the exact verified folder with the same command plus `--upload`. It reads
-`HF_TOKEN` from the environment, publishes to the configured source repository, verifies the remote
-inventory, and only then creates the immutable `v1` tag. Use `--source dogs-world` and a separate
-staging directory for Dogs of the World. Re-running either stage is idempotent.

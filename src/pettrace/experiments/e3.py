@@ -120,25 +120,35 @@ def _validate_benchmark_separation(manifest_rows, public_rows, private_hashes):
 def load_benchmarks(manifest_rows, report, *, private_version, private_commit,
                     public_cache="/content/datasets/build/hub-training"):
     """Load the pinned public/private E3 benchmarks and reject identity or image leakage."""
-    from huggingface_hub import HfApi, snapshot_download
+    from huggingface_hub import HfApi, configure_http_backend, snapshot_download
+    from huggingface_hub.utils import enable_progress_bars
     from pettrace.data import benchmark
     from pettrace.data.curation import sha256
     from pettrace.data.versions import load_training
     from pettrace.evaluation.research import (
         PUBLIC_COMMIT, PUBLIC_FINGERPRINT, PUBLIC_REPO, PUBLIC_VERSION, public_test_dataset,
     )
+    from pettrace.experiments.e1 import hub_session
 
+    started = time.monotonic()
+    configure_http_backend(backend_factory=hub_session)
+    enable_progress_bars()
+    print("Benchmarks [1/5] Verifying immutable versions…", flush=True)
     resolved = HfApi().dataset_info(benchmark.REPO, revision=private_version).sha
     if resolved != private_commit:
         raise ValueError("The private dataset tag changed; review the comparison protocol")
+    print("Benchmarks [2/5] Loading the private PetTrace benchmark…", flush=True)
     private_root = snapshot_download(
         benchmark.REPO, repo_type="dataset", revision=private_commit)
     private = benchmark.from_dir(
         private_root, repo=benchmark.REPO, version=private_version, commit=private_commit)
+    print(f"Benchmarks [3/5] Verifying {len(private.photos)} private photos…", flush=True)
     private_hashes = {sha256(photo.path) for photo in private.photos}
+    print("Benchmarks [4/5] Loading the public v1 test…", flush=True)
     public_prepared, public_source = load_training(
         repo_id=PUBLIC_REPO, version=PUBLIC_VERSION, revision=PUBLIC_COMMIT,
         expected_fingerprint=PUBLIC_FINGERPRINT, cache_dir=public_cache)
+    print("Benchmarks [5/5] Checking benchmark separation and leakage…", flush=True)
     public_test_rows = _validate_benchmark_separation(
         manifest_rows, public_prepared.rows, private_hashes)
     public = public_test_dataset(public_prepared, public_source)
@@ -153,6 +163,8 @@ def load_benchmarks(manifest_rows, report, *, private_version, private_commit,
                  for row in public_test_rows],
     }
     (public_report / "dataset-selection.json").write_text(json.dumps(selection, indent=2))
+    print(f"Benchmarks ready in {time.monotonic() - started:.1f}s: "
+          f"{len(public.photos)} public · {len(private.photos)} PetTrace.", flush=True)
     return SimpleNamespace(private=private, public=public, public_report=public_report)
 
 

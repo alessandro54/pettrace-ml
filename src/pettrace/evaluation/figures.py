@@ -12,7 +12,7 @@ from pathlib import Path
 import numpy as np
 
 COLORS = {"cat": "#0F766E", "dog": "#B45309"}
-SPECIES_ES = {"cat": "gatos", "dog": "perros"}
+SPECIES = {"cat": "cats", "dog": "dogs"}
 
 
 def _rows(ev) -> list[dict]:
@@ -86,14 +86,14 @@ def rank1_per_animal(ev, label: str):
     bars = ax.bar(animals, hits, color=[COLORS[species_of[a]] for a in animals])
     ax.bar_label(bars, fmt="%.0f%%", fontsize=8)
     chance = [np.mean([100 / r["gallery_animals"] for r in rows if r["animal"] == a]) for a in animals]
-    ax.plot(range(len(animals)), chance, marker="_", ls="none", color="#6B7280", label="azar por galería")
+    ax.plot(range(len(animals)), chance, marker="_", ls="none", color="#6B7280", label="gallery chance")
     for sp in sorted(set(species_of.values())):
-        ax.bar(0, 0, color=COLORS[sp], label=SPECIES_ES[sp])
+        ax.bar(0, 0, color=COLORS[sp], label=SPECIES[sp])
     ax.set_ylim(0, 115)
     ax.set_ylabel("Rank-1 (%)")
     labels = identity_labels(ev)
     ax.set_xticks(range(len(animals)), [labels[a] for a in animals], rotation=45, ha="right")
-    ax.set_title(f"Rank-1 por animal — {label}", fontsize=11)
+    ax.set_title(f"Rank-1 by animal — {label}", fontsize=11)
     ax.legend(frameon=False, fontsize=8, ncol=3, loc="upper center", bbox_to_anchor=(0.5, -0.32))
     fig.tight_layout()
     return fig
@@ -105,12 +105,12 @@ def score_distribution(ev, label: str):
     same, diff, thr = ev.same, ev.diff, ev.result["val"]["threshold"]
     fig, ax = plt.subplots(figsize=(6.5, 3.2))
     bins = np.linspace(min(same.min(), diff.min()), max(same.max(), diff.max()), 30)
-    ax.hist(diff, bins=bins, alpha=0.6, density=True, color="#E4572E", label=f"distinto animal (n={len(diff)})")
-    ax.hist(same, bins=bins, alpha=0.6, density=True, color="#0F766E", label=f"mismo animal (n={len(same)})")
-    ax.axvline(thr, color="black", ls="--", label=f"umbral EER = {thr:.3f}")
-    ax.set_xlabel("similitud coseno")
-    ax.set_ylabel("densidad")
-    ax.set_title(f"Distribución de similitudes — {label}", fontsize=11)
+    ax.hist(diff, bins=bins, alpha=0.6, density=True, color="#E4572E", label=f"different animal (n={len(diff)})")
+    ax.hist(same, bins=bins, alpha=0.6, density=True, color="#0F766E", label=f"same animal (n={len(same)})")
+    ax.axvline(thr, color="black", ls="--", label=f"EER threshold = {thr:.3f}")
+    ax.set_xlabel("cosine similarity")
+    ax.set_ylabel("density")
+    ax.set_title(f"Similarity distribution — {label}", fontsize=11)
     ax.legend(frameon=False, fontsize=9)
     fig.tight_layout()
     return fig
@@ -131,9 +131,9 @@ def cmc(ev, label: str):
         ax.annotate(f"{v:.0f}%", (k, v), textcoords="offset points", xytext=(0, 7), ha="center", fontsize=9)
     ax.set_xticks(range(1, max_rank + 1) if max_rank <= 12 else sorted({1, 2, 5, 10, max_rank} & set(range(1, max_rank + 1))))
     ax.set_ylim(0, 110)
-    ax.set_xlabel("rango k")
-    ax.set_ylabel("aciertos ≤ k (%)")
-    ax.set_title(f"Curva CMC — {label}", fontsize=11)
+    ax.set_xlabel("rank k")
+    ax.set_ylabel("hits ≤ k (%)")
+    ax.set_title(f"CMC curve — {label}", fontsize=11)
     fig.tight_layout()
     return fig
 
@@ -162,9 +162,9 @@ def similarity_matrix(ev, label: str = ""):
                     continue
                 ax.text(j, i, f"{M[i, j]:.2f}", ha="center", va="center", fontsize=7,
                         color="white" if M[i, j] < 0.8 else "black")
-        ax.set_title(SPECIES_ES[sp].capitalize(), fontsize=11)
+        ax.set_title(SPECIES[sp].capitalize(), fontsize=11)
     fig.colorbar(im, ax=axes[0].tolist(), fraction=0.025)
-    fig.suptitle(f"Similitud media entre animales (diagonal: mismo animal){' — ' + label if label else ''}", fontsize=11)
+    fig.suptitle(f"Mean similarity between animals (diagonal: same animal){' — ' + label if label else ''}", fontsize=11)
     return fig
 
 
@@ -197,12 +197,12 @@ def confusion(ev, label: str = ""):
                 if C[i, j]:
                     ax.text(j, i, str(C[i, j]), ha="center", va="center", fontsize=9,
                             color="white" if share[i, j] > 0.5 else "black", fontweight="bold" if i == j else None)
-        ax.set_xlabel("primer lugar del ranking")
+        ax.set_xlabel("top-ranked animal")
         if k == 0:
-            ax.set_ylabel("animal consultado")
-        ax.set_title(f"{SPECIES_ES[sp].capitalize()} (aciertos {np.trace(C)}/{C.sum()})", fontsize=11)
-    fig.colorbar(im, ax=axes[0].tolist(), fraction=0.025, label="proporción de la fila")
-    fig.suptitle(f"Confusión top-1 por especie{' — ' + label if label else ''}", fontsize=11)
+            ax.set_ylabel("query animal")
+        ax.set_title(f"{SPECIES[sp].capitalize()} (hits {np.trace(C)}/{C.sum()})", fontsize=11)
+    fig.colorbar(im, ax=axes[0].tolist(), fraction=0.025, label="row proportion")
+    fig.suptitle(f"Top-1 confusion by species{' — ' + label if label else ''}", fontsize=11)
     return fig
 
 
@@ -230,10 +230,10 @@ def comparison_figure(evaluations, label: str):
                            0.8/len(names), label=name, color=color)
         axes[1].bar_label(bars, fmt="%.3f", fontsize=8)
     for ax in axes:
-        ax.set_xticks(positions, ["Global" if scope == "global" else SPECIES_ES[scope] for scope in scopes])
+        ax.set_xticks(positions, ["Global" if scope == "global" else SPECIES[scope] for scope in scopes])
         ax.legend(frameon=False, fontsize=8, loc="upper center", bbox_to_anchor=(0.5, -0.13), ncol=2)
-    axes[0].set(ylabel="Consultas recuperadas (%)", ylim=(0, 115), title="Recuperación por identidad")
-    axes[1].set(ylabel="mAP", ylim=(0, 1.15), title="Ordenamiento de fotografías relevantes")
+    axes[0].set(ylabel="Retrieved queries (%)", ylim=(0, 115), title="Identity retrieval")
+    axes[1].set(ylabel="mAP", ylim=(0, 1.15), title="Relevant-photo ranking")
     fig.suptitle(label, fontsize=11)
     fig.tight_layout()
     return fig
@@ -255,9 +255,9 @@ def retrieval_examples(ev, output, dataset_commit):
         for success in (True, False):
             candidates = [row for row in ev.result["test"]["per_query"]
                           if row["species"] == species and (row["rank"] == 1) == success]
-            outcome = "acierto" if success else "error"
+            outcome = "success" if success else "error"
             if not candidates:
-                messages.append(f"{species}: sin ejemplos de {outcome} en esta corrida.")
+                messages.append(f"{species}: no {outcome} examples in this run.")
                 continue
             row = min(candidates, key=lambda item: item["query"])
             query_index = row["query"]
@@ -280,11 +280,11 @@ def retrieval_examples(ev, output, dataset_commit):
                 with Image.open(photo.path) as raw:
                     axis.imshow(ImageOps.exif_transpose(raw).convert("RGB"))
                 correct = photo.animal == query.animal
-                label = "Consulta" if position == 0 else f"#{position} · {'correcta' if correct else 'otra identidad'}"
+                label = "Query" if position == 0 else f"#{position} · {'correct' if correct else 'different identity'}"
                 score = "" if position == 0 else f"\ncos={scores[query_index, index]:.3f}"
                 axis.set_title(f"{label}\n{photo.animal}{score}", fontsize=9)
                 axis.axis("off")
-            fig.suptitle(f"Test público · {species} · {outcome} · rank correcto={row['rank']}")
+            fig.suptitle(f"Public test · {species} · {outcome} · correct rank={row['rank']}")
             fig.tight_layout()
             filename = f"retrieval-{species}-{outcome}.png"
             fig.savefig(output / filename, dpi=160, bbox_inches="tight")
@@ -342,17 +342,17 @@ def metrics_table(summaries: dict[str, dict]) -> str:
     sp = {n: summaries[n]["per_species"] for n in names}
     chance = 1 / next(iter(summaries.values()))["global"]["gallery_animals"]
     rows = [
-        ("Consultas / galería por especie", lambda s, n: f"{s['global']['queries']} / {s['global']['gallery_animals']} animales"),
-        (f"Rank-1 global (azar {_pct(chance)})", lambda s, n: f"**{_pct(s['global']['rank1'])}**"),
-        ("Rank-1 gatos / perros", lambda s, n: f"{_pct(sp[n]['cat']['rank1'])} / {_pct(sp[n]['dog']['rank1'])}"),
-        (f"Rank-5 global (azar {_pct(5 * chance)})", lambda s, n: _pct(s["global"]["rank5"])),
-        ("mAP global", lambda s, n: f"{s['global']['mAP']:.3f}"),
-        ("mAP gatos / perros", lambda s, n: f"{sp[n]['cat']['mAP']:.3f} / {sp[n]['dog']['mAP']:.3f}"),
-        ("EER / umbral", lambda s, n: f"{_pct(s['eer'])} / {s['threshold']:.3f}"),
-        ("Similitud mínima, mismo animal", lambda s, n: f"{s['same_range'][0]:.3f}"),
-        ("Similitud máxima, distinto animal", lambda s, n: f"{s['diff_range'][1]:.3f}"),
+        ("Queries / gallery per species", lambda s, n: f"{s['global']['queries']} / {s['global']['gallery_animals']} animals"),
+        (f"Global Rank-1 (chance {_pct(chance)})", lambda s, n: f"**{_pct(s['global']['rank1'])}**"),
+        ("Rank-1 cats / dogs", lambda s, n: f"{_pct(sp[n]['cat']['rank1'])} / {_pct(sp[n]['dog']['rank1'])}"),
+        (f"Global Rank-5 (chance {_pct(5 * chance)})", lambda s, n: _pct(s["global"]["rank5"])),
+        ("Global mAP", lambda s, n: f"{s['global']['mAP']:.3f}"),
+        ("mAP cats / dogs", lambda s, n: f"{sp[n]['cat']['mAP']:.3f} / {sp[n]['dog']['mAP']:.3f}"),
+        ("EER / threshold", lambda s, n: f"{_pct(s['eer'])} / {s['threshold']:.3f}"),
+        ("Minimum similarity, same animal", lambda s, n: f"{s['same_range'][0]:.3f}"),
+        ("Maximum similarity, different animal", lambda s, n: f"{s['diff_range'][1]:.3f}"),
     ]
-    out = ["| Métrica | " + " | ".join(names) + " |", "|---" * (len(names) + 1) + "|"]
+    out = ["| Metric | " + " | ".join(names) + " |", "|---" * (len(names) + 1) + "|"]
     for title, f in rows:
         out.append(f"| {title} | " + " | ".join(f(summaries[n], n) for n in names) + " |")
     return "\n".join(out)
@@ -362,7 +362,7 @@ def per_animal_table(summaries: dict[str, dict]) -> str:
     """Rank-1 hits per animal for each experiment + who the last one confuses it with."""
     names = list(summaries)
     last = summaries[names[-1]]["per_animal"]
-    out = ["| Animal | " + " | ".join(names) + f" | {names[-1]}: confundido con |", "|---" * (len(names) + 2) + "|"]
+    out = ["| Animal | " + " | ".join(names) + f" | {names[-1]}: confused with |", "|---" * (len(names) + 2) + "|"]
     for a in sorted(last):
         hits = [f"{round(summaries[n]['per_animal'][a]['rank1'] * summaries[n]['per_animal'][a]['queries'])}"
                 f"/{summaries[n]['per_animal'][a]['queries']}" for n in names]
@@ -371,10 +371,10 @@ def per_animal_table(summaries: dict[str, dict]) -> str:
     return "\n".join(out)
 
 
-# ---- Captions (Spanish, for the notebooks): how to read each figure and what this run shows
+# ---- Captions: how to read each figure and what this run shows
 
 def _list(items: list[str]) -> str:
-    return items[0] if len(items) == 1 else ", ".join(items[:-1]) + " y " + items[-1] if items else ""
+    return items[0] if len(items) == 1 else ", ".join(items[:-1]) + " and " + items[-1] if items else ""
 
 
 def explain(name: str, s: dict) -> str:
@@ -385,44 +385,44 @@ def explain(name: str, s: dict) -> str:
     if name == "confusion":
         pairs = [(c, a, b) for a in pa for b, c in pa[a]["rivals"].items() if c]
         pairs.sort(reverse=True)
-        top = _list([f"`{a}` → `{b}` ({c} de {pa[a]['queries']})" for c, a, b in pairs[:3]])
-        per = " y ".join(f"{round(sp[x]['rank1'] * sp[x]['queries'])}/{sp[x]['queries']} en "
-                         f"{SPECIES_ES[x]}" for x in sp)
-        return ("**Cómo leerlo.** Cada fila es el animal consultado y cada columna el animal que el modelo puso en "
-                "primer lugar; el número es la cantidad de consultas. La diagonal son los aciertos y todo lo que "
-                "queda fuera de ella son confusiones; solo se compara dentro de cada especie, como en la app. "
-                f"**En esta ejecución** acierta {per}. Las confusiones más frecuentes: {top}. Si se concentran "
-                "dentro de un grupo de parecido, el error es de pelaje similar y no del método.")
+        top = _list([f"`{a}` → `{b}` ({c} of {pa[a]['queries']})" for c, a, b in pairs[:3]])
+        per = " and ".join(f"{round(sp[x]['rank1'] * sp[x]['queries'])}/{sp[x]['queries']} for "
+                           f"{SPECIES[x]}" for x in sp)
+        return ("**How to read it.** Each row is the query animal and each column is the animal ranked first; "
+                "the number is the query count. The diagonal contains hits and off-diagonal cells are confusions. "
+                "Animals are compared only within species, as in the app. "
+                f"**In this run** the model gets {per} correct. Most frequent confusions: {top}. "
+                "If they cluster within a look-alike group, the error reflects similar appearance rather than species.")
     if name == "rank1_por_animal":
         best = [a for a in sorted(pa) if pa[a]["rank1"] == 1.0]
         worst = sorted(pa, key=lambda a: pa[a]["rank1"])[:3]
-        return ("**Cómo leerlo.** Cada barra es el porcentaje de consultas de ese animal en que el animal correcto "
-                f"quedó primero; la línea punteada es el azar ({chance:.1%} con {n} animales por especie). "
-                "Muestra si el promedio esconde animales mucho más difíciles que otros. "
-                f"**En esta ejecución** {_list([f'`{a}`' for a in best]) or 'ningún animal'} aciertan todas sus "
-                "consultas y los más difíciles son "
+        return ("**How to read it.** Each bar is the share of that animal's queries where the correct animal "
+                f"ranked first; the marker is chance ({chance:.1%} with {n} animals per species). "
+                "It shows whether the average hides animals that are much harder than others. "
+                f"**In this run** {_list([f'`{a}`' for a in best]) or 'no animal'} answers every query correctly, "
+                "and the hardest are "
                 + _list([f"`{a}` ({hits(a)}/{pa[a]['queries']})" for a in worst]) + ".")
     if name == "distribucion_scores":
-        return ("**Cómo leerlo.** Histogramas de la similitud coseno entre pares de fotos del mismo animal (verde) y "
-                "de animales distintos de la misma especie (rojo); la línea punteada es el umbral donde ambos "
-                "errores se igualan (EER). Cuanto menos se solapan, mejor separa el modelo identidades con un "
-                f"umbral fijo. **En esta ejecución** la EER es {s['eer']:.1%} con umbral {s['threshold']:.3f}: "
-                f"pares del mismo animal van de {s['same_range'][0]:.3f} a {s['same_range'][1]:.3f} y de animales "
-                f"distintos de {s['diff_range'][0]:.3f} a {s['diff_range'][1]:.3f}, así que un umbral fijo no "
-                "basta y el producto muestra un ranking que el dueño confirma.")
+        return ("**How to read it.** Histograms show cosine similarity for photo pairs of the same animal (green) "
+                "and different animals of the same species (red). The dashed line is the equal-error-rate threshold. "
+                "Less overlap means the model separates identities better with a fixed threshold. "
+                f"**In this run** EER is {s['eer']:.1%} at {s['threshold']:.3f}: same-animal pairs range from "
+                f"{s['same_range'][0]:.3f} to {s['same_range'][1]:.3f}, while different-animal pairs range from "
+                f"{s['diff_range'][0]:.3f} to {s['diff_range'][1]:.3f}. A fixed threshold is therefore insufficient, "
+                "so the product presents a ranking for owner confirmation.")
     if name == "cmc":
-        return ("**Cómo leerlo.** Curva CMC: para cada k, el porcentaje de consultas en que el animal correcto "
-                "aparece entre los k primeros del ranking. Es lo que ve el dueño: cuántos candidatos debe revisar. "
-                f"Con {n} animales por especie, en k = {n} siempre es 100 %. **En esta ejecución** el correcto "
-                f"está primero en {g['rank1']:.1%} de las consultas (azar {chance:.1%}) y entre los 5 primeros en "
-                f"{g['rank5']:.1%} (azar {5 * chance:.1%}).")
+        return ("**How to read it.** The CMC curve shows, for each k, the share of queries where the correct animal "
+                "appears among the top-k candidates. It represents how many candidates an owner must review. "
+                f"With {n} animals per species, k = {n} is always 100%. **In this run** the correct animal ranks "
+                f"first for {g['rank1']:.1%} of queries (chance {chance:.1%}) and in the top 5 for "
+                f"{g['rank5']:.1%} (chance {5 * chance:.1%}).")
     if name == "matriz_similitud":
         ms = s.get("mean_similarity", {})
-        detail = "; ".join(f"en {SPECIES_ES[x]} {v['same']:.3f} (mismo) frente a {v['diff']:.3f} (distinto)"
+        detail = "; ".join(f"for {SPECIES[x]} {v['same']:.3f} (same) versus {v['diff']:.3f} (different)"
                            for x, v in ms.items())
-        return ("**Cómo leerlo.** Similitud coseno media entre las fotos de cada par de animales; la diagonal es el "
-                "mismo animal. Una diagonal clara sobre un fondo oscuro indica que el embedding agrupa por "
-                "identidad; celdas claras fuera de la diagonal señalan animales que el modelo ve parecidos. "
-                f"**En esta ejecución** la similitud media es {detail}: la diferencia es pequeña, por eso el "
-                "ranking funciona pero un umbral fijo no.")
+        return ("**How to read it.** Mean cosine similarity between photos for each animal pair; the diagonal is "
+                "the same animal. A bright diagonal on a dark background indicates identity clustering, while bright "
+                "off-diagonal cells mark animals the model sees as similar. "
+                f"**In this run** mean similarity is {detail}. The small gap explains why ranking works while a "
+                "fixed threshold does not.")
     return ""

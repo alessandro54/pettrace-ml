@@ -1,5 +1,14 @@
 # Package releases
 
+## 0.2.20 — visible benchmark loading
+
+- Shows the immutable benchmark load as five explicit stages with a final duration and photo counts.
+- Restores Hugging Face's native download progress in notebooks.
+- Retries temporary Hub 429 responses using the service-provided wait instead of failing the experiment.
+- Standardizes package logs, generated reports, figures, and review controls in English; notebook prose remains Spanish.
+- Removes dataset mutation from the package and preparation notebook; a tested one-shot tool stages
+  `pettrace-training@v4.100` LCW as the public, Apache-2.0 `lcw-refined@v1` release.
+
 ## 0.2.19 — linear Colab installation
 
 - Accepts Colab's compatible preloaded Pillow instead of replacing it inside the running kernel.

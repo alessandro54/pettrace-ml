@@ -139,22 +139,23 @@ def quarantine_gallery(snapshot, output, *, start=0, count=8, representatives_on
     if (snapshot / "excluded.csv").is_file():
         with (snapshot / "excluded.csv").open(newline="") as stream:
             reasons = {row["path"]: row["reason"] for row in csv.DictReader(stream) if row["animal"] in animals}
-    content = ['<!doctype html><html lang="es"><meta charset="utf-8">',
-               '<title>PetTrace · Conflictos de identidad</title>',
+    content = ['<!doctype html><html lang="en"><meta charset="utf-8">',
+               '<title>PetTrace · Identity conflicts</title>',
                '<style>body{font:16px system-ui;max-width:1200px;margin:32px auto;padding:0 16px}'
                '.photos{display:flex;flex-wrap:wrap;gap:12px}figure{width:260px;margin:0 0 16px;overflow-wrap:anywhere}'
                'img{max-width:260px;max-height:240px}figcaption{font-size:13px}.shared{outline:4px solid #d97706}'
                'section{border-top:2px solid #aaa;margin-top:28px}code{overflow-wrap:anywhere}</style>',
-               '<h1>Revisión de conflictos de identidad</h1>',
-               f'<p>Inventario: <code>{html.escape(snapshot.name)}</code>. '
-               f'Grupos {start + 1}–{start + len(chosen)} de {len(cases)} (orden del primer SHA256 vinculado).</p>',
-               '<p>El borde naranja indica una imagen compartida o una posible copia cercana. '
-               'Cada imagen aparece una sola vez, con todas sus etiquetas. Las conexiones indirectas '
-               'no prueban que sea el mismo animal: puede haber fotos mal asignadas. '
-               'Todos los casos siguen pendientes; abrir este visor no aprueba nada.</p>']
+               '<h1>Identity conflict review</h1>',
+               f'<p>Inventory: <code>{html.escape(snapshot.name)}</code>. '
+               f'Groups {start + 1}–{start + len(chosen)} of {len(cases)} '
+               '(ordered by the first linked SHA256).</p>',
+               '<p>The orange border marks a shared image or a possible near copy. '
+               'Each image appears once with all its labels. Indirect links do not prove that '
+               'the animal is the same: some photos may be mislabeled. '
+               'All cases remain pending; opening this viewer approves nothing.</p>']
     if representatives_only:
-        content.append('<p>Se verificó un original por SHA256; las etiquetas de las otras copias '
-                       'proceden del inventario y sus archivos no se releen.</p>')
+        content.append('<p>One original per SHA256 was verified; labels for the other copies '
+                       'come from the inventory and their files are not read again.</p>')
     for number, case in enumerate(chosen, start + 1):
         photos_by_hash = defaultdict(list)
         linked_hashes = case["shared_hashes"] | case.get("near_hashes", {})
@@ -168,15 +169,15 @@ def quarantine_gallery(snapshot, output, *, start=0, count=8, representatives_on
             if not set(expected_animals) <= {row["animal"] for row in photos_by_hash.get(digest, [])}:
                 raise ValueError("Conflict does not match the recorded review")
         total = sum(map(len, photos_by_hash.values()))
-        content.append(f'<section><h2>Grupo {number} · pendiente</h2>'
-                       f'<p>{len(case["animals"])} etiquetas · {total} archivos · '
-                       f'{len(photos_by_hash)} imágenes distintas por SHA256.</p>'
-                       f'<p>Etiquetas: {html.escape(", ".join(case["animals"]))}</p>')
+        content.append(f'<section><h2>Group {number} · pending</h2>'
+                       f'<p>{len(case["animals"])} labels · {total} files · '
+                       f'{len(photos_by_hash)} distinct images by SHA256.</p>'
+                       f'<p>Labels: {html.escape(", ".join(case["animals"]))}</p>')
         if case.get("near_pairs"):
-            content.append('<p>Posibles copias redimensionadas/recomprimidas, pendientes de revisión:</p><ul>')
+            content.append('<p>Possible resized/recompressed copies pending review:</p><ul>')
             for pair in case["near_pairs"]:
                 content.append(f'<li>{html.escape(pair["left"])} ↔ {html.escape(pair["right"])}'
-                               f' · distancia dHash {int(pair["hash_distance"])} · MAE RGB {float(pair["rgb_mae"]):.3f}</li>')
+                               f' · dHash distance {int(pair["hash_distance"])} · RGB MAE {float(pair["rgb_mae"]):.3f}</li>')
             content.append('</ul>')
         content.append('<div class="photos">')
         for digest, photos in sorted(photos_by_hash.items()):
@@ -190,17 +191,17 @@ def quarantine_gallery(snapshot, output, *, start=0, count=8, representatives_on
                     thumb = ImageOps.contain(ImageOps.exif_transpose(image).convert("RGB"), (520, 480))
                     stream = io.BytesIO()
                     thumb.save(stream, format="JPEG", quality=80)
-                preview = '<img loading="lazy" alt="Foto para revisar" src="data:image/jpeg;base64,' + base64.b64encode(stream.getvalue()).decode() + '">'
+                preview = '<img loading="lazy" alt="Photo to review" src="data:image/jpeg;base64,' + base64.b64encode(stream.getvalue()).decode() + '">'
             except (OSError, ValueError, Image.DecompressionBombError):
-                preview = '<p>Imagen ilegible; requiere revisar el original.</p>'
+                preview = '<p>Unreadable image; inspect the original.</p>'
             shared = ' class="shared"' if digest in linked_hashes else ''
             content.append(f'<figure{shared}>{preview}<figcaption><ul>')
             for row in photos:
                 content.append(f'<li>{html.escape(row["animal"])} · {html.escape(Path(row["path"]).name)}'
-                               f' · {html.escape(reasons.get(row["path"], "sin exclusión registrada"))}</li>')
+                               f' · {html.escape(reasons.get(row["path"], "no recorded exclusion"))}</li>')
             content.append(f'</ul>SHA256: {html.escape(digest)}</figcaption></figure>')
         content.append('</div></section>')
-    content.append('<p>No se modificaron fotos, etiquetas ni decisiones. Las correcciones requieren una nueva versión.</p></html>')
+    content.append('<p>No photos, labels, or decisions were changed. Corrections require a new version.</p></html>')
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text('\n'.join(content))
     return output
@@ -217,9 +218,9 @@ def require_review_complete(path):
     status = review_status(path)
     if status["pending"]:
         raise ReviewPending(
-            f"Revisión pendiente: {status['pending']}/{status['total']} fotos sin keep/drop. "
-            "Usa el visor de la sección 1.1, guarda las decisiones y vuelve a ejecutar esta celda. "
-            "El entrenamiento todavía no comenzó."
+            f"Review pending: {status['pending']}/{status['total']} photos have no keep/drop decision. "
+            "Use the viewer in section 1.1, save the decisions, and run this cell again. "
+            "Training has not started."
         )
     return status
 
@@ -228,7 +229,7 @@ def save_decisions(path, updates, *, expected_sha256):
     """Save explicit choices, rejecting stale CSVs, changed bytes and label edits."""
     path = Path(path)
     if sha256(path) != expected_sha256:
-        raise ValueError("La revisión cambió en otra ventana. Vuelve a abrir el visor antes de guardar")
+        raise ValueError("The review changed in another window. Reopen the viewer before saving")
     rows = _read(path)
     by_path = {row["path"]: row for row in rows}
     if not updates.keys() <= by_path.keys():
@@ -239,11 +240,11 @@ def save_decisions(path, updates, *, expected_sha256):
         if not isinstance(update["note"], str):
             raise ValueError("Review note must be text")
         if sha256(image_path) != by_path[image_path]["sha256"]:
-            raise ValueError("La foto cambió desde la selección; requiere una revisión nueva")
+            raise ValueError("The photo changed after selection; a new review is required")
         by_path[image_path].update(update)
     # Recheck before replacement so another viewer's saved choices are not overwritten.
     if sha256(path) != expected_sha256:
-        raise ValueError("La revisión cambió mientras se guardaba. Vuelve a abrir el visor")
+        raise ValueError("The review changed while it was being saved. Reopen the viewer")
     temporary = None
     try:
         with tempfile.NamedTemporaryFile(mode="w", newline="", dir=path.parent, delete=False) as stream:
@@ -276,7 +277,8 @@ def review_with_prompts(path):
             continue
         clear_output(wait=True)
         print(f"{number}/{len(groups)} · {animal}")
-        print("Revisar identidad, objetivo inequívoco, cuerpo, calidad y variedad. Mínimo 4 fotos distintas tras curación.")
+        print("Check identity, unambiguous subject, body coverage, quality, and variety. "
+              "At least 4 distinct photos must remain after curation.")
         columns, width, height = 4, 300, 320
         sheet = Image.new("RGB", (columns * width, ((len(photos) + columns - 1) // columns) * height), "white")
         draw = ImageDraw.Draw(sheet)
@@ -288,32 +290,33 @@ def review_with_prompts(path):
                 sheet.paste(thumb, (x, y))
             except (OSError, ValueError, Image.DecompressionBombError):
                 draw.rectangle((x, y, x + 290, y + 280), fill="#ffe5e5")
-                draw.text((x + 8, y + 120), "ILEGIBLE: marcar d", fill="#8b0000")
+                draw.text((x + 8, y + 120), "UNREADABLE: mark d", fill="#8b0000")
             draw.text((x + 4, y + 282), f"{index + 1}. {Path(row['path']).name[:32]}", fill="black")
-            draw.text((x + 4, y + 299), f"Actual: {row['decision'] or 'pendiente'}", fill="black")
+            draw.text((x + 4, y + 299), f"Current: {row['decision'] or 'pending'}", fill="black")
         display(sheet)
-        print("Una decisión por foto, en orden: k=conservar, d=descartar. Ejemplo: k d k k.")
-        print("q: salir conservando lo ya guardado. s: posponer esta identidad sin modificarla.")
+        print("One decision per photo, in order: k=keep, d=drop. Example: k d k k.")
+        print("q: exit while preserving saved work. s: postpone this identity without changing it.")
         while True:
-            response = input(f"Decisiones para {len(photos)} fotos: ").strip().lower()
+            response = input(f"Decisions for {len(photos)} photos: ").strip().lower()
             if response == "q":
-                print("Revisión pausada. Las decisiones anteriores están guardadas en review.csv.")
+                print("Review paused. Previous decisions are saved in review.csv.")
                 return review_status(path)
             if response == "s":
                 break
             tokens = response.split()
             if len(tokens) != len(photos) or any(token not in choices for token in tokens):
-                print(f"Se requieren {len(photos)} decisiones k/d separadas por espacios, o q/s.")
+                print(f"Enter {len(photos)} space-separated k/d decisions, or q/s.")
                 continue
             updates = {row["path"]: {"decision": choices[token], "note": row["note"]}
                        for row, token in zip(photos, tokens)}
             digest = save_decisions(path, updates, expected_sha256=digest)
             for row in photos:
                 row.update(updates[row["path"]])
-            print("Guardado en review.csv.")
+            print("Saved to review.csv.")
             break
     status = review_status(path)
-    print(f"Revisión guardada: {status['total'] - status['pending']}/{status['total']}; pendientes: {status['pending']}.")
+    print(f"Review saved: {status['total'] - status['pending']}/{status['total']}; "
+          f"pending: {status['pending']}.")
     return status
 
 
@@ -332,16 +335,16 @@ def photo_reviewer(path):
     state = {"index": first, "digest": sha256(path)}
     heading, progress, message = widgets.HTML(), widgets.HTML(), widgets.HTML()
     cards = widgets.Box(layout=widgets.Layout(display="flex", flex_flow="row wrap"))
-    previous = widgets.Button(description="Guardar y anterior", layout=widgets.Layout(width="180px"))
-    save = widgets.Button(description="Guardar", button_style="info")
-    following = widgets.Button(description="Guardar y siguiente", layout=widgets.Layout(width="180px"))
+    previous = widgets.Button(description="Save and previous", layout=widgets.Layout(width="180px"))
+    save = widgets.Button(description="Save", button_style="info")
+    following = widgets.Button(description="Save and next", layout=widgets.Layout(width="180px"))
     controls = []
 
     def update_progress():
         pending = sum(row["decision"] not in {"keep", "drop"} for row in rows)
         keep = sum(row["decision"] == "keep" for row in groups[animals[state["index"]]])
-        progress.value = (f"<p><b>{len(rows) - pending}/{len(rows)} fotos revisadas</b> · {pending} pendientes. "
-                          f"Esta identidad: {keep} conservadas; mínimo 4 distintas tras eliminar duplicados.</p>")
+        progress.value = (f"<p><b>{len(rows) - pending}/{len(rows)} photos reviewed</b> · {pending} pending. "
+                          f"This identity: {keep} kept; at least 4 distinct photos after deduplication.</p>")
 
     def close_tree(widget):
         for child in getattr(widget, "children", ()):
@@ -365,12 +368,12 @@ def photo_reviewer(path):
                     thumb.save(output, format="JPEG", quality=90)
                 preview = widgets.Image(value=output.getvalue(), format="jpeg")
             except (OSError, ValueError, Image.DecompressionBombError):
-                preview = widgets.HTML("<p><b>Archivo ilegible.</b> Marcar como descartar (drop).</p>")
-            choice = widgets.Dropdown(options=[("Pendiente", ""), ("Conservar (keep)", "keep"),
-                                               ("Descartar (drop)", "drop")],
+                preview = widgets.HTML("<p><b>Unreadable file.</b> Mark as drop.</p>")
+            choice = widgets.Dropdown(options=[("Pending", ""), ("Keep", "keep"),
+                                               ("Drop", "drop")],
                                       value=row["decision"] if row["decision"] in {"keep", "drop"} else "",
                                       layout=widgets.Layout(width="100%"))
-            note = widgets.Text(value=row["note"], placeholder="Motivo / observación", layout=widgets.Layout(width="100%"))
+            note = widgets.Text(value=row["note"], placeholder="Reason / note", layout=widgets.Layout(width="100%"))
             controls.append((row, choice, note))
             label = widgets.HTML(f"<p>{index}. {html.escape(Path(row['path']).name)}</p>")
             tiles.append(widgets.VBox([label, preview, choice, note],
@@ -392,16 +395,16 @@ def photo_reviewer(path):
                 render()
             else:
                 update_progress()
-            message.value = "<p>Decisiones guardadas en review.csv.</p>"
+            message.value = "<p>Decisions saved to review.csv.</p>"
         except (OSError, ValueError) as exc:
-            message.value = f"<p><b>No se guardó:</b> {html.escape(str(exc))}</p>"
+            message.value = f"<p><b>Not saved:</b> {html.escape(str(exc))}</p>"
 
     previous.on_click(lambda _: persist(-1))
     save.on_click(lambda _: persist())
     following.on_click(lambda _: persist(1))
     render()
-    help_text = widgets.HTML("<p>Comprobar identidad consistente, objetivo inequívoco, cuerpo útil, calidad y variedad. "
-                             "Las fotos con varios animales requieren un objetivo verificado. "
-                             "Guardar antes de cerrar; al reabrir se retoma la primera identidad pendiente.</p>")
+    help_text = widgets.HTML("<p>Check consistent identity, an unambiguous subject, useful body coverage, "
+                             "quality, and variety. Photos with multiple animals require a verified subject. "
+                             "Save before closing; reopening resumes at the first pending identity.</p>")
     return widgets.VBox([heading, progress, help_text, cards,
                          widgets.HBox([previous, save, following]), message])

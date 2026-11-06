@@ -175,9 +175,9 @@ def acquire_detector(uri, cache, *, expected_sha256=DETECTOR_SHA256):
     except MlflowException as exc:
         if exc.get_http_status_code() == 401:
             raise DetectorAuthenticationError(
-                "MLflow rechazó las credenciales (401). Actualiza MLFLOW_TRACKING_USERNAME y "
-                "MLFLOW_TRACKING_PASSWORD en esta sesión con configure_access(force=True), "
-                "o verifica el usuario del servidor. La descarga de fotos se conserva."
+                "MLflow rejected the credentials (401). Update MLFLOW_TRACKING_USERNAME and "
+                "MLFLOW_TRACKING_PASSWORD in this session with configure_access(force=True), "
+                "or verify the server user. Downloaded photos are preserved."
             ) from None
         raise
     with tempfile.TemporaryDirectory(prefix=".detector-", dir=cache) as folder:
@@ -393,7 +393,8 @@ def prepare(config, *, checkpoint=None):
         reserved = indexed_exclusions | reserved
         reserved.update({r["path"]: "known_ambiguous_identity" for r in indexed
                          if r["animal"] in blocked})
-        print(f"Índice previo: {len(review)} fotos → {sum(r['path'] not in reserved for r in indexed)} candidatas a YOLO", flush=True)
+        print(f"Existing index: {len(review)} photos → "
+              f"{sum(r['path'] not in reserved for r in indexed)} YOLO candidates", flush=True)
     from functools import partial
     from pettrace.data.checkpoints import DriveBackup
     screening_checkpoint = (partial(checkpoint, paths=[Path(config.data_root) / "animal-screening-cache"])
@@ -505,11 +506,13 @@ def prepare(config, *, checkpoint=None):
             raise ValueError("Review changed during preparation; rerun")
         _samples(materialized, folder, per_species=config.visual_sample_per_species, seed=config.seed)
         (folder / "README.md").write_text(
-            f"# E3 · Datos preparados\n\nFingerprint: `{fingerprint}`\n\n"
-            f"{len(retained)} fotos de {summary['retained_identities']} identidades, de {len(selected)} candidatas.\n\n"
-            "`manifest.csv` referencia imágenes locales relativas. `excluded.csv` registra cada descarte. "
-            "`summary.json`, `audit.json` y `animal-screening.json` contienen conteos, decisiones y detecciones. "
-            "`samples/` contiene la muestra visual. Cargar con `load_prepared` antes de entrenar.\n\n" + summary["limitation"] + "\n")
+            f"# E3 · Prepared data\n\nFingerprint: `{fingerprint}`\n\n"
+            f"{len(retained)} photos from {summary['retained_identities']} identities, "
+            f"from {len(selected)} candidates.\n\n"
+            "`manifest.csv` references relative local images. `excluded.csv` records every exclusion. "
+            "`summary.json`, `audit.json`, and `animal-screening.json` contain counts, decisions, and detections. "
+            "`samples/` contains the visual sample. Load with `load_prepared` before training.\n\n"
+            + summary["limitation"] + "\n")
         inventory = {p.relative_to(folder).as_posix(): sha256(p) for p in sorted(folder.rglob("*")) if p.is_file()}
         (folder / "prepared.json").write_text(_json(
             {"schema": 1, "status": "complete", "fingerprint": fingerprint, "inputs": inputs, "files": inventory}))

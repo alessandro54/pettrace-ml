@@ -43,7 +43,7 @@ def test_copy_detection_precedes_minimum_and_quarantines_without_merging(tmp_pat
     assert len(groups[0]["near_hashes"]) == 3 and groups[0]["shared_hashes"] == {}
     gallery = quarantine_gallery(report, tmp_path / "gallery.html")
     assert gallery.read_text().count("data:image/jpeg;base64,") == 3
-    assert "MAE RGB" in gallery.read_text() and "pendientes" in gallery.read_text()
+    assert "RGB MAE" in gallery.read_text() and "pending" in gallery.read_text()
     # Reuse signatures in a new report without reopening source photos.
     for path in paths:
         path.unlink()
@@ -137,7 +137,7 @@ def test_gallery_can_verify_one_original_without_requiring_exact_copies(tmp_path
     with pytest.raises(FileNotFoundError):
         quarantine_gallery(report, tmp_path / "all.html")
     output = quarantine_gallery(report, tmp_path / "one.html", representatives_only=True)
-    assert "un original por SHA256" in output.read_text()
+    assert "One original per SHA256" in output.read_text()
 
 
 def test_three_bands_do_not_miss_matches_at_partition_boundaries(tmp_path, monkeypatch):

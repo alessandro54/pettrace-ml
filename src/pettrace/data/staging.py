@@ -115,7 +115,7 @@ def stage(job, *, detector_dir=None):
         catalog = compact.inventory()
         if any(catalog.get(name, {}).get('sha256') != digest for name, digest in ready['files'].items()):
             raise ValueError('Incomplete compact checkpoint inventory')
-        print(f"Entrada compacta ya preparada: {ready['photos']} candidatas. No se repite el staging.", flush=True)
+        print(f"Compact input already prepared: {ready['photos']} candidates. Staging is not repeated.", flush=True)
         return ready
     index = Path(job.candidate_index)
     candidates, _ = load_candidates(index, index / 'review.csv')
@@ -135,7 +135,7 @@ def stage(job, *, detector_dir=None):
                            candidate_index=job.candidate_index)
     indexed_inventory(config)
     photo_names = {f"data/{Path(r['path']).relative_to(job.data_root).as_posix()}" for r in candidates}
-    print(f"CPU: {len(candidates)} candidatas; recuperación selectiva de las fotos ausentes…", flush=True)
+    print(f"CPU: {len(candidates)} candidates; selectively restoring missing photos…", flush=True)
     recover(photo_names)
     for row in candidates:
         if sha256(row['path']) != row['sha256']:
@@ -186,6 +186,6 @@ def stage(job, *, detector_dir=None):
              'index': f'data/{local_index.relative_to(job.data_root).as_posix()}',
              'detector': f'data/{Path(detector).relative_to(job.data_root).as_posix()}'}
     _atomic_json(ready_path, ready)  # Completion is published only after every confirmed pack.
-    print(f"CPU: entrada lista · {ready['photos']} fotos · {ready['cache_entries']} detecciones guardadas · "
-          f"{ready['bytes'] / 2**30:.2f} GiB. Ahora puede usarse la GPU.", flush=True)
+    print(f"CPU: input ready · {ready['photos']} photos · {ready['cache_entries']} cached detections · "
+          f"{ready['bytes'] / 2**30:.2f} GiB. The GPU stage can now run.", flush=True)
     return ready

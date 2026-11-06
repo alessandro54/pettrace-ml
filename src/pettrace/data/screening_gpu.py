@@ -205,12 +205,14 @@ def screen_cuda(rows, cpu, cache, model_file, *, detector_sha256, confidence=0.2
             remaining.append(row)
             cuda_cached += key in cuda_entries
     timings['cache_planning'] = monotonic() - started
-    print(f'YOLO: {len(rows)} fotos · caché CPU {len(reused)} · caché CUDA {cuda_cached} · pendientes {len(remaining) - cuda_cached}', flush=True)
+    print(f'YOLO: {len(rows)} photos · CPU cache {len(reused)} · CUDA cache {cuda_cached} · '
+          f'pending {len(remaining) - cuda_cached}', flush=True)
     validating = monotonic()
     gpu, execution = cuda_detector(cpu, model_file, cache.parent / 'detector-models/cuda-plugin')
     validation = validate_equivalence(rows, cpu, gpu, gpu_cache / 'gpu-validation.json', confidence=confidence, iou=iou)
     timings['validation'] = monotonic() - validating
-    print(f"CPU/GPU: {len(validation['sample'])} fotos coinciden · aceleración medida {validation['screening_speedup']:.2f}×", flush=True)
+    print(f"CPU/GPU: {len(validation['sample'])} photos match · measured speedup "
+          f"{validation['screening_speedup']:.2f}×", flush=True)
     gpu.session = _CountingSession(gpu.session)
     cached_cpu = copy(cpu)
     cached_cpu.session = _CacheOnlySession()
@@ -239,7 +241,8 @@ def screen_cuda(rows, cpu, cache, model_file, *, detector_sha256, confidence=0.2
                             checkpoint()
                     timings['checkpoints'] += monotonic() - backing_up
                     if seen % 1000 == 0 or seen == len(group):
-                        print(f'YOLO: {completed + seen}/{len(rows)} revisadas · inferencias nuevas GPU {gpu.session.calls}', flush=True)
+                        print(f'YOLO: {completed + seen}/{len(rows)} checked · new GPU inferences '
+                              f'{gpu.session.calls}', flush=True)
 
             with redirect_stdout(log):
                 rejected, result = screening.screen_animals(group, detector, directory, detector_sha256=detector_sha256,
@@ -252,7 +255,8 @@ def screen_cuda(rows, cpu, cache, model_file, *, detector_sha256, confidence=0.2
     by_path = {r['path']: r for r in records}
     records = [by_path[r['path']] for r in rows]
     timings['total'] = monotonic() - started
-    print(f"YOLO terminado: caché CPU {timings['cached_cpu']:.1f}s · CUDA {timings['cuda']:.1f}s · respaldos {timings['checkpoints']:.1f}s", flush=True)
+    print(f"YOLO complete: CPU cache {timings['cached_cpu']:.1f}s · CUDA {timings['cuda']:.1f}s · "
+          f"backups {timings['checkpoints']:.1f}s", flush=True)
     return exclusions, {'config': config, 'photos': len(rows), 'records': records,
                         'counts': dict(Counter(r['reason'] for r in records)),
                         'execution': execution, 'gpu_validation': validation, 'timings_seconds': timings,

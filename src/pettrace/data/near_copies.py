@@ -171,7 +171,7 @@ def find_near_copies(by_hash, cache_dir, *, drive_root=None, source_root="/conte
                     if backup is not None:
                         backup()
                 if number % 10000 == 0 or number == len(by_hash):
-                    print(f"Copias cercanas: {number:,}/{len(by_hash):,} revisadas.", flush=True)
+                    print(f"Near copies: {number:,}/{len(by_hash):,} checked.", flush=True)
         finally:
             cache.flush()
     return pairs, corrupt

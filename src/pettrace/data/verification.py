@@ -43,8 +43,8 @@ def verification_session():
     finally:
         _ACTIVE.reset(token)
         if current.reads or current.hits:
-            print(f'SHA256: {current.reads} lecturas · {current.hits} reutilizaciones · '
-                  f'{current.bytes_read / 2**30:.2f} GiB leídos.', flush=True)
+            print(f'SHA256: {current.reads} reads · {current.hits} reused · '
+                  f'{current.bytes_read / 2**30:.2f} GiB read.', flush=True)
         current.files.clear()
 
 

@@ -2,11 +2,13 @@
 
 Esta carpeta contiene el pipeline de datos compartido. Los notebooks de `notebooks/` siguen dedicados a los experimentos.
 
-Las transiciones públicas se ejecutan una sola vez desde
-[`lcw_refined_transition.ipynb`](lcw_refined_transition.ipynb) y
-[`dogs_of_the_world_refined_transition.ipynb`](dogs_of_the_world_refined_transition.ipynb).
-Recuperan y verifican `v4.100`, permiten revisar la evidencia y publican solo en la última fase.
-La lógica de empaquetado y las defensas de publicación permanecen en `tools/publish_hf_dataset.py`.
+Las fuentes refinadas canónicas ya están publicadas como releases inmutables:
+
+- [`labeled-cats-in-the-wild-refined@v1`](https://huggingface.co/datasets/alessandro54/labeled-cats-in-the-wild-refined/tree/v1), commit `089518b`.
+- [`dogs-of-the-world-refined@v1`](https://huggingface.co/datasets/alessandro54/dogs-of-the-world-refined/tree/v1), commit `26a3619`.
+
+Los notebooks y la herramienta one-shot usados para crear esas releases se retiraron después de
+verificar sus inventarios remotos. Git conserva el procedimiento histórico.
 
 | Dataset | Función | Versiones |
 |---|---|---|
@@ -271,7 +273,9 @@ La ruta histórica `public/e3-body` se conserva para reutilizar las descargas ex
 
 ## Hugging Face y consumo
 
-El paquete y este notebook no publican ni modifican repositorios de datos. `pettrace.data` carga y verifica snapshots inmutables. Las publicaciones excepcionales se hacen fuera del paquete con herramientas operativas revisables; por ejemplo, `tools/publish_hf_dataset.py` convierte únicamente la porción LCW de `v4.100` en la release pública `lcw-refined@v1`. La etiqueta se crea después de verificar el inventario remoto y no se mueve.
+El paquete y este notebook no publican ni modifican repositorios de datos. `pettrace.data` carga y
+verifica snapshots inmutables. Las releases públicas de LCW y Dogs of the World se consideran
+entradas canónicas; crear una nueva release exige un proceso de migración revisado por separado.
 
 La publicación de datos no activa el registro de modelos ni la publicación de resultados en MLflow. El benchmark `pettrace-reid` permanece separado.
 

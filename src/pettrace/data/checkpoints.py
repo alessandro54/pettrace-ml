@@ -137,10 +137,10 @@ class DriveBackup:
                             partial.replace(target)
                         finally:
                             partial.unlink(missing_ok=True)
-                print(f'Drive: bloque restaurado ({len(names)} archivos).', flush=True)
+                print(f'Drive: restored block ({len(names)} files).', flush=True)
         for name in latest:
             self._saved[name] = self._signature(self._target(name))
-        print(f'Drive: {len(latest)} archivos verificados; respaldo listo.', flush=True)
+        print(f'Drive: verified {len(latest)} files; backup ready.', flush=True)
 
     @staticmethod
     def _signature(path):
@@ -235,7 +235,7 @@ class DriveBackup:
             temporary.replace(remote.with_suffix('.json'))
         for name, _, signature in files:
             self._saved[name] = signature
-        print(f'Drive: respaldo confirmado ({len(files)} archivos, {pack.name}).', flush=True)
+        print(f'Drive: backup confirmed ({len(files)} files, {pack.name}).', flush=True)
 
     def __enter__(self):
         return self
@@ -272,5 +272,5 @@ def stage_archive(source, destination):
         raise IOError('Source ZIP changed during transfer')
     partial.replace(destination)
     receipt.write_text(json.dumps(signature))
-    print(f'\rZIP {source.name}: copia local lista; se verificará índice y CRC al extraer.', flush=True)
+    print(f'\rZIP {source.name}: local copy ready; index and CRC will be verified during extraction.', flush=True)
     return destination

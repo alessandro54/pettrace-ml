@@ -50,10 +50,10 @@ def save_benchmark_comparison(public_ev, private_ev, output, label):
 
     output = Path(output)
     output.mkdir(parents=True, exist_ok=True)
-    table = ["| Dataset | Grupo | Consultas | Galería (identidades) | Rank-1 | Rank-2 | mAP |",
+    table = ["| Dataset | Group | Queries | Gallery (identities) | Rank-1 | Rank-2 | mAP |",
              "|---|---|---:|---:|---:|---:|---:|"]
     records = []
-    evaluations = {"Público v1 · test": public_ev, "PetTrace v4": private_ev}
+    evaluations = {"Public v1 · test": public_ev, "PetTrace v4": private_ev}
     for name, ev in evaluations.items():
         for scope in ("global", "cat", "dog"):
             values = ev.result["test"].get(scope)

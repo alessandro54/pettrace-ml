@@ -41,10 +41,10 @@ def test_review_saves_only_explicit_choices_and_rejects_stale_or_changed_inputs(
         k: before[0][k] for k in before[0] if k not in {"decision", "note"}}
     assert after[0]["decision"] == "drop" and after[1:] == before[1:]
     saved = path.read_bytes()
-    with pytest.raises(ValueError, match="otra ventana"):
+    with pytest.raises(ValueError, match="another window"):
         save_decisions(path, updates, expected_sha256=digest)
     Image.new("RGB", (20, 30), "red").save(rows[0]["path"])
-    with pytest.raises(ValueError, match="foto cambió"):
+    with pytest.raises(ValueError, match="photo changed"):
         save_decisions(path, updates, expected_sha256=sha256(path))
     assert path.read_bytes() == saved
 
@@ -56,7 +56,7 @@ def test_review_never_accepts_label_updates_and_gate_reports_remaining_count(tmp
     with pytest.raises(ReviewPending, match="4/4") as exc:
         require_review_complete(path)
     assert exc.value._render_traceback_() == [str(exc.value)]
-    assert "visor" in str(exc.value)
+    assert "viewer" in str(exc.value)
     save_decisions(path, {r["path"]: {"decision": "drop", "note": "explicit test decision"} for r in rows},
                    expected_sha256=sha256(path))
     assert require_review_complete(path) == {"total": 4, "keep": 0, "drop": 4, "pending": 0}
@@ -75,10 +75,10 @@ def test_widget_displays_bad_files_without_approval_saves_and_resumes(tmp_path):
     controls = list(descendants(viewer))
     choices = [w for w in controls if isinstance(w, widgets.Dropdown)]
     assert len(choices) == 2 and all(w.value == "" for w in choices)
-    assert any("Archivo ilegible" in w.value for w in controls if isinstance(w, widgets.HTML))
+    assert any("Unreadable file" in w.value for w in controls if isinstance(w, widgets.HTML))
     assert path.read_bytes() == initial
     choices[0].value, choices[1].value = "keep", "drop"
-    next(w for w in controls if isinstance(w, widgets.Button) and w.description == "Guardar y siguiente").click()
+    next(w for w in controls if isinstance(w, widgets.Button) and w.description == "Save and next").click()
     assert review_status(path) == {"total": 4, "keep": 1, "drop": 1, "pending": 2}
     assert "lcw:cat:2" in viewer.children[0].value
     resumed = photo_reviewer(path)
@@ -138,10 +138,10 @@ def test_quarantine_gallery_shows_conflict_context_without_changing_decisions(tm
     original = {p.name: p.read_bytes() for p in root.iterdir()}
     output = quarantine_gallery(root, tmp_path / "review.html", count=1)
     text = output.read_text()
-    assert "lcw:cat:1" in text and "lcw:cat:2" in text and "4 archivos" in text
+    assert "lcw:cat:1" in text and "lcw:cat:2" in text and "4 files" in text
     assert text.count('class="shared"') == 1 and text.count("data:image/jpeg;base64,") == 1
     assert all(row["path"].rsplit("/", 1)[-1] in text for row in rows)
-    assert "Todos los casos siguen pendientes" in text
+    assert "All cases remain pending" in text
     assert {p.name: p.read_bytes() for p in root.iterdir()} == original
     with pytest.raises(ValueError, match="immutable"):
         quarantine_gallery(root, root / "review.html")
@@ -194,10 +194,10 @@ def test_quarantine_gallery_shows_indirect_group_context_and_checks_each_link(tm
     (root / "excluded.csv").write_text("path,animal,reason\n")
     output = quarantine_gallery(root, tmp_path / "review.html", count=1)
     text = output.read_text()
-    assert "Grupos 1–1 de 1" in text and "3 etiquetas · 5 archivos · 3 imágenes" in text
+    assert "Groups 1–1 of 1" in text and "3 labels · 5 files · 3 distinct images" in text
     assert text.count("data:image/jpeg;base64,") == 3
     assert text.count('class="shared"') == 2
-    assert "c-green.jpg" in text and "conexiones indirectas" in text
+    assert "c-green.jpg" in text and "Indirect links" in text
     # C still has the blue shared hash; missing B's blue copy must also be rejected.
     recorded = read_rows(review)
     with review.open("w", newline="") as stream:

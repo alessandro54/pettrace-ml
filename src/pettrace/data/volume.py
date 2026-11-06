@@ -134,7 +134,7 @@ def acquire_volume(root, source, *, percent, seed=42, allow_download=False, work
         def progress(number):
             save_progress()
             if number % 10000 == 0 or number == len(selected):
-                print(f"{source}: {number}/{len(selected)} fotos · caché {reused} · nuevas {extracted}", flush=True)
+                print(f"{source}: {number}/{len(selected)} photos · cached {reused} · new {extracted}", flush=True)
 
         if remote is None:
             # Bounded batches keep ZIP decompression concurrent without queuing the full archive.

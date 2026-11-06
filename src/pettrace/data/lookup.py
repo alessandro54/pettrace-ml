@@ -68,7 +68,7 @@ def restore_lookup_review(drive_root, work_dir, *, percent=100):
     member = f"data/source-{percent}-seed42/review.csv"
     backup = DriveBackup({name: local / name for name in ("data", "prepared", "reference")},
                          drive_root / "checkpoints/preparation")
-    print(f"Drive: buscando inventario raw del {percent}% en los recibos del respaldo…", flush=True)
+    print(f"Drive: looking for the {percent}% raw inventory in backup receipts…", flush=True)
     backup.restore(files={member})
     return local / member
 
