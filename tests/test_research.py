@@ -4,9 +4,14 @@ from types import SimpleNamespace
 
 import numpy as np
 import pytest
+from PIL import Image
 
 from pettrace.evaluation import metrics
-from pettrace.evaluation.research import public_test_dataset, save_benchmark_comparison
+from pettrace.evaluation.research import (
+    public_test_dataset,
+    save_benchmark_comparison,
+    validation_inference_diagnostic,
+)
 
 
 def prepared(tmp_path):
@@ -69,6 +74,36 @@ def test_comparison_keeps_each_gallery_size_and_rank2(tmp_path):
         assert "Rank-2" in table and (tmp_path / "benchmark-comparison.png").is_file()
     finally:
         plt.close(figure)
+
+
+def test_inference_diagnostic_is_validation_only_and_reuses_each_crop_once():
+    class Pipeline:
+        detector = object()
+
+        def embed(self, images):
+            assert self.detector is None
+            return np.array([[np.asarray(image)[0, 0, 0], np.asarray(image)[0, -1, 0]]
+                             for image in images], dtype=float)
+
+    rows = [{"animal": animal, "species": "cat", "split": "val", "side": side}
+            for animal, side in (("a", "left"), ("a", "left"), ("b", "right"), ("b", "right"))]
+    calls = []
+
+    def crop(row):
+        calls.append(row)
+        image = np.zeros((1, 2, 3), dtype=np.uint8)
+        image[0, 0 if row["side"] == "left" else 1, 0] = 255
+        return Image.fromarray(image)
+
+    pipeline = Pipeline()
+    diagnostic = validation_inference_diagnostic(pipeline, rows, crop, batch=2)
+    assert diagnostic["scope"] == "validation_only"
+    assert len(diagnostic["records"]) == 6 and len(calls) == len(rows)
+    assert pipeline.detector is not None
+    assert {record["identity_aggregation"] for record in diagnostic["records"]} == {
+        "max", "top2_mean", "prototype"}
+    with pytest.raises(ValueError, match="validation rows only"):
+        validation_inference_diagnostic(pipeline, [{**rows[0], "split": "test"}], crop)
 
 
 def test_long_identity_plot_labels_are_unique_reversible_and_species_specific():

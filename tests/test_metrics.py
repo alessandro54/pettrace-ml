@@ -45,6 +45,23 @@ def test_singleton_animals_are_skipped():
     assert r["global"]["queries"] == 2
 
 
+def test_identity_aggregation_changes_rank_but_not_photo_map():
+    # One exceptional rival photo beats a; its second photo makes the identity-level evidence weak.
+    E = unit([[1, 0], [0.95, 0.31], [0.9, 0.44], [0.99, 0.14], [0, 1]])
+    animals = ["a", "a", "a", "b", "b"]
+    baseline = metrics.retrieval(E, animals, ["cat"] * 5)
+    top2 = metrics.retrieval(E, animals, ["cat"] * 5, identity_aggregation="top2_mean")
+    prototype = metrics.retrieval(E, animals, ["cat"] * 5, identity_aggregation="prototype")
+    assert baseline["per_query"][0]["rank"] == 2
+    assert top2["per_query"][0]["rank"] == prototype["per_query"][0]["rank"] == 1
+    assert baseline["global"]["mAP"] == top2["global"]["mAP"] == prototype["global"]["mAP"]
+
+
+def test_unknown_identity_aggregation_is_rejected():
+    with pytest.raises(ValueError, match="Unknown identity aggregation"):
+        metrics.retrieval(np.eye(2), ["a", "b"], ["cat", "cat"], identity_aggregation="median")
+
+
 def test_eer_and_threshold():
     same = np.array([0.9, 0.85, 0.8, 0.7])
     diff = np.array([0.6, 0.65, 0.75, 0.5])

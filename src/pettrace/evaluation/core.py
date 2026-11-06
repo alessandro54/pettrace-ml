@@ -14,6 +14,7 @@ Each animal scores with its best photo, as the app does. Metrics: Rank-1/2/5/10 
 photo, per species and global, always with the gallery size.
 """
 
+import copy
 import glob
 import hashlib
 import json
@@ -105,6 +106,32 @@ def embed(pipeline: Pipeline, photos: list[data.Photo], batch: int = 32) -> np.n
         images = [ImageOps.exif_transpose(Image.open(p.path)).convert("RGB") for p in photos[i : i + batch]]
         out.append(pipeline.embed(images))
     return np.concatenate(out) if out else np.zeros((0, 0))
+
+
+def horizontal_flip_tta(pipeline: Pipeline, rows: list[dict], crop, batch: int = 32) -> tuple[np.ndarray, np.ndarray]:
+    """Embed each prepared crop and its mirror, returning baseline and spherical-pooled vectors."""
+    if not rows:
+        raise ValueError("Horizontal-flip TTA requires at least one validation row")
+    inference = copy.copy(pipeline)
+    inference.detector = None  # The caller supplies the already-fixed YOLO crop.
+    original, pooled = [], []
+    for i in range(0, len(rows), batch):
+        images = [crop(row) for row in rows[i : i + batch]]
+        base = _unit_rows(inference.embed(images))
+        flipped = _unit_rows(inference.embed([ImageOps.mirror(image) for image in images]))
+        original.append(base)
+        pooled.append(_unit_rows(base + flipped))
+    return np.concatenate(original), np.concatenate(pooled)
+
+
+def _unit_rows(values: np.ndarray) -> np.ndarray:
+    values = np.asarray(values, dtype=np.float32)
+    if values.ndim != 2 or not np.isfinite(values).all():
+        raise ValueError("Embeddings must be a finite 2D array")
+    norms = np.linalg.norm(values, axis=1, keepdims=True)
+    if np.any(norms == 0):
+        raise ValueError("Cannot normalize a zero embedding")
+    return values / norms
 
 
 def evaluate(ds: data.Dataset, pipeline: Pipeline, zero_shot: bool = False) -> Evaluation:

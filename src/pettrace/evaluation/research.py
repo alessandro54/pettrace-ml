@@ -9,12 +9,49 @@ import json
 import re
 from pathlib import Path
 
+import numpy as np
+
 from pettrace.data.benchmark import Dataset, Photo
 
 PUBLIC_REPO = "alessandro54/pettrace-training"
 PUBLIC_VERSION = "v1"
 PUBLIC_COMMIT = "dd7a00cb8b3638759ffa0216251e62d334b5bf10"
 PUBLIC_FINGERPRINT = "38ef098d26afa792a1712f9e37487d143f60a9a3bc647a5fdde5505f790f8c7d"
+
+
+def validation_inference_diagnostic(pipeline, rows, crop, batch=32):
+    """Compare flip TTA and identity aggregation without permitting test data."""
+    if not rows or {row["split"] for row in rows} != {"val"}:
+        raise ValueError("Inference diagnostics accept validation rows only")
+
+    from pettrace.evaluation.core import horizontal_flip_tta
+    from pettrace.evaluation.metrics import retrieval
+
+    original, flipped = horizontal_flip_tta(pipeline, rows, crop, batch=batch)
+    animals = [row["animal"] for row in rows]
+    species = [row["species"] for row in rows]
+    records = []
+    for representation, embeddings in (("single", original), ("horizontal_flip_tta", flipped)):
+        for aggregation in ("max", "top2_mean", "prototype"):
+            result = retrieval(embeddings, animals, species, identity_aggregation=aggregation)
+            groups = [result[sp] for sp in sorted(set(species)) if result.get(sp, {}).get("queries")]
+            if not groups:
+                raise ValueError("Validation requires at least two identities with repeated photos")
+            records.append({
+                "representation": representation,
+                "identity_aggregation": aggregation,
+                "validation.macro_species_rank1": float(np.mean([group["rank1"] for group in groups])),
+                "validation.macro_species_mAP": float(np.mean([group["mAP"] for group in groups])),
+                "validation.global_rank1": result["global"]["rank1"],
+                "validation.global_mAP": result["global"]["mAP"],
+                "validation.queries": result["global"]["queries"],
+            })
+    return {
+        "scope": "validation_only",
+        "selection_metric": "validation.macro_species_rank1",
+        "mAP_note": "mAP is photo-level: aggregation changes Rank-k only; TTA may change both.",
+        "records": records,
+    }
 
 
 def public_test_dataset(prepared, receipt):
