@@ -176,8 +176,8 @@ def acquire_detector(uri, cache, *, expected_sha256=DETECTOR_SHA256):
         if exc.get_http_status_code() == 401:
             raise DetectorAuthenticationError(
                 "MLflow rejected the credentials (401). Update MLFLOW_TRACKING_USERNAME and "
-                "MLFLOW_TRACKING_PASSWORD in this session with configure_access(force=True), "
-                "or verify the server user. Downloaded photos are preserved."
+                "MLFLOW_TRACKING_PASSWORD in the runtime environment, or verify the server user. "
+                "In Colab, rerun the Secrets cell. Downloaded photos are preserved."
             ) from None
         raise
     with tempfile.TemporaryDirectory(prefix=".detector-", dir=cache) as folder:

@@ -157,7 +157,7 @@ del piloto era distinto; sus métricas no acreditan resultados con este nuevo pe
 Después de preparar una versión, configura `HF_TRAINING_DATASET_VERSION`,
 `HF_TRAINING_DATASET_REVISION` (commit) y `HF_TRAINING_DATASET_FINGERPRINT`, o usa
 `HF_TRAINING_DATASET_REPO=""` y `E3_PREPARED_DATASET` para su copia local verificada.
-Empieza por E3 20 en una GPU T4. Las credenciales van en entorno, Secrets o campos ocultos.
+Empieza por E3 20 en una GPU T4. La celda de acceso carga las credenciales desde Colab Secrets.
 
 Los tres notebooks mantienen las fases de E1/E2: datos, representación/entrenamiento
 y evaluación/análisis. Comparten semilla 42, arquitectura, P×K=8×4, AdamW, margen 0,2,
@@ -208,7 +208,7 @@ corrida a otra ni se atribuyeron resultados al 100% o a la nueva serie v4.
 
 Para recuperar los modelos y resultados existentes, cada notebook 20/50 incluye
 «Recuperar resultados y modelo publicados» en la fase 3. Con PetTrace instalado,
-ejecuta la definición de `configure_private_access` y esa celda: deja disponibles
+ejecuta la celda de Colab Secrets y esa celda: deja disponibles
 `published_model.pipeline` y `published_results` por dominio. Reutiliza la copia
 local, verifica versión, recibos, hashes y golden set, y no crea una corrida.
 Las versiones fijadas son 3 (20%) y 5 (50%, v3.50, semilla 42). Ejecutar todo el

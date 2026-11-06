@@ -275,8 +275,8 @@ prepared = job.restore()   # Solo refined; devuelve None si todavía falta.
 prepared = job.prepare()   # Reutiliza refined o amplía la caché y prepara la versión.
 ```
 
-Drive debe estar montado previamente. Las credenciales se leen del entorno, Colab Secrets o campos
-ocultos. `prepare()` también funciona sin llamar antes a `restore()`. El modo CPU sigue disponible
+Drive debe estar montado previamente. Antes de llamar al paquete, la celda de acceso carga Colab Secrets
+en el entorno. `prepare()` también funciona sin llamar antes a `restore()`. El modo CPU sigue disponible
 con `screening_provider="cpu"`; el notebook exige CUDA para nuevas detecciones y no cae silenciosamente a CPU.
 
 La GPU usa el [plugin oficial CUDA 12 v0.3.0](https://github.com/microsoft/onnxruntime/releases/tag/plugin-ep-cuda/v0.3.0),

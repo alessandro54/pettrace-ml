@@ -1,47 +1,12 @@
 """Reusable raw → refined preparation on a local disk with mounted Drive backups."""
 
 import json
-import os
 from pathlib import Path
 
 from pettrace.data.checkpoints import BackupNotFoundError, DriveBackup, stage_archive
-from pettrace.data.preparation import (
-    BASE_MODEL, DetectorAuthenticationError, PrepareConfig, acquire_detector, prepare,
-)
+from pettrace.data.preparation import BASE_MODEL, PrepareConfig, acquire_detector, prepare
 from pettrace.data.versions import REPO, _local_reference, load_local_training, load_training, record_version
 from pettrace.data.verification import verification_session
-
-
-def configure_access(names=("MLFLOW_TRACKING_URI", "MLFLOW_TRACKING_USERNAME", "MLFLOW_TRACKING_PASSWORD"), *, force=False):
-    """Read environment/Colab Secrets, then hidden prompts; never print credentials."""
-    import getpass
-    import warnings
-
-    try:
-        from google.colab import userdata
-    except ImportError:
-        userdata = None
-    values = {}
-    for name in names:
-        refresh = force and name != "MLFLOW_TRACKING_URI"
-        value = None if refresh else os.environ.get(name)
-        if not value and userdata is not None and not refresh:
-            try:
-                value = userdata.get(name)
-            except Exception:
-                pass  # VS Code may not expose Colab Secrets.
-        if not value:
-            if name == "MLFLOW_TRACKING_URI":
-                value = "https://ml.pettrace.app"
-            else:
-                with warnings.catch_warnings():
-                    warnings.simplefilter("error", getpass.GetPassWarning)
-                    value = getpass.getpass(f"{name}: ")
-        if not value.strip():
-            raise ValueError(f"Missing {name}.")
-        values[name] = value
-    os.environ.update(values)
-
 
 def _hub_session():
     from pettrace.experiments.e1 import hub_session
@@ -169,17 +134,12 @@ class TrainingPreparation:
 
         reference_path = self.reference_root / PUBLIC_REPO.replace('/', '--') / PUBLIC_COMMIT / 'versions' / PUBLIC_VERSION
         if not (reference_path / 'prepared.json').is_file():
-            configure_access(names=('HF_TOKEN',))
             configure_http_backend(backend_factory=_hub_session)
             disable_progress_bars()
         reference, _ = load_training(repo_id=PUBLIC_REPO, version=PUBLIC_VERSION, revision=PUBLIC_COMMIT,
                                      expected_fingerprint=PUBLIC_FINGERPRINT, cache_dir=self.reference_root)
         if detector_dir is None:
-            try:
-                detector_dir = acquire_detector(BASE_MODEL, self.data_root / 'detector-models')
-            except DetectorAuthenticationError:
-                configure_access(names=('MLFLOW_TRACKING_USERNAME', 'MLFLOW_TRACKING_PASSWORD'), force=True)
-                detector_dir = acquire_detector(BASE_MODEL, self.data_root / 'detector-models')
+            detector_dir = acquire_detector(BASE_MODEL, self.data_root / 'detector-models')
         return reference, Path(detector_dir)
 
     def _config(self, detector_dir, reference, **kwargs):

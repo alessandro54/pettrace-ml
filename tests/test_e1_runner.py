@@ -38,13 +38,15 @@ def test_interactive_verification_checks_the_package_and_configures_retries(expe
 
 
 @pytest.mark.parametrize("experiment", ["e1", "e2"])
-def test_interactive_credentials_use_the_shared_colab_secrets_helper(experiment):
+def test_interactive_credentials_use_colab_secrets(experiment):
     cell_id = "e2-a9678211" if experiment == "e2" else "a9678211"
     credentials = notebook_cell(cell_id)
-    assert "from pettrace.data.workflow import configure_access" in credentials
+    assert "from google.colab import userdata" in credentials
     for name in ("HF_TOKEN", "MLFLOW_TRACKING_URI", "MLFLOW_TRACKING_USERNAME", "MLFLOW_TRACKING_PASSWORD"):
         assert name in credentials
-    assert "userdata.get" not in credentials
+    assert "userdata.get(name)" in credentials
+    assert "isinstance(value, str)" in credentials
+    assert "configure_access" not in credentials
 
 
 def test_e1_science_runs_in_visible_cells_without_worker_guards():

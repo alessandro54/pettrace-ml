@@ -19,7 +19,6 @@ def test_refined_fast_path_needs_no_gpu_zip_credentials_or_network(job, monkeypa
     job.version_path.write_text('existing immutable receipt')
     prepared = SimpleNamespace(summary={'processing': {name: {'requested_pct': 50} for name in ('dogs-world', 'lcw')}})
     monkeypatch.setattr(workflow, 'load_local_training', lambda _: (prepared, {}))
-    monkeypatch.setattr(workflow, 'configure_access', lambda *a, **kw: pytest.fail('No credentials needed'))
     monkeypatch.setattr(workflow, 'stage_archive', lambda *a, **kw: pytest.fail('No ZIP needed'))
     monkeypatch.setattr('pettrace.data.screening_gpu.check_cuda_environment', lambda: pytest.fail('No GPU needed'))
     assert job.prepare() is prepared
@@ -48,7 +47,6 @@ def test_methods_backup_interruptions_and_skip_complete_acquisitions(job, monkey
     (reference / 'manifest.csv').write_text('fixture')
     (reference / 'prepared.json').write_text('fixture verified by mocked loader')
     monkeypatch.setattr('pettrace.data.screening_gpu.check_cuda_environment', lambda: None)
-    monkeypatch.setattr(workflow, 'configure_access', lambda *a, **kw: pytest.fail('Pinned cached reference needs no credentials'))
     monkeypatch.setattr(workflow, 'stage_archive', lambda *a: pytest.fail('Completed sources do not recopy ZIPs'))
     monkeypatch.setattr(workflow, 'load_training', lambda **kw: (SimpleNamespace(root=reference), {}))
     monkeypatch.setattr('huggingface_hub.configure_http_backend', lambda **kw: None)

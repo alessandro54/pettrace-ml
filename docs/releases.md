@@ -1,5 +1,11 @@
 # Package releases
 
+## 0.2.22 — explicit Colab Secrets
+
+- Experiment and preparation notebooks now load credentials directly with `google.colab.userdata`.
+- The package no longer prompts for or reads credentials; it consumes the runtime environment only.
+- YOLO v2 setup validates that every Colab secret is a non-empty text value before data access.
+
 ## 0.2.21 — immutable YOLO localization overlays
 
 - Adds a Colab data-preparation notebook that derives `v2` from the two immutable public `v1` releases.

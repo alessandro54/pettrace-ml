@@ -6,7 +6,7 @@ Abre [`e1_clip_zero_shot.ipynb`](../notebooks/e1_clip_zero_shot.ipynb) en una se
 
 1. Ejecuta setup. Instala `pettrace-ml[notebooks]==0.2.17` directamente desde PyPI.
 2. Continúa desde la verificación del wheel publicado.
-3. Crea `HF_TOKEN`, `MLFLOW_TRACKING_USERNAME` y `MLFLOW_TRACKING_PASSWORD` en Colab Secrets y habilita el acceso del notebook. La `.env` local no se transfiere a Colab; fuera de la UI se usan campos ocultos.
+3. Crea `HF_TOKEN`, `MLFLOW_TRACKING_USERNAME` y `MLFLOW_TRACKING_PASSWORD` en Colab Secrets, habilita el acceso del notebook y ejecuta su celda de credenciales. La `.env` local no se transfiere a Colab.
 4. Ejecuta las tres fases en orden. Las tablas y figuras aparecen debajo de sus celdas.
 
 La última celda también sube los recibos finales a ambos runs. Para archivar el notebook completo, **guárdalo primero con sus salidas** y ejecuta en el equipo donde está ese archivo:

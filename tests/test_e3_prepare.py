@@ -187,7 +187,7 @@ def test_detector_401_is_recoverable_but_permission_errors_are_preserved(tmp_pat
     monkeypatch.setattr(mlflow, "MlflowClient", lambda: SimpleNamespace(get_model_version=reject))
     with pytest.raises(DetectorAuthenticationError, match="401") as exc:
         acquire_detector("models:/pettrace-embedder/2", tmp_path / "models")
-    assert "force=True" in str(exc.value)
+    assert "rerun the Secrets cell" in str(exc.value)
     assert exc.value._render_traceback_() == [str(exc.value)]
 
     def forbidden(*args, **kwargs):
@@ -197,33 +197,6 @@ def test_detector_401_is_recoverable_but_permission_errors_are_preserved(tmp_pat
     with pytest.raises(MlflowException) as permission:
         acquire_detector("models:/pettrace-embedder/2", tmp_path / "models")
     assert permission.value.get_http_status_code() == 403
-
-
-def test_preparation_force_refresh_ignores_stale_environment_and_colab_secrets(monkeypatch):
-    import getpass
-    import sys
-
-    from pettrace.data.workflow import configure_access
-    requests = []
-    answers = iter(["new-fixture-user", "new-fixture-password"])
-    monkeypatch.setenv("MLFLOW_TRACKING_USERNAME", "old-fixture-user")
-    monkeypatch.setenv("MLFLOW_TRACKING_PASSWORD", "old-fixture-password")
-    monkeypatch.setenv("HF_TOKEN", "unrelated-fixture-token")
-    monkeypatch.setitem(sys.modules, "google.colab", SimpleNamespace(userdata=SimpleNamespace(
-        get=lambda name: pytest.fail("Forced refresh must bypass stored Colab Secrets"))))
-
-    def prompt(label):
-        requests.append(label)
-        return next(answers)
-
-    monkeypatch.setattr(getpass, "getpass", prompt)
-    configure_access(names=("MLFLOW_TRACKING_USERNAME", "MLFLOW_TRACKING_PASSWORD"), force=True)
-    import os
-    assert os.environ["MLFLOW_TRACKING_USERNAME"] == "new-fixture-user"
-    assert os.environ["MLFLOW_TRACKING_PASSWORD"] == "new-fixture-password"
-    assert os.environ["HF_TOKEN"] == "unrelated-fixture-token"
-    assert requests == ["MLFLOW_TRACKING_USERNAME: ", "MLFLOW_TRACKING_PASSWORD: "]
-
 
 @pytest.mark.parametrize('indexed', [False, True])
 def test_volume_reuses_cleaning_and_preserves_fixed_v1_splits(tmp_path, monkeypatch, indexed):

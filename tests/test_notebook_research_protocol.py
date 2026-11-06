@@ -31,7 +31,6 @@ def test_preparation_download_is_quiet_and_waits_out_hub_quota(tmp_path, monkeyp
     job = workflow.TrainingPreparation(drive_root=tmp_path, work_dir=tmp_path / "work")
     monkeypatch.setattr("pettrace.data.screening_gpu.check_cuda_environment", lambda: None)
     monkeypatch.setattr(workflow, "stage_archive", lambda source, target: target)
-    monkeypatch.setattr(workflow, "configure_access", lambda **kw: None)
     factories = []
     monkeypatch.setattr(huggingface_hub, "configure_http_backend",
                         lambda *, backend_factory: factories.append(backend_factory))
@@ -114,8 +113,10 @@ def test_e4_loads_colab_secrets_before_dataset_access():
     load_index = next(i for i, c in enumerate(contents) if c["id"] == "e4-load-data")
     config_index = next(i for i, c in enumerate(contents) if c["id"] == "e4-config")
     assert config_index < load_index
-    assert "configure_access" in config
-    assert "HF_TOKEN" in config
+    assert "from google.colab import userdata" in config
+    assert 'userdata.get(name)' in config
+    assert "isinstance(value, str)" in config
+    assert "configure_access" not in config
 
 
 def test_current_preparation_notebook_installs_the_published_package_directly():
@@ -130,9 +131,11 @@ def test_yolo_v2_notebook_is_colab_ui_data_preparation():
     contents = cells(ROOT / "datasets/yolo_v2.ipynb")
     install = next("".join(c["source"]) for c in contents if c["id"] == "yolo-v2-setup")
     notebook = "\n".join("".join(c["source"]) for c in contents)
-    assert '"pettrace-ml[training,notebooks]==0.2.21"' in install
+    assert '"pettrace-ml[training,notebooks]==0.2.22"' in install
     assert "prepare_yolo_overlay" in notebook
-    assert "HF_TOKEN" in notebook and "configure_access" in notebook
+    assert "HF_TOKEN" in notebook and "userdata.get(name)" in notebook
+    assert "isinstance(value, str)" in notebook
+    assert "configure_access" not in notebook
     assert "MLFLOW_TRACKING_USERNAME" in notebook and "MLFLOW_TRACKING_PASSWORD" in notebook
     assert "versions/v2" in notebook and 'tag="v2"' in notebook
     assert notebook.index("prepare_yolo_overlay") < notebook.index("create_commit")
