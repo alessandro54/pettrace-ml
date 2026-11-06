@@ -18,6 +18,30 @@ publish_hf_dataset = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(publish_hf_dataset)
 
 
+def test_license_download_identifies_client_and_checks_hash(monkeypatch):
+    content = b"license fixture"
+    spec = {"license_url": "https://example.test/license",
+            "license_sha256": publish_hf_dataset.hashlib.sha256(content).hexdigest()}
+
+    class Response:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            pass
+
+        def read(self):
+            return content
+
+    def open_request(request, timeout):
+        assert request.get_header("User-agent") == "pettrace-ml dataset publisher"
+        assert timeout == 60
+        return Response()
+
+    monkeypatch.setattr(publish_hf_dataset, "urlopen", open_request)
+    assert publish_hf_dataset._license_text(spec) == content
+
+
 def test_lcw_v4_100_builds_public_v1_shards_without_dogs(tmp_path, monkeypatch):
     dataset = prepare(setup_pipeline(tmp_path, monkeypatch))
     reference = record_version(dataset.root, dataset.root.parent, version="v4.100")

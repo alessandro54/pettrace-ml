@@ -15,7 +15,7 @@ import tarfile
 import tempfile
 from collections import Counter
 from pathlib import Path
-from urllib.request import urlopen
+from urllib.request import Request, urlopen
 
 from huggingface_hub import HfApi, hf_hub_download
 
@@ -59,7 +59,8 @@ def _sha256(path):
 
 
 def _license_text(spec):
-    with urlopen(spec["license_url"], timeout=60) as response:
+    request = Request(spec["license_url"], headers={"User-Agent": "pettrace-ml dataset publisher"})
+    with urlopen(request, timeout=60) as response:
         content = response.read()
     if hashlib.sha256(content).hexdigest() != spec["license_sha256"]:
         raise ValueError("The downloaded license text does not match the pinned SHA-256")
@@ -179,6 +180,7 @@ def build_release(prepared_path, destination, *, source="lcw", release_version="
         raise ValueError(f"--prepared must be the immutable {prepared_version}.json reference")
     spec = SOURCES[source]
     source_receipt = _source_receipt(prepared, spec)
+    license_text = license_text if license_text is not None else _license_text(spec)
     rows = sorted((row for row in prepared.rows if row["source"] == source),
                   key=lambda row: (row["split"], row["sha256"]))
     if not rows:
@@ -250,7 +252,7 @@ def build_release(prepared_path, destination, *, source="lcw", release_version="
             spec, source=source, release_version=release_version, prepared_version=prepared_version,
             fingerprint=prepared.fingerprint, counts=counts))
         license_file = temporary / "LICENSE"
-        license_file.write_bytes(license_text if license_text is not None else _license_text(spec))
+        license_file.write_bytes(license_text)
         evidence = {
             "schema": 1,
             "source": source,
