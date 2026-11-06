@@ -3,9 +3,10 @@ name: Publish package
 on:
   release:
     types: [published]
-  workflow_call:
+  workflow_dispatch:
     inputs:
       tag:
+        description: Existing release tag to publish
         required: true
         type: string
 
