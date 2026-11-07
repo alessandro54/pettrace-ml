@@ -27,7 +27,7 @@ El [notebook canónico de E3](../notebooks/e3_mlp_head_triplet.ipynb):
 3. calcula una sola vez embeddings E2 congelados;
 4. reutiliza exactamente esas features para todas las semillas;
 5. selecciona checkpoints y semilla únicamente con validación;
-6. evalúa después el test público v1 y PetTrace v4 como galerías independientes.
+6. evalúa después Public v2 y PetTrace v5 como galerías independientes.
 
 El test público no comparte identidades con train/val. PetTrace no interviene en ajuste,
 early stopping ni selección. Los caches locales solo aceleran la corrida y no son evidencia:

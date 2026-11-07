@@ -33,46 +33,43 @@ def test_public_guard_rejects_images_shared_with_private_benchmark(tmp_path):
 
 
 def test_e3_changed_private_tag_stops_before_download(tmp_path, monkeypatch):
-    import huggingface_hub
+    from pettrace.experiments import e1
     from pettrace.experiments.e3 import load_benchmarks
 
-    downloads = []
-    monkeypatch.setattr(huggingface_hub, "HfApi", lambda: SimpleNamespace(
-        dataset_info=lambda *a, **k: SimpleNamespace(sha="changed")))
-    monkeypatch.setattr(huggingface_hub, "snapshot_download", lambda *a, **k: downloads.append(k))
+    def changed(*args, **kwargs):
+        raise ValueError("dataset tag changed")
+
+    monkeypatch.setattr(e1, "_private_dataset", changed)
     with pytest.raises(ValueError, match="tag changed"):
-        load_benchmarks([], tmp_path, private_version="v4", private_commit="pinned")
-    assert downloads == []
+        load_benchmarks(SimpleNamespace(rows=[]), tmp_path,
+                        private_version="v5", private_commit="pinned")
 
 
 def test_load_benchmarks_writes_verified_public_selection(tmp_path, monkeypatch, capsys):
-    import huggingface_hub
-    from pettrace.data import benchmark
-    from pettrace.data import snapshots
+    from pettrace.experiments import e1
     from pettrace.evaluation import research
     from pettrace.experiments.e3 import load_benchmarks
 
     private_photo = tmp_path / "private.jpg"
     private_photo.write_bytes(b"private")
     private = SimpleNamespace(
-        repo="private/repo", version="v4", commit="pinned", name="private-v4",
+        repo="private/repo", version="v5", commit="pinned", name="private-v5",
         photos=[SimpleNamespace(path=private_photo)])
     val = {"animal": "val", "species": "cat", "sha256": "v", "split": "val"}
     test = {"animal": "test", "species": "cat", "sha256": "t", "split": "test"}
-    prepared = SimpleNamespace(rows=[val, test], fingerprint="prepared")
     public = SimpleNamespace(
-        repo="public/repo", version="v1", commit="public-commit", fingerprint="public-test",
+        repo="public/repo", version="v2", commit="public-commit", fingerprint="public-test",
         photos=[object()], animals={"test": {}})
-    monkeypatch.setattr(huggingface_hub, "HfApi", lambda: SimpleNamespace(
-        dataset_info=lambda *a, **k: SimpleNamespace(sha="pinned")))
-    monkeypatch.setattr(huggingface_hub, "snapshot_download", lambda *a, **k: tmp_path)
-    monkeypatch.setattr(benchmark, "from_dir", lambda *a, **k: private)
-    monkeypatch.setattr(snapshots, "load_training", lambda **k: (prepared, {"commit": "public-commit"}))
+    monkeypatch.setattr(e1, "_private_dataset", lambda *a, **k: private)
+    monkeypatch.setattr(research, "refined_public_receipt", lambda *a: {"commit": "public-commit"})
     monkeypatch.setattr(research, "public_test_dataset", lambda *a: public)
 
     result = load_benchmarks(
-        [{"animal": "train", "species": "dog", "sha256": "a", "split": "train"}, val],
-        tmp_path, private_version="v4", private_commit="pinned")
+        SimpleNamespace(rows=[
+            {"animal": "train", "species": "dog", "sha256": "a", "split": "train"},
+            val, test,
+        ], fingerprint="prepared"),
+        tmp_path, private_version="v5", private_commit="pinned")
     assert result.private is private and result.public is public
     assert "Benchmarks ready" in capsys.readouterr().out
     selection = json.loads((result.public_report / "dataset-selection.json").read_text())

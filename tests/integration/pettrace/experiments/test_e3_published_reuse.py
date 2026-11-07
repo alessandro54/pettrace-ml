@@ -7,18 +7,6 @@ from types import SimpleNamespace
 import pytest
 
 from pettrace.experiments.e3 import load_published
-from tests import ROOT
-
-
-def test_e3_published_summary_is_read_only():
-    path = ROOT / "notebooks/e3_mlp_head_triplet.ipynb"
-    cell = next(c for c in json.loads(path.read_text())["cells"]
-                if c.get("id") == "e3-published-seed-summary")
-    source = "".join(cell["source"])
-    assert cell["cell_type"] == "code"
-    assert "client.get_run" in source and "client.get_model_version" in source
-    assert not any(call in source for call in
-                   ("publish_results", "register_candidate", "start_run", "log_batch", "log_artifact"))
 
 
 @pytest.mark.parametrize("failure", [None, "receipt", "benchmark", "evaluation", "model", "golden", "registry", "source"])

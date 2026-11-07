@@ -20,7 +20,7 @@ que no revele identidad antes de crear su notebook de tres fases.
 
 ## Tres fases de la investigación
 
-1. **Preparación y preprocesamiento de datos.** Las releases públicas refinadas conservan la limpieza, deduplicación, splits y localización auditados; los experimentos solo cargan y verifican snapshots. PetTrace v4 procede de su flujo privado de curación/exportación.
+1. **Preparación y preprocesamiento de datos.** Las releases públicas refinadas conservan la limpieza, deduplicación, splits y localización auditados; los experimentos solo cargan y verifican snapshots. PetTrace v5 procede de su flujo privado de curación/exportación.
 2. **Representación y entrenamiento.** Se verifica el modelo y se calculan representaciones. E1/E2 mantienen todos los pesos congelados. E3 entrena la MLP y selecciona su checkpoint únicamente con validación pública; muestra curvas de pérdida y validación.
 3. **Evaluación y análisis de resultados.** Cada condición se evalúa por separado en el test público refinado v2 y un snapshot PetTrace inmutable. Las reproducciones actuales de E1/E2 fijan v5; la evidencia histórica E2–E4 conserva v4. Incluye tablas por especie, Rank-1/Rank-2/mAP, CMC, matrices de confusión, diagnósticos por identidad, discusión, referencias y publicación obligatoria en MLflow.
 
@@ -73,7 +73,7 @@ Las fotos privadas no se incorporan a la presentación de resultados; se emplean
 
 E1 y E2 instalan `pettrace-ml[notebooks,tracking]` y ejecutan el runner oficial desde el cuaderno; las mismas operaciones están disponibles como `pettrace run e1` y `pettrace run e2`. Python 3.11–3.13 está admitido. La evidencia histórica conserva el runtime con el que fue producida. Las guías de [E1](../docs/e1_colab.md) y [E2](../docs/e2_colab.md) describen resultados y recuperación.
 
-El notebook E3 instala **`pettrace-ml[training,notebooks]==0.2.26` desde PyPI** con un solo comando. Carga el corpus refinado v2 desde Hugging Face, calcula una vez las representaciones E2 congeladas y entrena las semillas 45–49. No requiere Drive, requirements copiados ni construir un wheel. Véase [la guía E3](../docs/e3_colab.md).
+El notebook E3 instala **`pettrace-ml[training,notebooks,tracking]==0.2.36` desde PyPI** con un solo comando. Carga el corpus refinado v2 desde Hugging Face, calcula una vez las representaciones E2 congeladas y entrena las semillas 45–49. No requiere Drive, requirements copiados ni construir un wheel. Véase [la guía E3](../docs/e3_colab.md).
 
 El código está en `src/pettrace/`, organizado por datos, modelos, entrenamiento y evaluación. E1/E2 no entrenan; E3 requiere GPU y entrena su MLP en la fase 2. La migración de imports conserva las salidas históricas: no constituye otra ejecución ni publica métricas nuevas.
 
@@ -82,6 +82,6 @@ El código está en `src/pettrace/`, organizado por datos, modelos, entrenamient
 Las semillas 45–49 comparten exactamente datos, features e hiperparámetros. Cada una
 selecciona su checkpoint con validación pública; después se elige la semilla ganadora
 por esa misma métrica, con desempate por la semilla menor. Recién entonces se evalúan
-los tests público v1 y PetTrace v4. Todas las semillas publican ambos dominios en MLflow,
+Public v2 y PetTrace v5. Todas las semillas publican ambos dominios en MLflow,
 pero solo la ganadora se registra y produce el handoff para E4/E5. Las semillas 42–44 y
 los estudios 20/50/100 son evidencia histórica publicada, no candidatos de esta selección.

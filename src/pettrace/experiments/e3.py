@@ -12,8 +12,8 @@ from pettrace.artifact_upload import compact_json_uploads
 from pettrace.tracking import production_context
 
 FROZEN_RUNS = {
-    "public": {"E1": "670af363cda5492899ce6466cc0962e9", "E2": "59011833455c4190bc4d92e156bf5b64"},
-    "private": {"E1": "4e6391cc267940ba952aa75aee43dad7", "E2": "4b09272fa13e48d7af6e5b694d416cfe"},
+    "public": {"E1": "fc9f5ee2f4a04d8dbfbcdd16459a89b3", "E2": "c6f7b7baf0704887818a3d63b0644575"},
+    "private": {"E1": "4405cec1e4b64b01991759987cec8a2f", "E2": "e92aeface9c34109883f57952e9844f6"},
 }
 
 
@@ -122,50 +122,38 @@ def _validate_benchmark_separation(manifest_rows, public_rows, private_hashes):
     def signature(rows):
         return sorted((row["animal"], row["species"], row["sha256"]) for row in rows)
     if signature(row for row in training if row["split"] == "val") != signature(public_val):
-        raise ValueError("Keep the original v1 validation photos and identities fixed across source volumes")
+        raise ValueError("Training must preserve the published validation photos and identities")
     if ({row["sha256"] for row in manifest_rows} | {row["sha256"] for row in public_rows}) & private_hashes:
         raise ValueError("An exact image is shared with the PetTrace benchmark")
     return public_test
 
 
-def load_benchmarks(manifest_rows, report, *, private_version, private_commit,
-                    public_cache="/content/datasets/build/hub-training"):
+def load_benchmarks(prepared, report, *, private_version, private_commit,
+                    private_cache=None):
     """Load the pinned public/private E3 benchmarks and reject identity or image leakage."""
-    from huggingface_hub import HfApi, snapshot_download
-    from pettrace.data import benchmark
-    from pettrace.data.snapshots import load_training
+    from pettrace.experiments.e1 import _private_dataset
     from pettrace.data.verification import sha256
-    from pettrace.evaluation.research import (
-        PUBLIC_COMMIT, PUBLIC_FINGERPRINT, PUBLIC_REPO, PUBLIC_VERSION, public_test_dataset,
-    )
+    from pettrace.evaluation.research import public_test_dataset, refined_public_receipt
     from pettrace.ui import task
 
     started = time.monotonic()
-    with task("Loading immutable benchmarks", 5, unit="step") as progress:
-        resolved = HfApi().dataset_info(benchmark.REPO, revision=private_version).sha
-        if resolved != private_commit:
-            raise ValueError("The private dataset tag changed; review the comparison protocol")
-        progress.update()
-        private_root = snapshot_download(
-            benchmark.REPO, repo_type="dataset", revision=private_commit)
-        private = benchmark.from_dir(
-            private_root, repo=benchmark.REPO, version=private_version, commit=private_commit)
+    with task("Loading immutable benchmarks", 3, unit="step") as progress:
+        private = _private_dataset(
+            private_version, private_commit,
+            Path(private_cache or Path.home() / ".cache/pettrace/e3/private"))
         progress.update()
         private_hashes = {sha256(photo.path) for photo in private.photos}
         progress.update()
-        public_prepared, public_source = load_training(
-            repo_id=PUBLIC_REPO, version=PUBLIC_VERSION, revision=PUBLIC_COMMIT,
-            expected_fingerprint=PUBLIC_FINGERPRINT, cache_dir=public_cache)
-        progress.update()
+        public_source = refined_public_receipt(prepared)
         public_test_rows = _validate_benchmark_separation(
-            manifest_rows, public_prepared.rows, private_hashes)
+            prepared.rows, prepared.rows, private_hashes)
         progress.update()
-    public = public_test_dataset(public_prepared, public_source)
+    public = public_test_dataset(prepared, public_source)
     public_report = Path(report) / "public_test"
     public_report.mkdir(parents=True, exist_ok=True)
     selection = {
         "scope": "published_test_only", "source": public_source,
-        "prepared_fingerprint": public_prepared.fingerprint,
+        "prepared_fingerprint": prepared.fingerprint,
         "evaluation_fingerprint": public.fingerprint,
         "photos": len(public.photos), "identities": len(public.animals),
         "rows": [{key: row[key] for key in ("animal", "species", "sha256")}

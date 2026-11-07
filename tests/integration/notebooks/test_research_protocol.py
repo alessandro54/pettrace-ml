@@ -44,7 +44,7 @@ def test_current_e3_notebook_installs_the_published_package_directly():
     contents = cells(ROOT / "notebooks/e3_mlp_head_triplet.ipynb")
     install = next("".join(c["source"]) for c in contents if c["id"] == "e3-setup")
     notebook = "\n".join("".join(c["source"]) for c in contents)
-    assert '"pettrace-ml[training,notebooks]==0.2.26"' in install
+    assert '"pettrace-ml[training,notebooks,tracking]==0.2.36"' in install
     assert "requirements-e3-runtime" not in notebook
     assert "e3-runtime.txt" not in notebook
     assert "drive_root" not in notebook
@@ -117,7 +117,8 @@ def test_shared_research_structure_and_fixed_benchmark(path):
     commit = next(n for n in assignments if any(isinstance(t, ast.Name) and t.id == "DATASET_COMMIT"
                                                 for t in n.targets))
     expected_commit = ("1777734dbffda0df0bf43305233809ee73157d94"
-                       if path.name in {"e1_clip_zero_shot.ipynb", "e2_yolo_crop_zero_shot.ipynb"}
+                       if path.name in {"e1_clip_zero_shot.ipynb", "e2_yolo_crop_zero_shot.ipynb",
+                                        "e3_mlp_head_triplet.ipynb"}
                        else COMMIT)
     assert ast.literal_eval(commit.value) == expected_commit
     publication = "\n".join("".join(c["source"]) for c in contents if c["cell_type"] == "code")

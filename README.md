@@ -85,7 +85,7 @@ The public split is **15.2% of the prepared photographs and 14.9% of the prepare
 
 The reports contain confusion matrices, CMC curves, Rank-1/Rank-2/mAP charts, score distributions, similarity matrices, and per-identity analysis. E3 also includes training/validation curves. Long identity strings receive compact plot labels with a reversible `identity-labels.json` mapping. Figures are calculated by this project rather than copied from the literature.
 
-The canonical E3 study reports public v1 and PetTrace v4 separately for every seed. Its winner is fixed by public validation before either test is evaluated. Historical volume conditions and seeds 42–44 remain available in MLflow but are not part of the new selection pool.
+The canonical E3 study reports Public v2 and PetTrace v5 separately for every seed. Its winner is fixed by public validation before either test is evaluated. Historical Public v1/PetTrace v4 runs remain available in MLflow but are not part of the new selection pool.
 
 ## Datasets and version identities
 

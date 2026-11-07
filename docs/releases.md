@@ -1,5 +1,13 @@
 # Package releases
 
+## 0.2.36 — E3 on refined public v2 and PetTrace v5
+
+- Updates the canonical E3 study to train on the complete refined v2 corpus and evaluate Public v2
+  and PetTrace v5 separately.
+- Pins the published E1/E2 controls for those exact benchmarks and reuses the already-loaded public
+  corpus instead of downloading it again inside the benchmark helper.
+- Installs the complete training, notebook and MLflow extras from PyPI in a fresh Colab T4 runtime.
+
 ## 0.2.35 — composite E2 audit paths
 
 - Records stable image names when the refined public benchmark spans multiple cache roots.
