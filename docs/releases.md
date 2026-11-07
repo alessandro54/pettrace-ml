@@ -1,5 +1,13 @@
 # Package releases
 
+## 0.2.34 — E2 refined paired benchmark
+
+- Replaces the duplicated E2 notebook implementation with a tested headless runner and CLI command.
+- Evaluates E2 and a paired E1 control on the same refined public v2 and PetTrace v5 queries.
+- Audits every detector decision, verifies fallback equivalence, and preserves qualitative inputs.
+- Publishes both E2 domains mandatorily and supports publication retry without repeating inference.
+- Preserves the executed public v1/PetTrace v4 notebook as clearly labeled historical evidence.
+
 ## 0.2.33 — E1 refined public benchmark
 
 - Evaluates E1 on the immutable test identities from both public refined v2 sources.

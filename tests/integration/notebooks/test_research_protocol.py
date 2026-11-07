@@ -66,7 +66,11 @@ def test_e1_notebook_installs_the_complete_headless_toolkit():
 def test_e2_notebook_installs_the_published_package_directly():
     contents = cells(ROOT / "notebooks/e2_yolo_crop_zero_shot.ipynb")
     install = next("".join(c["source"]) for c in contents if c["id"].endswith("setup"))
-    assert '"pettrace-ml[notebooks]==0.2.31"' in install
+    notebook = "\n".join("".join(c["source"]) for c in contents)
+    assert '"pettrace-ml[notebooks,tracking]==0.2.34"' in install
+    assert "publication = run(REPORT)" in notebook
+    assert "snapshot_download" not in notebook
+    assert "publish_results" not in notebook
 
 
 def test_e4_installs_complete_published_training_package():
@@ -113,12 +117,14 @@ def test_shared_research_structure_and_fixed_benchmark(path):
     commit = next(n for n in assignments if any(isinstance(t, ast.Name) and t.id == "DATASET_COMMIT"
                                                 for t in n.targets))
     expected_commit = ("1777734dbffda0df0bf43305233809ee73157d94"
-                       if path.name == "e1_clip_zero_shot.ipynb" else COMMIT)
+                       if path.name in {"e1_clip_zero_shot.ipynb", "e2_yolo_crop_zero_shot.ipynb"}
+                       else COMMIT)
     assert ast.literal_eval(commit.value) == expected_commit
     publication = "\n".join("".join(c["source"]) for c in contents if c["cell_type"] == "code")
-    if path.name == "e1_clip_zero_shot.ipynb":
+    if path.name in {"e1_clip_zero_shot.ipynb", "e2_yolo_crop_zero_shot.ipynb"}:
         assert "publication = run(REPORT)" in publication
-        helper = (ROOT / "src/pettrace/experiments/e1.py").read_text()
+        experiment = path.stem.split("_")[0]
+        helper = (ROOT / f"src/pettrace/experiments/{experiment}.py").read_text()
         assert helper.index("_dataset_selection(") < helper.index("publication = publish_results(")
     elif path.name.startswith(("e3_", "e4_")):
         assert "publication = publish_results(" in publication
@@ -128,20 +134,6 @@ def test_shared_research_structure_and_fixed_benchmark(path):
         assert "publication = publish_results(" in publication
         helper = (ROOT / "src/pettrace/experiments/zero_shot.py").read_text()
         assert helper.index('"experiment-design.json"') < helper.index("public_run_id = publish_evaluation(")
-
-
-@pytest.mark.parametrize("name", ["e2_yolo_crop_zero_shot.ipynb"])
-def test_mutated_tag_stops_before_any_download(name):
-    code = next("".join(c["source"]) for c in cells(ROOT / "notebooks" / name)
-                if c["cell_type"] == "code" and "resolved_commit =" in "".join(c["source"]))
-    downloads = []
-    namespace = {"HfApi": lambda: SimpleNamespace(dataset_info=lambda *a, **k: SimpleNamespace(sha="changed")),
-                 "data": SimpleNamespace(REPO="test/benchmark"), "DATASET": "v4", "DATASET_COMMIT": COMMIT,
-                 "snapshot_download": lambda *a, **k: downloads.append(k)}
-    with pytest.raises(AssertionError, match="pinned"):
-        exec(code, namespace)
-    assert downloads == []
-
 
 def test_e3_selects_by_validation_before_test_and_publishes_every_seed():
     contents = cells(ROOT / "notebooks/e3_mlp_head_triplet.ipynb")

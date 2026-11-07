@@ -19,8 +19,8 @@ The experiments investigate incremental changes to a shared visual retrieval pip
 
 | Experiment | Research question | Pipeline and parameter updates | Evidence and implementation status |
 |---|---|---|---|
-| [E1 — Frozen representation](notebooks/e1_clip_zero_shot.ipynb) | How well does a pretrained visual encoder retrieve individual pets without domain adaptation? | Image without animal localization → CLIP ViT-B/32 → 512-dimensional, L2-normalized embedding. No parameter updates. | Reference evaluation published on PetTrace v4. |
-| [E2 — Animal localization](notebooks/e2_yolo_crop_zero_shot.ipynb) | How does localizing the animal affect retrieval with the same encoder? | YOLOv8n → highest-confidence cat/dog box with a 10% margin → the same frozen CLIP encoder. The image is retained when no valid box is available. | Reference evaluation published on PetTrace v4, including a recalculated E1 baseline. |
+| [E1 — Frozen representation](notebooks/e1_clip_zero_shot.ipynb) | How well does a pretrained visual encoder retrieve individual pets without domain adaptation? | Image without animal localization → CLIP ViT-B/32 → 512-dimensional, L2-normalized embedding. No parameter updates. | Headless runner evaluates refined public v2 and PetTrace v5 separately and publishes both runs. |
+| [E2 — Animal localization](notebooks/e2_yolo_crop_zero_shot.ipynb) | How does localizing the animal affect retrieval with the same encoder? | YOLOv8n → highest-confidence cat/dog box with a 10% margin → the same frozen CLIP encoder. The image is retained when no valid box is available. | Headless runner uses the same v2/v5 benchmarks and recalculates a paired E1 control. |
 | [E3 — Projection learning](notebooks/e3_mlp_head_triplet.ipynb) | Does a projection trained on public identities transfer to private PetTrace identities, and how variable is training across seeds? | Frozen E2 → MLP 512→256→512 → L2 normalization. Only the MLP is trained with batch-hard triplet loss. Seeds 45–49 are selected by public validation only. | Every seed publishes both evaluation domains; only the validation winner is registered for E4/E5. Historical seeds 42–44 and volume runs remain in MLflow. |
 | [E4 — Encoder adaptation](notebooks/e4_clip_lora.ipynb) | What additional benefit does adapting the visual encoder provide? | CLIP q/v LoRA (`r=8`, `alpha=16`) over the fixed seed-46 E3 control. | Frozen winner published on both domains; E5 consumes its verified model hashes without using test metrics for selection. |
 | E5 — Text-assisted retrieval | Can a sighting description improve visual candidate ranking? | Proposed integration of textual information or re-ranking. | Future research; no completed experiment is claimed. |
@@ -76,8 +76,8 @@ The updated E1/E2/E3 notebooks evaluate two datasets separately:
 
 | Evaluation domain | Scope | Photographs | Identities |
 |---|---|---:|---:|
-| Public-source benchmark | Published `pettrace-training@v1` test split, originating from Dogs of the World and LCW on Kaggle | 277 | 60: 34 cats, 26 dogs |
-| PetTrace benchmark | All eligible photographs in `pettrace-reid@v4` | 305 | 31: 15 cats, 16 dogs |
+| Public-source benchmark | Test identities from refined LCW v2 and Dogs of the World v2 | 277 | 60: 34 cats, 26 dogs |
+| PetTrace benchmark | All eligible photographs in immutable `pettrace-reid@v5` | 425 | 25 |
 
 Both domains use the same evaluator, with **separate galleries and separate MLflow runs**. Public train/validation identities are excluded from the public test gallery. E3 evaluates test data only after fixing its checkpoint. Once observed, the public test is no longer described as an untouched benchmark and must not be used for subsequent checkpoint selection.
 
@@ -234,21 +234,21 @@ The distribution is `pettrace-ml`, while the import package is `pettrace`. The r
 
 ### Google Colab / VS Code
 
-E1 now runs headlessly from the installed package, without a notebook, Drive or repository
-checkout. It evaluates the immutable public v1 test and a separately pinned private PetTrace
-snapshot, writes CMC, confusion, ranking and cross-domain figures, then publishes both domains
+E1 and E2 run headlessly from the installed package, without Drive or a repository checkout.
+They evaluate the immutable refined public v2 test and a separately pinned private PetTrace
+snapshot, write CMC, confusion, ranking and cross-domain figures, then publish both domains
 to MLflow. The default private benchmark is the immutable PetTrace v5 release:
 
 ```bash
 pettrace run e1 --output reports/e1-v5
+pettrace run e2 --output reports/e2-v5
 ```
 
 The runner pins `pettrace-reid@v5` to commit
 `1777734dbffda0df0bf43305233809ee73157d94`; both values remain explicit CLI overrides for
 auditing another immutable release.
 
-See [E1 execution and recovery](docs/e1_colab.md). E2 remains an interactive three-phase
-experiment notebook; see [E2 execution](docs/e2_colab.md).
+See [E1 execution and recovery](docs/e1_colab.md) and [E2 execution](docs/e2_colab.md).
 
 For E3, use the [canonical multiseed workflow](docs/e3_colab.md). It loads the refined v2 corpus
 from Hugging Face, computes frozen E2 features once, selects the winning seed only with public

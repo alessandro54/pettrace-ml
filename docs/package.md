@@ -57,9 +57,16 @@ Every loader resolves the release tag to its audited 40-character commit, verifi
 manifests and hashes, and returns provenance with the materialized files. A token is optional
 for public datasets and can be passed explicitly for a private mirror.
 
-The frozen `pettrace-training@v1` evaluation snapshot has a separate read-only loader used by
-E1–E4. Raw acquisition, cleaning, YOLO preparation and dataset publication are intentionally not
-package APIs: those one-time workflows are preserved by immutable Hub releases and Git history.
+E1 and E2 derive their public test benchmark directly from these refined v2 releases. Raw
+acquisition, cleaning, YOLO preparation and dataset publication are intentionally not package
+APIs: those one-time workflows are preserved by immutable Hub releases and Git history.
+
+The official zero-shot experiments are available as reproducible, mandatory-tracking commands:
+
+```bash
+pettrace run e1 --output reports/e1
+pettrace run e2 --output reports/e2
+```
 
 ## Models
 

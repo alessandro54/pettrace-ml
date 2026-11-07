@@ -1,33 +1,38 @@
-# E2 en Colab
+# E2 headless en Colab
 
-Abre [`notebooks/e2_yolo_crop_zero_shot.ipynb`](../notebooks/e2_yolo_crop_zero_shot.ipynb)
-en una sesión nueva con Python 3.11–3.13. Ejecuta setup: instala
-`pettrace-ml[notebooks]==0.2.31` directamente desde PyPI y continúa desde la
-verificación del wheel. Crea las credenciales en Colab Secrets, habilita el acceso
-del notebook y ejecuta la celda de credenciales. Nunca se guardan en el código.
+E2 se ejecuta desde el paquete instalado y el notebook de tesis solo documenta y presenta el
+flujo. No requiere Drive ni un checkout. Mantiene CLIP ViT-B/32 congelado e introduce un detector
+YOLO congelado: caja gato/perro de mayor confianza, margen de 10 % y fallback a imagen completa.
 
-Ejecuta las tres fases en orden. E2 mantiene CLIP congelado e incorpora el detector
-YOLO registrado: caja gato/perro de mayor confianza, margen del 10 % y fallback a
-imagen completa. No entrena ni descarta fotos cuando falla la detección.
+Evalúa por separado el test público compuesto desde las fuentes refinadas v2 y el snapshot
+inmutable `pettrace-reid@v5`, commit
+`1777734dbffda0df0bf43305233809ee73157d94`. Para aislar la intervención, recalcula E1 sobre las
+mismas consultas y galerías y verifica que los embeddings fallback coincidan.
 
-El notebook muestra la auditoría del detector, imágenes antes/después del recorte,
-métricas y curvas, ejemplos de recuperación y cambios frente a E1. Evalúa el test
-público v1 y PetTrace v4 por separado. Recalcula E1 sobre las mismas consultas y
-galerías y guarda esos controles en `baseline_e1/`; no modifica los runs congelados.
-Las salidas históricas conservadas no son resultados de una nueva ejecución.
+## Ejecución
 
-La última celda publica obligatoriamente **dos runs E2**, uno por dominio, y sus
-recibos finales. Si falla, repite únicamente esa celda en la misma sesión, sin
-recalcular embeddings. Conserva el directorio `REPORT` si debes abandonar la sesión.
-
-Guarda el notebook ejecutado con sus salidas. Desde este checkout actualizado,
-adjúntalo a los dos runs usando los IDs de `REPORT/publication.json`:
+Abre [`notebooks/e2_yolo_crop_zero_shot.ipynb`](../notebooks/e2_yolo_crop_zero_shot.ipynb) en
+Colab con Python 3.11–3.13, habilita los secretos `HF_TOKEN`, `MLFLOW_TRACKING_USERNAME` y
+`MLFLOW_TRACKING_PASSWORD`, y ejecuta las tres fases. El equivalente no interactivo es:
 
 ```bash
-uv run --locked python tools/attach_notebook.py notebooks/e2_yolo_crop_zero_shot.ipynb \
-  --experiment E2 --run-id RUN_PRIVADO --public-run-id RUN_PUBLICO
+python -m pip install "pettrace-ml[tracking]==0.2.34"
+pettrace run e2 --output reports/e2-v5
 ```
 
-El adjunto se divide en partes verificadas por SHA-256 para respetar el límite del
-servidor. La herramienta rechaza reemplazar un notebook distinto ya archivado.
-El kernel remoto de VS Code no puede leer el archivo guardado en tu equipo.
+El reporte incluye auditoría por foto, ejemplos del preprocesamiento real, E1/E2 pareados, CMC,
+matrices de confusión, métricas por especie, comparación entre dominios y los dos recibos MLflow.
+Una corrida solo está completa cuando `publication.json` contiene `published: true`.
+
+## Recuperación
+
+Si falla únicamente la publicación, conserva el reporte y reintenta sin repetir descargas ni
+inferencia:
+
+```bash
+pettrace run e2 --resume reports/e2-v5
+```
+
+Las salidas ejecutadas de la antigua evaluación pública v1/PetTrace v4 permanecen en
+[`notebooks/archive/e2_yolo_crop_zero_shot_v1_v4.ipynb`](../notebooks/archive/e2_yolo_crop_zero_shot_v1_v4.ipynb)
+y no se mezclan con una reproducción actual.

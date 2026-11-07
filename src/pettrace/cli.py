@@ -3,6 +3,7 @@
     make evaluate DATASET=v3 MODEL=models:/pettrace-embedder/1 PROTOCOL=zero-shot [REPORT=reports/e1_v3]
     pettrace evaluate --model /path/to/model/dir --dataset /path/to/dataset/dir
     pettrace run e1
+    pettrace run e2
 
 `evaluate` is a generic evaluator. `run` executes a reproducible experiment and publishes it to MLflow.
 """
@@ -56,16 +57,18 @@ def main(argv=None) -> int:
     argv = sys.argv[1:] if argv is None else list(argv)
     if argv[:1] == ["evaluate"]:
         return evaluate_main(argv[1:])
-    if argv[:2] == ["run", "e1"]:
-        from pettrace.experiments.e1 import main as e1_main
-
-        return e1_main(argv[2:])
+    if len(argv) >= 2 and argv[0] == "run" and argv[1] in {"e1", "e2"}:
+        if argv[1] == "e1":
+            from pettrace.experiments.e1 import main as experiment_main
+        else:
+            from pettrace.experiments.e2 import main as experiment_main
+        return experiment_main(argv[2:])
 
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     parser.add_argument("command", nargs="?", choices=("evaluate", "run"))
-    parser.add_argument("experiment", nargs="?", choices=("e1",))
+    parser.add_argument("experiment", nargs="?", choices=("e1", "e2"))
     parser.parse_args(argv)
-    parser.error("choose `evaluate` or `run e1`")
+    parser.error("choose `evaluate`, `run e1` or `run e2`")
 
 
 if __name__ == "__main__":

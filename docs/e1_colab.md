@@ -4,7 +4,7 @@
 
 E1 se ejecuta desde el paquete instalado, sin notebook, Drive ni checkout del repositorio. Mantiene CLIP ViT-B/32 congelado y sin detector. Evalúa por separado:
 
-- el test inmutable de `pettrace-training@v1`;
+- el test inmutable compuesto desde las fuentes refinadas públicas v2;
 - una versión y commit explícitos del benchmark privado `pettrace-reid`.
 
 El runner genera `summary.json`, `scores.json`, CMC, matriz de confusión, comparación Rank-1/Rank-2/mAP, diagnóstico por identidad y comparación entre dominios. Después publica obligatoriamente ambos reportes en `https://ml.pettrace.app`.

@@ -5,7 +5,7 @@ Los notebooks se reservan para experimentos y preparación/preprocesamiento de d
 Los experimentos consumen releases refinadas e inmutables de Hugging Face. La capa v2 agrega
 localización YOLO sin cambiar fotos, identidades o splits.
 
-Los tres cuadernos documentan una secuencia de investigación de tesis sobre recuperación visual de identidades individuales de perros y gatos. Cada condición modifica un componente del pipeline y conserva el mismo benchmark privado de evaluación. La raza no es la etiqueta del problema.
+Los cuadernos documentan una secuencia de investigación de tesis sobre recuperación visual de identidades individuales de perros y gatos. Cada condición modifica un componente del pipeline y conserva el mismo benchmark privado de evaluación. La raza no es la etiqueta del problema.
 
 | Experimento | Intervención | Parámetros ajustados | Comparación |
 |---|---|---|---|
@@ -22,21 +22,21 @@ que no revele identidad antes de crear su notebook de tres fases.
 
 1. **Preparación y preprocesamiento de datos.** Las releases públicas refinadas conservan la limpieza, deduplicación, splits y localización auditados; los experimentos solo cargan y verifican snapshots. PetTrace v4 procede de su flujo privado de curación/exportación.
 2. **Representación y entrenamiento.** Se verifica el modelo y se calculan representaciones. E1/E2 mantienen todos los pesos congelados. E3 entrena la MLP y selecciona su checkpoint únicamente con validación pública; muestra curvas de pérdida y validación.
-3. **Evaluación y análisis de resultados.** Cada condición se evalúa por separado en el test público de v1 y un snapshot PetTrace inmutable. La reproducción actual de E1 fija v5; la evidencia histórica E2–E4 conserva v4. Incluye tablas por especie, Rank-1/Rank-2/mAP, CMC, matrices de confusión, diagnósticos por identidad, discusión, referencias y publicación obligatoria en MLflow.
+3. **Evaluación y análisis de resultados.** Cada condición se evalúa por separado en el test público refinado v2 y un snapshot PetTrace inmutable. Las reproducciones actuales de E1/E2 fijan v5; la evidencia histórica E2–E4 conserva v4. Incluye tablas por especie, Rank-1/Rank-2/mAP, CMC, matrices de confusión, diagnósticos por identidad, discusión, referencias y publicación obligatoria en MLflow.
 
 Las fuentes externas se citan junto al método utilizado, además de la lista de referencias: CLIP (Radford et al., 2021), YOLOv8 (Ultralytics), batch-hard triplet (Hermans et al., 2017), contexto de CMC/mAP (Zheng et al., 2015) y errores biométricos (Fiumara/NIST, 2022). Las reglas de galería, muestreo, filtros e hiperparámetros se identifican como decisiones propias. [references.bib](../docs/references.bib) conserva las entradas para la tesis. Los resultados y gráficos calculados por el proyecto no se atribuyen a estos trabajos.
 
 ## Muestra y protocolo comparables
 
-El benchmark es `pettrace-reid@v4`, commit `8b12db0dce41040a821f9792bea5b352342263ce`: 305 fotos de 31 mascotas. La descarga se fija a ese commit después de comprobar la etiqueta. E1/E2 no entrenan con estas fotos. E3 entrena con identidades públicas y selecciona el checkpoint únicamente mediante validación pública; v4 es una referencia exploratoria ya observada.
+El benchmark actual es `pettrace-reid@v5`, commit `1777734dbffda0df0bf43305233809ee73157d94`: 425 fotos de 25 mascotas. La descarga se fija a ese commit después de comprobar la etiqueta. E1/E2 no entrenan con estas fotos. Las corridas históricas sobre v4 se conservan como evidencia separada.
 
 La recuperación es de galería cerrada y de la misma especie anotada, con evaluación leave-one-out por fotografía. Rank-k utiliza el máximo score por identidad; AP/mAP ordena fotografías. `zero-shot` es la etiqueta técnica del protocolo compartido, no clasificación mediante prompts de texto. No existe separación garantizada entre sesiones. La EER se ajusta y reporta sobre los mismos pares y es descriptiva.
 
 ## Comparación pública y privada en las nuevas ejecuciones
 
-La muestra pública de evaluación es el test ya publicado de `pettrace-training@v1`: **277 fotos, 60 identidades** (34 gatos y 26 perros). Es el 15,2 % de las fotos preparadas y el 14,9 % de sus identidades; no se cambia v1 para forzar un 20 %. Los datos proceden de Dogs of the World y LCW, ambos distribuidos en Kaggle. Train/val no se incorporan a la galería pública de evaluación.
+La muestra pública actual se compone desde los splits `test` de las releases refinadas v2 de Dogs of the World y LCW: **277 fotos, 60 identidades** (34 gatos y 26 perros). Train/val no se incorporan a la galería pública de evaluación.
 
-E1, E2 y E3 usan exactamente el mismo test público. La reproducción actual de E1 lo compara con PetTrace v5; las corridas históricas E2/E3 conservan PetTrace v4. Se producen `public_test/` y los reportes privados del directorio principal, `benchmark-comparison.json` y `benchmark-comparison.png`. Se publica un run MLflow por dominio con su input de dataset; `publication.json` enlaza `run_id` privado y `public_run_id` público. La diferencia entre dominios no es una estimación causal: cambian la galería y las condiciones de captura.
+E1 y E2 actuales usan exactamente el mismo test público refinado y PetTrace v5. Se producen `public_test/` y los reportes privados del directorio principal, `benchmark-comparison.json` y `benchmark-comparison.png`. Se publica un run MLflow por dominio con su input de dataset; `publication.json` enlaza `run_id` privado y `public_run_id` público. La diferencia entre dominios no es una estimación causal: cambian la galería y las condiciones de captura.
 
 ## Evidencia histórica de referencia
 
@@ -59,7 +59,7 @@ Los resultados describen una muestra pequeña y una sola semilla de E3. No se re
 
 ## Conservación y reproducción
 
-Los notebooks se ejecutan celda a celda en la UI de Colab e instalan una versión exacta de `pettrace-ml` desde PyPI. E1/E2 usan el extra `[notebooks]`; E3/E4 añaden `[training]`. No copian perfiles de requirements, construyen wheels ni montan Google Drive. Hugging Face aporta los datasets inmutables y MLflow conserva la evidencia publicada y los modelos. Una celda visible obtiene las credenciales con `google.colab.userdata`; el paquete solo consume las variables de entorno resultantes. Una `.env` local no se transfiere automáticamente. `runtime.json` conserva el entorno real de cada corrida. Véanse las guías de [E1](../docs/e1_colab.md), [E2](../docs/e2_colab.md) y [E3](../docs/e3_colab.md).
+Los notebooks se ejecutan celda a celda en la UI de Colab e instalan una versión exacta de `pettrace-ml` desde PyPI. E1/E2 usan `[notebooks,tracking]`; E3/E4 añaden `[training]`. No copian perfiles de requirements, construyen wheels ni montan Google Drive. Hugging Face aporta los datasets inmutables y MLflow conserva la evidencia publicada y los modelos. Una celda visible obtiene las credenciales con `google.colab.userdata`; el paquete solo consume las variables de entorno resultantes. Una `.env` local no se transfiere automáticamente. `runtime.json` conserva el entorno real de cada corrida. Véanse las guías de [E1](../docs/e1_colab.md), [E2](../docs/e2_colab.md) y [E3](../docs/e3_colab.md).
 
 Cada nueva corrida crea `reports/eN_v4/<fecha-id>`. Conserva `experiment-design.json`, `summary.json`, `scores.json`, `analysis.json`, `findings.md`, figuras y procedencia. E3 añade manifiesto/auditoría, configuración, historia/checkpoint, curvas, cobertura y modelo ONNX. Las salidas históricas del notebook se preservan al editar el método: las celdas nuevas o modificadas deben ejecutarse para producir evidencia actualizada.
 
@@ -71,7 +71,7 @@ Las fotos privadas no se incorporan a la presentación de resultados; se emplean
 
 ## Paquete para relanzar en Colab
 
-E1 instala `pettrace-ml[notebooks,tracking]` y ejecuta el runner oficial desde el cuaderno; la misma operación está disponible como `pettrace run e1`. E2 conserva su notebook interactivo. Python 3.11–3.13 está admitido. La evidencia histórica conserva el runtime con el que fue producida. [La guía E1](../docs/e1_colab.md) describe PetTrace v5, resultados y recuperación.
+E1 y E2 instalan `pettrace-ml[notebooks,tracking]` y ejecutan el runner oficial desde el cuaderno; las mismas operaciones están disponibles como `pettrace run e1` y `pettrace run e2`. Python 3.11–3.13 está admitido. La evidencia histórica conserva el runtime con el que fue producida. Las guías de [E1](../docs/e1_colab.md) y [E2](../docs/e2_colab.md) describen resultados y recuperación.
 
 El notebook E3 instala **`pettrace-ml[training,notebooks]==0.2.26` desde PyPI** con un solo comando. Carga el corpus refinado v2 desde Hugging Face, calcula una vez las representaciones E2 congeladas y entrena las semillas 45–49. No requiere Drive, requirements copiados ni construir un wheel. Véase [la guía E3](../docs/e3_colab.md).
 

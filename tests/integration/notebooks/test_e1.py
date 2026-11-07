@@ -11,18 +11,9 @@ from PIL import Image
 from pettrace.evaluation.figures import retrieval_examples
 from pettrace.evaluation.metrics import retrieval
 from pettrace.experiments.zero_shot import _prepare_photo_panels
-from tests import ROOT
 
 
-def source(cell_id, experiment="e1"):
-    notebook_name = "e1_clip_zero_shot" if experiment == "e1" else "e2_yolo_crop_zero_shot"
-    path = ROOT / f"notebooks/{notebook_name}.ipynb"
-    notebook = json.loads(path.read_text())
-    return "".join(next(c for c in notebook["cells"] if c["id"] == cell_id)["source"])
-
-
-@pytest.mark.parametrize("experiment", ["e2"])
-def test_visual_retrieval_handles_ties_singletons_and_separate_species(tmp_path, experiment):
+def test_visual_retrieval_handles_ties_singletons_and_separate_species(tmp_path):
     import matplotlib.pyplot as plt
 
     photos, vectors = [], []
@@ -39,7 +30,6 @@ def test_visual_retrieval_handles_ties_singletons_and_separate_species(tmp_path,
     # A reversed metrics list must not change the first-query selection rule.
     metrics["per_query"].reverse()
     ev = SimpleNamespace(photos=photos, embeddings=embeddings, result={"test": metrics})
-    assert "retrieval_examples(public_ev" in source(f"{experiment}-retrieval-visual", experiment)
     figures, _ = retrieval_examples(ev, tmp_path, "pinned")
     for figure in figures:
         plt.close(figure)
