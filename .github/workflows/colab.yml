@@ -34,9 +34,10 @@ jobs:
       - name: Install normally in Colab's Python version
         run: |
           python -m venv .colab-venv
-          .colab-venv/bin/python -m pip install --report .colab-install.json dist/*.whl
+          WHEEL=$(find dist -name '*.whl' -print -quit)
+          .colab-venv/bin/python -m pip install --report .colab-install.json "${WHEEL}[notebooks,tracking]"
           .colab-venv/bin/python -m pip check
-          .colab-venv/bin/python -I -c "import sys, pettrace; assert sys.version_info[:3] == (3, 13, 18); assert 'site-packages' in pettrace.__file__"
+          .colab-venv/bin/python -I -c "import sys, mlflow, pettrace; assert sys.version_info[:3] == (3, 13, 18); assert 'site-packages' in pettrace.__file__"
       - name: Exercise immutable dataset loaders
         run: |
           .colab-venv/bin/python -m pip install 'pytest==8.3.4' 'ipython>=7.34,<10'
