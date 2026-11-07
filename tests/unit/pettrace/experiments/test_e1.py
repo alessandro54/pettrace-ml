@@ -1,5 +1,6 @@
 """Headless E1 configuration and pinned private benchmark checks."""
 
+import os
 from types import SimpleNamespace
 
 import pytest
@@ -22,6 +23,16 @@ def test_environment_requires_noninteractive_credentials_and_production(monkeypa
         monkeypatch.delenv(name, raising=False)
     with pytest.raises(RuntimeError, match="HF_TOKEN.*MLFLOW_TRACKING_USERNAME.*MLFLOW_TRACKING_PASSWORD"):
         e1.require_environment()
+
+
+def test_environment_accepts_production_credentials(monkeypatch):
+    monkeypatch.setenv("MLFLOW_TRACKING_URI", e1.PRODUCTION_URI)
+    for name in ("HF_TOKEN", "MLFLOW_TRACKING_USERNAME", "MLFLOW_TRACKING_PASSWORD"):
+        monkeypatch.setenv(name, "configured")
+
+    e1.require_environment()
+
+    assert os.environ["HF_HUB_DISABLE_PROGRESS_BARS"] == "1"
 
 
 def test_private_dataset_requires_tag_to_match_commit(tmp_path, monkeypatch):

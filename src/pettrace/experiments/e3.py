@@ -131,18 +131,16 @@ def _validate_benchmark_separation(manifest_rows, public_rows, private_hashes):
 def load_benchmarks(manifest_rows, report, *, private_version, private_commit,
                     public_cache="/content/datasets/build/hub-training"):
     """Load the pinned public/private E3 benchmarks and reject identity or image leakage."""
-    from huggingface_hub import HfApi, configure_http_backend, snapshot_download
+    from huggingface_hub import HfApi, snapshot_download
     from pettrace.data import benchmark
     from pettrace.data.snapshots import load_training
     from pettrace.data.verification import sha256
     from pettrace.evaluation.research import (
         PUBLIC_COMMIT, PUBLIC_FINGERPRINT, PUBLIC_REPO, PUBLIC_VERSION, public_test_dataset,
     )
-    from pettrace.experiments.e1 import hub_session
     from pettrace.ui import task
 
     started = time.monotonic()
-    configure_http_backend(backend_factory=hub_session)
     with task("Loading immutable benchmarks", 5, unit="step") as progress:
         resolved = HfApi().dataset_info(benchmark.REPO, revision=private_version).sha
         if resolved != private_commit:

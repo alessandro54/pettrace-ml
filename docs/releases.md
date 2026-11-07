@@ -1,5 +1,11 @@
 # Package releases
 
+## 0.2.30 — current Hugging Face Hub compatibility
+
+- Removes the retired `configure_http_backend` integration and relies on the current Hub client.
+- Keeps E1/E3 benchmark loading, immutable revision checks and MLflow publication unchanged.
+- Updates the E1/E2 notebook setup cells to install the compatible release from PyPI.
+
 ## 0.2.29 — OSS package boundary and archived E4 diagnostic
 
 - Removes the one-off validation notebook and diagnostic-only package API after successful MLflow publication.

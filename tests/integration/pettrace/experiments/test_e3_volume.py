@@ -65,9 +65,6 @@ def test_load_benchmarks_writes_verified_public_selection(tmp_path, monkeypatch,
         photos=[object()], animals={"test": {}})
     monkeypatch.setattr(huggingface_hub, "HfApi", lambda: SimpleNamespace(
         dataset_info=lambda *a, **k: SimpleNamespace(sha="pinned")))
-    sessions = []
-    monkeypatch.setattr(huggingface_hub, "configure_http_backend",
-                        lambda *, backend_factory: sessions.append(backend_factory))
     monkeypatch.setattr(huggingface_hub, "snapshot_download", lambda *a, **k: tmp_path)
     monkeypatch.setattr(benchmark, "from_dir", lambda *a, **k: private)
     monkeypatch.setattr(snapshots, "load_training", lambda **k: (prepared, {"commit": "public-commit"}))
@@ -77,7 +74,6 @@ def test_load_benchmarks_writes_verified_public_selection(tmp_path, monkeypatch,
         [{"animal": "train", "species": "dog", "sha256": "a", "split": "train"}, val],
         tmp_path, private_version="v4", private_commit="pinned")
     assert result.private is private and result.public is public
-    assert len(sessions) == 1
     assert "Benchmarks ready" in capsys.readouterr().out
     selection = json.loads((result.public_report / "dataset-selection.json").read_text())
     assert selection["scope"] == "published_test_only"

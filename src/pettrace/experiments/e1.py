@@ -16,19 +16,6 @@ PRIVATE_VERSION = "v5"
 PRIVATE_COMMIT = "1777734dbffda0df0bf43305233809ee73157d94"
 
 
-def hub_session():
-    """Retry transient Hugging Face reads without retrying bad credentials."""
-    import requests
-    from requests.adapters import HTTPAdapter
-    from urllib3.util import Retry
-
-    session = requests.Session()
-    retry = Retry(total=5, backoff_factor=1, status_forcelist=[429, 500, 502, 503, 504],
-                  allowed_methods=["GET", "HEAD"], respect_retry_after_header=True)
-    session.mount("https://", HTTPAdapter(max_retries=retry))
-    return session
-
-
 def require_environment():
     """Validate non-interactive credentials before downloading or evaluating anything."""
     os.environ.setdefault("MLFLOW_TRACKING_URI", PRODUCTION_URI)
@@ -41,9 +28,6 @@ def require_environment():
     os.environ.setdefault("HF_HUB_DISABLE_PROGRESS_BARS", "1")
     os.environ.setdefault("MLFLOW_ENABLE_ARTIFACTS_PROGRESS_BAR", "false")
     os.environ.setdefault("MPLBACKEND", "Agg")
-    from huggingface_hub import configure_http_backend
-
-    configure_http_backend(backend_factory=hub_session)
 
 
 def _private_dataset(version, commit, cache_dir):
