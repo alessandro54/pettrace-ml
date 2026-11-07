@@ -13,7 +13,7 @@ def dataset(version, commit):
                            animals={"animal": {}}, name=f"data@{version}")
 
 
-def test_run_generates_both_reports_and_mandatorily_publishes(tmp_path, monkeypatch):
+def test_run_generates_both_reports_and_mandatorily_publishes(tmp_path, monkeypatch, capsys):
     public, private = dataset("v2", "a" * 40), dataset("v5", "b" * 40)
     evaluations, saved, published = [], [], []
     model = SimpleNamespace(uri=e1.MODEL, sha256={"encoder.onnx": e1.ENCODER_SHA256},
@@ -52,6 +52,7 @@ def test_run_generates_both_reports_and_mandatorily_publishes(tmp_path, monkeypa
     assert published[0][1]["private_dataset_version"] == "v5"
     assert published[0][1]["extra_design"]["private_dataset_commit"] == "b" * 40
     assert (report / "benchmark-comparison.md").is_file()
+    assert "| comparison |" not in capsys.readouterr().out
     assert json.loads((report / "dataset-selection.json").read_text())["dataset"]["version"] == "v5"
     assert result["published"] is True
 

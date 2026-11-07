@@ -120,7 +120,6 @@ def run(output, *, private_version=PRIVATE_VERSION, private_commit=PRIVATE_COMMI
             extra_design={"execution": "headless", "private_dataset_commit": private_commit},
         )
         progress.update()
-    print(table, flush=True)
     print("Published:", publication["url"], flush=True)
     return publication
 
