@@ -1465,23 +1465,26 @@ wheels = [
 
 [[package]]
 name = "pettrace-ml"
-version = "0.2.28"
+version = "0.2.29"
 source = { editable = "." }
 dependencies = [
     { name = "huggingface-hub" },
     { name = "matplotlib" },
-    { name = "mlflow-skinny" },
     { name = "numpy" },
     { name = "onnxruntime" },
     { name = "pillow" },
     { name = "pyyaml" },
     { name = "requests" },
+    { name = "tqdm" },
 ]
 
 [package.optional-dependencies]
 notebooks = [
     { name = "ipython" },
     { name = "ipywidgets" },
+]
+tracking = [
+    { name = "mlflow-skinny" },
 ]
 training = [
     { name = "onnx" },
@@ -1492,6 +1495,7 @@ training = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "mlflow-skinny" },
     { name = "pytest" },
     { name = "ruff" },
 ]
@@ -1515,7 +1519,7 @@ requires-dist = [
     { name = "ipython", marker = "extra == 'notebooks'", specifier = ">=7.34,<10" },
     { name = "ipywidgets", marker = "extra == 'notebooks'", specifier = ">=8.1,<9" },
     { name = "matplotlib", specifier = ">=3.9,<4" },
-    { name = "mlflow-skinny", specifier = "==3.17.0" },
+    { name = "mlflow-skinny", marker = "extra == 'tracking'", specifier = "==3.17.0" },
     { name = "numpy", specifier = ">=1.26,<3" },
     { name = "onnx", marker = "extra == 'training'", specifier = ">=1.17,<2" },
     { name = "onnxruntime", specifier = "==1.31.0" },
@@ -1524,12 +1528,14 @@ requires-dist = [
     { name = "pyyaml", specifier = ">=6,<7" },
     { name = "requests", specifier = ">=2.32,<3" },
     { name = "torch", marker = "extra == 'training'", specifier = ">=2.5,<3" },
+    { name = "tqdm", specifier = ">=4.66,<5" },
     { name = "transformers", marker = "extra == 'training'", specifier = "==4.47.1" },
 ]
-provides-extras = ["notebooks", "training"]
+provides-extras = ["notebooks", "training", "tracking"]
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "mlflow-skinny", specifier = "==3.17.0" },
     { name = "pytest", specifier = "==8.3.4" },
     { name = "ruff", specifier = "==0.8.4" },
 ]

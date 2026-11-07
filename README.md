@@ -7,9 +7,9 @@ This repository documents the research questions, experimental methods, reusable
 ## Python package
 
 The distribution is `pettrace-ml`, imported as `pettrace`. See the [public methods and examples](docs/package.md)
-for refined-dataset loading, preparation, embeddings, training, evaluation and MLflow publication.
+for refined-dataset loading, verified model artifacts, training, evaluation and MLflow publication.
 Install the published package from [PyPI](https://pypi.org/project/pettrace-ml/):
-`pip install pettrace-ml==0.2.19`.
+`pip install pettrace-ml` (pin the notebook's exact version for a reproduction).
 The [release guide](docs/releases.md) covers publication and locked environments. Frozen experiment notebooks
 continue to use their recorded package and runtime versions.
 
@@ -22,7 +22,7 @@ The experiments investigate incremental changes to a shared visual retrieval pip
 | [E1 — Frozen representation](notebooks/e1_clip_zero_shot.ipynb) | How well does a pretrained visual encoder retrieve individual pets without domain adaptation? | Image without animal localization → CLIP ViT-B/32 → 512-dimensional, L2-normalized embedding. No parameter updates. | Reference evaluation published on PetTrace v4. |
 | [E2 — Animal localization](notebooks/e2_yolo_crop_zero_shot.ipynb) | How does localizing the animal affect retrieval with the same encoder? | YOLOv8n → highest-confidence cat/dog box with a 10% margin → the same frozen CLIP encoder. The image is retained when no valid box is available. | Reference evaluation published on PetTrace v4, including a recalculated E1 baseline. |
 | [E3 — Projection learning](notebooks/e3_mlp_head_triplet.ipynb) | Does a projection trained on public identities transfer to private PetTrace identities, and how variable is training across seeds? | Frozen E2 → MLP 512→256→512 → L2 normalization. Only the MLP is trained with batch-hard triplet loss. Seeds 45–49 are selected by public validation only. | Every seed publishes both evaluation domains; only the validation winner is registered for E4/E5. Historical seeds 42–44 and volume runs remain in MLflow. |
-| [E4 — Encoder adaptation](notebooks/e4_clip_lora.ipynb) | What additional benefit might adapting the visual encoder provide? | CLIP q/v LoRA (`r=8`, `alpha=16`) over a fixed E3 control. | The completed reference run remains historical; later E4/E5 studies consume the selected E3 handoff without using test metrics for selection. |
+| [E4 — Encoder adaptation](notebooks/e4_clip_lora.ipynb) | What additional benefit does adapting the visual encoder provide? | CLIP q/v LoRA (`r=8`, `alpha=16`) over the fixed seed-46 E3 control. | Frozen winner published on both domains; E5 consumes its verified model hashes without using test metrics for selection. |
 | E5 — Text-assisted retrieval | Can a sighting description improve visual candidate ranking? | Proposed integration of textual information or re-ranking. | Future research; no completed experiment is claimed. |
 
 CLIP is based on [Radford et al. (2021)](https://arxiv.org/abs/2103.00020), localization uses [Ultralytics YOLOv8](https://docs.ultralytics.com/models/yolov8/), and E3's batch-hard objective follows [Hermans, Beyer, and Leibe (2017)](https://arxiv.org/abs/1703.07737). These references motivate components; their published results are not evidence of performance on PetTrace.
@@ -47,7 +47,7 @@ The pipeline records:
 
 The current policy is exploratory: publisher identity labels are retained without requiring individual approval of every photograph. Technical filters and a visual sample do not verify every identity or establish independent capture sessions. The selection is bounded rather than a uniform sample of the complete sources; dog acquisition scans a limited archive-order metadata prefix.
 
-The prepared release is private on Hugging Face and includes its images, manifests, audit records, splits, and hashes. Named versions are immutable: another snapshot requires another version. The private PetTrace benchmark is curated/exported through a separate workflow. See [dataset documentation](datasets/README.md) and the [pipeline protocol](docs/e3_data_pipeline.md).
+The refined dog and cat releases are public on Hugging Face and include images, manifests, splits, hashes and the v2 YOLO localization overlay. Named versions resolve to audited immutable commits. The private PetTrace benchmark is curated/exported through a separate workflow. See [dataset documentation](datasets/README.md) and the [pipeline protocol](docs/e3_data_pipeline.md).
 
 ### Phase 2 — Representation and training
 
@@ -228,21 +228,27 @@ make test
 make lint
 ```
 
-Set credentials in the local runtime environment or load them from Colab Secrets in the notebook's visible access cell. Do not put tokens or passwords in notebook source or output. A local `.env` is not automatically transferred to Colab. Dataset access needs `HF_TOKEN`; model acquisition and result publication need the configured MLflow credentials.
+Set credentials in the local runtime environment or load them from Colab Secrets in the notebook's visible access cell. Do not put tokens or passwords in notebook source or output. A local `.env` is not automatically transferred to Colab. Public refined datasets need no token; private benchmarks and MLflow publication require their configured credentials.
 
 The distribution is `pettrace-ml`, while the import package is `pettrace`. The reference interpreter is Python 3.11.15; the locked training/notebook environment supports Python 3.11–3.12. [`uv.lock`](uv.lock) fixes dependency resolution. See [versioned releases](docs/releases.md) for installing the package or recreating the locked environment from its Git tag. Package releases contain the wheel, source distribution and checksums; experiment launchers remain in the versioned repository.
 
 ### Google Colab / VS Code
 
-For **E1 or E2**, open [E1](notebooks/e1_clip_zero_shot.ipynb) or [E2](notebooks/e2_yolo_crop_zero_shot.ipynb) in a fresh runtime,
-run setup and continue from environment verification. Restart the same session only if
-setup reports changed packages that were already loaded; it preserves Colab’s notebook infrastructure.
-The remaining cells run interactively: results appear below their code, and the final cell
-publishes both domains to MLflow. See [E1 setup and recovery](docs/e1_colab.md) or [E2 execution](docs/e2_colab.md).
+E1 now runs headlessly from the installed package, without a notebook, Drive or repository
+checkout. It evaluates the immutable public v1 test and a separately pinned private PetTrace
+snapshot, writes CMC, confusion, ranking and cross-domain figures, then publishes both domains
+to MLflow. The default private benchmark is the immutable PetTrace v5 release:
 
-The separate command `python tools/run_e1.py --work-dir reports/my-e1 --env-file .env`
-retains the historical isolated Python 3.11.15 workflow with the published v0.2.2 notebook.
-Notebooks are reserved for experiments and preprocessing.
+```bash
+pettrace run e1 --output reports/e1-v5
+```
+
+The runner pins `pettrace-reid@v5` to commit
+`1777734dbffda0df0bf43305233809ee73157d94`; both values remain explicit CLI overrides for
+auditing another immutable release.
+
+See [E1 execution and recovery](docs/e1_colab.md). E2 remains an interactive three-phase
+experiment notebook; see [E2 execution](docs/e2_colab.md).
 
 For E3, use the [canonical multiseed workflow](docs/e3_colab.md). It loads the refined v2 corpus
 from Hugging Face, computes frozen E2 features once, selects the winning seed only with public
@@ -262,20 +268,18 @@ make manifest
 
 Use the GPU Colab workflow for E3; the commands above do not configure GPU access for Docker. The generic evaluation CLI evaluates the supplied dataset; the notebooks implement the two-domain research comparison.
 
-`make prepare-e3` runs the independent data-preparation CLI through Docker. Preparation is not required again when consuming an existing verified release. Its optional Hugging Face upload is distinct from mandatory MLflow experiment publication.
-
 The encoder/detector ONNX files are verified by SHA-256 and a synthetic golden set. E1's encoder hash is `4773e649274ca8774c4a63d45f0438fe598ee7ba67e65def97537aa0eca9a576`; E2's detector hash is `da8f9b9ebea5157cdcefa7bea9fd782249ebdf119f917c07d64e5b41942b9c9d`. Model version numbers identify registry entries on a specific server; artifact hashes identify the evaluated files. Registration/export tools are available in [`tools/`](tools/README.md).
 
 ## Repository layout
 
 ```text
-datasets/          Shared preparation notebook, dataset documentation, source-capacity reference
+datasets/          Dataset documentation and small versioned evidence
 notebooks/         Three-phase E1/E2/E3 experiment reports and research index
-src/pettrace/data/        Acquisition, curation, screening, preparation and versioned snapshots
+src/pettrace/data/        Immutable Hub loaders, snapshot verification and coverage metadata
 src/pettrace/models/      ONNX inference, golden checks and CLIP reference
 src/pettrace/training/    Frozen feature cache and metric learning/export
 src/pettrace/evaluation/  Protocols, metrics, figures and public/private research comparisons
-src/pettrace/experiments/ Explicitly separate legacy orchestration
+src/pettrace/experiments/ Reproducible E1–E5 orchestration and publication
 src/pettrace/tracking.py  Publication and source/runtime provenance
 tests/             Implementation/protocol checks, not empirical research results
 tools/             Model registration, verification, notebook attachment, run-index synchronization

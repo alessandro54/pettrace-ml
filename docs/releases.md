@@ -1,8 +1,25 @@
 # Package releases
 
+## 0.2.29 — OSS package boundary and archived E4 diagnostic
+
+- Removes the one-off validation notebook and diagnostic-only package API after successful MLflow publication.
+- Preserves the protocol, results, selection decision and immutable MLflow receipt in the thesis documentation.
+- Freezes E4 seed 46, epoch 9 and registered candidate 19 by run IDs and ONNX hashes for E5.
+- Leaves the frozen E4 model and standard evaluator unchanged.
+- Moves MLflow into the optional `tracking` extra and configures it exclusively through standard
+  MLflow environment variables, so local evaluation no longer depends on the author's server.
+- Makes the CLI require an explicit model; unlabeled diagnostics can stay local, while a named
+  experiment requires configured MLflow publication.
+- Adds an OSS-facing Hugging Face model loader that resolves releases to immutable commits and
+  requires a complete ONNX pipeline plus golden self-test artifact.
+- Separates reusable public APIs from historical Drive preparation compatibility in the package
+  documentation without deleting the code needed to audit old runs.
+- Rejects an untracked CLI invocation carrying an experiment label while preserving local,
+  unlabeled evaluation as a reusable diagnostic.
+
 ## 0.2.28 — E4 validation inference ablation
 
-- Adds a validation-only notebook for deterministic horizontal-flip TTA and identity aggregation.
+- Adds a validation-only diagnostic for deterministic horizontal-flip TTA and identity aggregation.
 - Loads the frozen seed-46 E4 candidate from MLflow without retraining or evaluating either test benchmark.
 - Publishes the six-condition diagnostic unconditionally to MLflow with an idempotent receipt.
 - Keeps the E4 runtime free of Google Drive.

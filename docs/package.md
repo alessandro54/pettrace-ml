@@ -1,217 +1,174 @@
 # PetTrace ML
 
-Python tools for research on visual re-identification of individual dogs and cats.
-The distribution is **`pettrace-ml`**; the Python import is **`pettrace`**.
-Dataset preparation, model inference, metric learning and evaluation live in the package.
-Notebooks describe and run the experiments.
+Reusable Python tools for research on visual re-identification of individual dogs and cats.
+The distribution is **`pettrace-ml`** and the Python import is **`pettrace`**.
+
+PetTrace provides four independent layers:
+
+1. immutable refined datasets from Hugging Face;
+2. verified ONNX model artifacts and inference;
+3. metric-learning training and retrieval evaluation;
+4. an installable MLflow adapter; official PetTrace experiment publication remains mandatory.
+
+The package contains methods, validation and provenance. Notebooks contain the research
+question, experiment configuration, figures and interpretation.
 
 ## Installation
 
-Python 3.11–3.13 is supported. Install a published version in your Python environment:
+Python 3.11–3.13 is supported.
 
 ```bash
-python -m pip install pettrace-ml==0.2.19
+python -m pip install pettrace-ml
 ```
 
-The default install includes plots. Colab already supplies IPython and widgets; the
-`[notebooks]` extra adds them for standalone Jupyter environments. Use `[training]`
-to also install PyTorch, Transformers, ONNX export and pandas. For development, use `pip install -e .`.
+Install only the capabilities a workflow needs:
 
-Colab is the primary notebook target. Experiment notebooks install an exact package version directly:
-
-```python
-%pip install -q "pettrace-ml[training,notebooks]==0.2.26"
+```bash
+python -m pip install "pettrace-ml[training]"  # PyTorch, Transformers and ONNX export
+python -m pip install "pettrace-ml[tracking]"  # MLflow publication and registry access
+python -m pip install "pettrace-ml[notebooks]" # standalone Jupyter support
 ```
 
-Use a fresh runtime appropriate for the notebook. CI tests this ordinary installation. The exact package version
-identifies the published code; every run records its resolved runtime because Colab's base image
-can change. The hosted frontend and authenticated services still need validation in Colab.
+For a reproducible run, pin the exact version used by its notebook. `pip install` does not
+apply this repository's `uv.lock`; use the matching Git tag and `uv sync --locked` when the
+complete development environment must be reproduced.
 
-Model weights and datasets are separate artifacts and are not included in the package.
-GPU screening and training use Colab's CUDA runtime plus the `[training]` extra.
+## Datasets
 
-Download either public refined source directly from its immutable Hugging Face release:
+The public v2 training corpus is the verified union of two immutable Hugging Face datasets.
+It contains the audited v1 images, identities and splits plus the pinned YOLO localization
+overlay. Loading never cleans data, runs YOLO or mutates the Hub repositories.
 
 ```python
 from pettrace import data
 
-dogs = data.dogs_of_the_world(version="v1")
-cats = data.labeled_cats_in_the_wild(version="v1")
-print(dogs.commit, dogs.shards("train"))
-```
-
-Load the audited v2 union ready for E4. This pins both Hub commits, verifies the
-v4.100 fingerprint and YOLO overlays, and materializes the image shards locally:
-
-```python
-training = data.training(version="v2", cache_dir="/content/datasets/pettrace-refined")
+training = data.training(version="v2", cache_dir="/content/pettrace-data")
 print(training.fingerprint, training.summary)
 ```
 
-The returned object exposes `root`, `commit`, `manifest`, `metadata_path`,
-`metadata()` and `shards()`. Hugging Face owns the download cache. The loader does not
-extract shards, run YOLO or create a new dataset version. Once the verified `v2` overlays
-are published, pass `version="v2"` to download v1 images plus their compact bounding boxes.
-
-## Public methods
-
-`lookup_duplicates(..., near_cache="/content/data-lookup/signatures", drive_root=...)`
-adds conservative resized/recompressed-copy proposals before the distinct-photo minimum.
-It compares unique image hashes across labels, quarantines involved labels and records each
-dHash/RGB link for `quarantine_groups` / `quarantine_gallery`. Labels are never merged automatically.
-Omit `near_cache` for the existing CSV-only audit. Drive restores signatures first and only
-recovers originals without signatures. New signatures are saved in immutable incremental
-chunks, shared across source volumes. This CPU pass still needs source bytes the first time;
-it does not run YOLO, infer animal identity or guarantee detection of every edited copy.
-
-Apply recorded human same-animal confirmations to a **completed original report**:
+Individual sources are available when an experiment needs them separately:
 
 ```python
-reviewed = lookup_duplicates(report / "review.csv", report.parent,
-                            identity_review="confirmed-groups.json")
+dogs = data.dogs_of_the_world(version="v2")
+cats = data.labeled_cats_in_the_wild(version="v2")
 ```
 
-The review must identify the original lookup fingerprint, reviewer, complete group labels,
-image SHA256 values and counts. The new index retains the original CSV and records canonical
-aliases in `identity-review.json`; it reuses the saved visual audit without reopening images.
-Photo decisions, near-copy quarantine and minimum counts still apply. Use this new index in
-preparation with a new dataset version; held-out or excluded aliases protect their whole group.
-Further confirmations are cumulative against the original lookup, not chained corrected indices.
+Every loader resolves the release tag to its audited 40-character commit, verifies the
+manifests and hashes, and returns provenance with the materialized files. A token is optional
+for public datasets and can be passed explicitly for a private mirror.
 
-Load a refined dataset for an experiment (PetTrace 0.2.8+):
+The frozen `pettrace-training@v1` evaluation snapshot has a separate read-only loader used by
+E1–E4. Raw acquisition, cleaning, YOLO preparation and dataset publication are intentionally not
+package APIs: those one-time workflows are preserved by immutable Hub releases and Git history.
+
+## Models
+
+Model releases are ordinary directories containing at least:
+
+```text
+pipeline.yaml
+golden.npy
+*.onnx
+```
+
+Load and verify a local artifact:
 
 ```python
-from pettrace import data
+from pettrace.models import load_model
 
-dataset, provenance = data.load(
-    "v2.50",
-    drive_root="/content/drive/MyDrive/PetTrace",
+model = load_model("artifacts/e4")
+if not model.golden_ok:
+    raise RuntimeError("Model failed its golden self-test")
+embeddings = model.pipeline.embed(images)
+```
+
+Download a public or private Hugging Face model release by tag or commit, then run the same
+verification. PetTrace resolves tags to immutable commits before downloading.
+
+```python
+from pettrace.models import download_model, load_model
+
+artifact = download_model(
+    "your-account/pettrace-reid-models",
+    revision="v1",
+    subfolder="e4",
 )
-photos = dataset.rows
+model = load_model(artifact)
 ```
 
-The loader verifies a local version first, then restores the requested snapshot from the
-mounted Drive preparation backup, or downloads its published `alessandro54/pettrace-training`
-release from Hugging Face. Mount/authorize Drive beforehand; `HF_TOKEN` is needed only for
-private Hub access. The default cache is `datasets/build/pettrace-training`; use `cache_dir`
-to choose another local location. The returned dataset has `root`, `rows`, `summary` and
-`fingerprint`; keep `provenance` with the experiment report.
+MLflow model URIs remain supported when the `tracking` extra is installed. They are a storage
+adapter, not a requirement of inference or evaluation.
 
-The first Hub commit is saved locally and reused even if a remote tag moves. Missing files
-can be recovered; corrupt hashes or unsafe paths fail validation. Drive is read-only here;
-Hub downloads are cached locally. A lost Colab VM loses that local cache, while existing Drive
-backups remain available. The loader never downloads raw ZIPs, runs YOLO, cleans data or trains.
-An unavailable version must be prepared/published separately. Frozen experiment notebooks
-retain their recorded loaders and pins; the immutable benchmark API remains in `data.versions`.
+## Training and evaluation
 
-These are the supported import paths for the research workflows. Helpers whose names
-start with `_` are internal. Existing experiment imports continue to work.
+The stable research primitives live in these modules:
 
-| Module | Methods | Purpose |
+| Module | Purpose |
+|---|---|
+| `pettrace.models` | Download, load and golden-verify model artifacts; run ONNX pipelines. |
+| `pettrace.data` | Load pinned refined sources and the combined public v2 corpus. |
+| `pettrace.training.features` | Cache frozen embeddings by image and model hashes. |
+| `pettrace.training.triplet` | Train/export the E3 MLP projection head. |
+| `pettrace.training.lora` | Inject, train, merge and export E4 LoRA adapters. |
+| `pettrace.evaluation.core` | Evaluate a verified model under the shared retrieval protocol. |
+| `pettrace.evaluation.metrics` | Rank-k, mAP, pair scores, descriptive EER and thresholds. |
+| `pettrace.experiments` | Reusable orchestration and publication for the thesis experiments. |
+| `pettrace.tracking` | Connect to a caller-selected MLflow server and publish saved evidence. |
+
+Retrieval is closed-set, same-species and photo-level leave-one-out. Rank-k aggregates by the
+maximum gallery-photo score for each identity; AP/mAP ranks gallery photos. EER fitted and
+reported on the same pairs is descriptive, not an independently calibrated operating point.
+
+The canonical notebooks in [`notebooks/`](../notebooks) demonstrate the complete three-phase
+protocol: preparation, representation/training, and evaluation/analysis. Public v1 and PetTrace
+are evaluated and published as separate domains; their galleries are never mixed.
+
+Long-running loads and training loops render one normalized progress bar in terminals and
+notebooks. Epoch bars show the current loss, validation mAP and selected best epoch; complete
+records remain in `history.json`. Evaluation plots are deliberately explicit: each public plot
+method returns one figure, while report orchestration only saves those named figures and tables.
+
+| Method | Report file | Meaning |
 |---|---|---|
-| `pettrace.data` | `load`, `training`, `dogs_of_the_world`, `labeled_cats_in_the_wild` | Load prepared snapshots or the immutable public refined sources. |
-| `pettrace.data.lookup` | `lookup_duplicates`, `load_candidates`, `restore_lookup_review` | Audit duplicates, index pre-YOLO candidates and recover the raw inventory from Drive. |
-| `pettrace.data.sources` | `discover_body_ids`, `write_review` | Build a SHA-256 inventory from locally extracted source photos and publisher labels. |
-| `pettrace.data.review` | `exclusion_summary`, `quarantine_groups`, `quarantine_gallery`, `save_decisions` | Inspect filtering, review conflicting labels and record explicit decisions. |
-| `pettrace.data.workflow` | `TrainingPreparation.restore`, `.stage`, `.prepare` | Stage indexed inputs on CPU, screen on GPU, or reuse refined data. Dataset publication is separate operational tooling. |
-| `pettrace.data.checkpoints` | `DriveBackup.restore`, `stage_archive` | Verify and restore checkpoints; stage a source ZIP on local scratch storage. |
-| `pettrace.data.versions` | `load_local_training`, `load_training`, `record_version` | Load verified local or Hub snapshots and assign immutable version names. |
-| `pettrace.data.yolo_overlay` | `prepare_yolo_overlay`, `update_dataset_card` | Derive a resumable, pinned YOLO box overlay from the immutable public source releases without publishing it. |
-| `pettrace.models.pipeline` | `Pipeline.preprocess`, `.embed` | Apply the artifact-defined preprocessing and ONNX encoder. |
-| `pettrace.training.features` | `feature_cache` | Reuse frozen embeddings by image and model hashes. |
-| `pettrace.training.triplet` | `Config`, `Head`, `fit`, `export_encoder` | Train the MLP projection using validation identities and export it with the frozen encoder. |
-| `pettrace.evaluation.core` | `load_model`, `evaluate`, `report` | Verify registered models and calculate retrieval results. |
-| `pettrace.evaluation.metrics` | `retrieval`, `pair_scores`, `eer`, `at_threshold` | Calculate same-species retrieval and pair-score metrics. |
-| `pettrace.tracking` | `publish_evaluation`, `publish_validation_diagnostic`, `source_identity`, `save_provenance` | Publish experiment evidence and record its code/runtime identity. |
-| `pettrace.experiments.e1` | `resume_publication` | Retry publication from saved evidence without repeating inference. |
-| `pettrace.experiments.e3` | `select_validation_candidate`, `load_benchmarks`, `load_published`, `publish_results`, `register_candidate` | Select an E3 candidate using validation only, load separated pinned benchmarks, publish both domains and register the winner without promoting an alias. |
+| `confusion` | `confusion.png` | Top-1 confusion counts by identity and species. |
+| `rank1_per_animal` | `rank1-per-animal.png` | Rank-1 accuracy for every identity. |
+| `score_distribution` | `score-distribution.png` | Same-identity and different-identity cosine distributions. |
+| `cmc` | `cmc.png` | Cumulative matching characteristic by rank. |
+| `similarity_matrix` | `similarity-matrix.png` | Mean identity-to-identity cosine similarity. |
+| `ranking_metrics` | `ranking-metrics.png` | Rank-1, Rank-2 and mAP by scope. |
 
-## Duplicate audit without model inference
+## Tracking
 
-Given a raw `review.csv` containing source paths, labels and recorded SHA-256 hashes:
+The library does not hardcode a tracking server. Standard MLflow environment variables select
+the destination:
 
-```python
-import json
-from pettrace.data.lookup import lookup_duplicates
-
-report = lookup_duplicates("review.csv", "reports/data-lookup")
-summary = json.loads((report / "summary.json").read_text())
-print(summary["files"], summary["unique_images"], summary["duplicate_copies"])
+```bash
+export MLFLOW_TRACKING_URI=https://your-mlflow.example
+export MLFLOW_TRACKING_USERNAME=...
+export MLFLOW_TRACKING_PASSWORD=...
 ```
 
-This exports one representative per hash, every original label, a mapping of duplicate
-copies and identity conflicts for review. It does not delete photos or merge identities.
-Counts cover the supplied inventory, not unobserved photos. Recorded hashes are used
-without rereading images; exact-byte duplicates do not identify every visually similar photo.
+`tracking_context()` fails explicitly if no URI is configured or the tracking extra is absent.
+Generic library calls and local CLI evaluation can run without MLflow. The official PetTrace
+experiment notebooks are stricter: publication to `https://ml.pettrace.app` is mandatory, and
+an experiment is complete only after both benchmark runs have been published. Publication can
+be retried from saved evidence without retraining. Model registration and serving alias
+promotion remain separate operations.
 
-`candidates.csv` separately selects one image per hash after manual drops, whole-identity
-quarantine and the distinct-photo minimum (default four). `excluded.csv` records every
-noncandidate and its reason. Pending source labels remain unverified; this is not yet a
-training dataset. `load_candidates(report, review_csv)` checks integrity and the matching
-source inventory before returning candidates and exclusions.
+## Reproducibility contract
 
-Pass `candidate_index=report` to `PrepareConfig` or `TrainingPreparation` to apply this index
-before YOLO. The latter requires an explicit new version, for example `version="v3.100"`.
-The current review must match exactly; later decisions require a new index. Preparation
-still protects the frozen benchmark, checks image bytes, runs screening and near-duplicate
-curation and reapplies the photo minimum. Existing v2 versions are not changed.
+A reproducible result records all of the following:
 
-For `TrainingPreparation`, run `preparation.stage()` **on CPU first**, with the pinned
-screening environment. It reuses local candidate photos, recovers missing ones and matching
-detections from confirmed backups, then writes compact packs under
-`checkpoints/indexed/<index-sha256>/`. The completion receipt is written last. The first
-staging may still copy large historical packs when needed photos are absent; it does not run
-YOLO. Keep one writer and the same `work_dir` in both sessions (normally `/content`).
+- package version and source hash;
+- dataset repository, immutable commit and fingerprint;
+- model artifact hashes and golden fingerprint;
+- seed, configuration, protocol and runtime versions;
+- separate public and PetTrace results;
+- MLflow run IDs for official experiments.
 
-On GPU, `preparation.prepare()` requires that completed input and restores only its photos,
-source receipts, index, frozen reference/model and compatible detections. It does not restore
-the historical raw tree, stage ZIPs or rehash excluded images. All raw rows and exclusion
-reasons remain in the audit; every candidate's bytes and the source membership are verified.
-The CPU/GPU equivalence check and final filtering remain enforced. Compatible new detections
-are checkpointed in the compact namespace for retries; refined versions are saved separately.
-`restore()` reads only the requested refined version, including recovery of a partial restore.
+Version pins do not guarantee bit-identical floating-point values across different hardware.
+Original datasets and upstream weights retain their own licenses; the package code is MIT.
 
-In Colab, after mounting Drive, recover the confirmed raw inventory of the selected volume:
-
-```python
-from pathlib import Path
-from pettrace.data.lookup import restore_lookup_review
-
-drive = Path("/content/drive/MyDrive/PetTrace")
-review = restore_lookup_review(drive, "/content", percent=100)
-report = lookup_duplicates(review, drive / "data-lookup")
-```
-
-This uses PetTrace preparation backups in `checkpoints/preparation`. It copies and verifies
-the TAR block containing the CSV and restores only that file. Missing backups fail explicitly;
-it does not silently change the percentage or run preparation. Reports persist in Drive.
-The optional `quarantine_gallery` needs the original photos at their recorded paths.
-
-## E4 LoRA primitives
-
-`pettrace.training.lora.inject_lora(model, rank=8, alpha=16)` freezes a PyTorch model and adds trainable low-rank updates to its `q_proj` and `v_proj` layers. `merge_lora(model)` folds those updates back into the linear weights for export. `load_frozen_e3_head(path, sha256)` refuses a control checkpoint whose bytes do not match the recorded MLflow artifact.
-
-These methods prepare E4; they do not train, evaluate or publish an experiment by themselves.
-
-## Experiments and reproducibility
-
-Use the versioned
-[experiment notebooks](https://github.com/alessandro54/pettrace-ml/tree/main/notebooks)
-for the complete public-test and private-PetTrace protocols. Keep their galleries separate.
-Retrieval is closed-set and same-species, with photo-level leave-one-out evaluation.
-EER fitted and reported on the same pairs is descriptive, not an independently calibrated threshold.
-
-All PetTrace experiment runs must publish results to
-[MLflow](https://ml.pettrace.app). Low-level metric functions alone do not complete an experiment.
-Model registration and serving promotion are separate from publication. Keep saved evidence
-when publication fails so it can be retried. Data preparation is a separate workflow.
-
-`pip install` resolves the declared dependency ranges; it does **not** apply `uv.lock`.
-For a locked environment use the matching Git tag and `uv sync --locked`, or the experiment's
-published runtime profile. Reproduction also requires the recorded data/model hashes,
-configuration, seed and compatible hardware. A version pin does not guarantee identical
-floating-point results across hardware.
-
-The package code is MIT-licensed. Original datasets and model weights retain their own licenses.
-See [release instructions](https://github.com/alessandro54/pettrace-ml/blob/main/docs/releases.md)
-and [dataset preparation](https://github.com/alessandro54/pettrace-ml/blob/main/datasets/README.md).
+Operational release and registry scripts live under `tools/` and are not part of the public
+runtime API. Historical preparation implementations remain in Git history; current experiments
+consume verified Hugging Face artifacts only.

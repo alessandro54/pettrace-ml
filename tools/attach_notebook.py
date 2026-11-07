@@ -2,7 +2,7 @@
 
     python tools/attach_notebook.py notebooks/e1_clip_zero_shot.ipynb      # run by `make notebook`
 
-Interactive E1/E2/E3: supply --run-id PRIVATE --public-run-id PUBLIC, with --experiment E2 or E3, optionally --env-file .env.
+Interactive E1/E2/E3: supply --run-id PRIVATE --public-run-id PUBLIC and export credentials first.
 Other notebooks declare metadata.pettrace.report and write run.json there.
 Save the notebook after execution so the attachment includes its final outputs.
 """
@@ -17,12 +17,14 @@ from tempfile import TemporaryDirectory
 
 import mlflow
 
+HISTORICAL_PRIVATE_COMMIT = "8b12db0dce41040a821f9792bea5b352342263ce"
+
 
 def attach_experiment(notebook, private_run, public_run, experiment="E1"):
     """Archive a saved interactive experiment in both completed runs without reevaluating."""
     if experiment not in {"E1", "E2", "E3"}:
         raise ValueError("Only E1, E2 and E3 are supported")
-    from pettrace.experiments.e1 import PRIVATE_COMMIT, notebook_artifacts
+    from pettrace.experiments.e1 import notebook_artifacts
     from pettrace.evaluation.research import PUBLIC_COMMIT
     from pettrace.tracking import production_context
 
@@ -39,7 +41,7 @@ def attach_experiment(notebook, private_run, public_run, experiment="E1"):
         if secret and secret.encode() in contents:
             raise ValueError("A credential appears in the notebook; refusing upload")
     client, _ = production_context()
-    for run_id, commit in ((public_run, PUBLIC_COMMIT), (private_run, PRIVATE_COMMIT)):
+    for run_id, commit in ((public_run, PUBLIC_COMMIT), (private_run, HISTORICAL_PRIVATE_COMMIT)):
         run = client.get_run(run_id)
         if (run.info.status != "FINISHED" or run.data.tags.get("experiment") != experiment
                 or run.data.params.get("dataset.commit") != commit):
@@ -91,13 +93,9 @@ def main() -> int:
     parser.add_argument("--experiment", choices=("E1", "E2", "E3"), default="E1")
     parser.add_argument("--run-id", help="Private run; requires --public-run-id")
     parser.add_argument("--public-run-id", help="Public run; requires --run-id")
-    parser.add_argument("--env-file")
     args = parser.parse_args()
     if bool(args.run_id) != bool(args.public_run_id):
         parser.error("Provide both run IDs")
-    if args.env_file:
-        from pettrace.experiments.e1 import credentials
-        credentials(args.env_file)
     if args.run_id:
         from pettrace.tracking import PRODUCTION_URI
         mlflow.set_tracking_uri(PRODUCTION_URI)

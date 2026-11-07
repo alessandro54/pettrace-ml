@@ -1,38 +1,44 @@
-# E1 en Colab
+# E1 headless
 
-**Baseline congelado: `e1-v1` (2026-10-31).** [Runs, versiones, métricas y hashes](e1-frozen.json). El tag conserva el notebook ejecutado; las mejoras operativas posteriores no cambian esa evidencia. Un cambio de modelo, datos o protocolo requiere otra versión del baseline.
+**Baseline histórico congelado: `e1-v1` (2026-10-31).** [Runs, versiones, métricas y hashes](e1-frozen.json). La nueva ejecución headless no altera esa evidencia.
 
-Abre [`e1_clip_zero_shot.ipynb`](../notebooks/e1_clip_zero_shot.ipynb) en una sesión nueva con Python 3.11–3.13.
+E1 se ejecuta desde el paquete instalado, sin notebook, Drive ni checkout del repositorio. Mantiene CLIP ViT-B/32 congelado y sin detector. Evalúa por separado:
 
-1. Ejecuta setup. Instala `pettrace-ml[notebooks]==0.2.17` directamente desde PyPI.
-2. Continúa desde la verificación del wheel publicado.
-3. Crea `HF_TOKEN`, `MLFLOW_TRACKING_USERNAME` y `MLFLOW_TRACKING_PASSWORD` en Colab Secrets, habilita el acceso del notebook y ejecuta su celda de credenciales. La `.env` local no se transfiere a Colab.
-4. Ejecuta las tres fases en orden. Las tablas y figuras aparecen debajo de sus celdas.
+- el test inmutable de `pettrace-training@v1`;
+- una versión y commit explícitos del benchmark privado `pettrace-reid`.
 
-La última celda también sube los recibos finales a ambos runs. Para archivar el notebook completo, **guárdalo primero con sus salidas** y ejecuta en el equipo donde está ese archivo:
+El runner genera `summary.json`, `scores.json`, CMC, matriz de confusión, comparación Rank-1/Rank-2/mAP, diagnóstico por identidad y comparación entre dominios. Después publica obligatoriamente ambos reportes en `https://ml.pettrace.app`.
+
+## Ejecución
+
+Instala una release exacta con tracking y exporta las credenciales sin guardarlas en código:
 
 ```bash
-python tools/attach_notebook.py notebooks/e1_clip_zero_shot.ipynb \
-  --run-id RUN_PRIVADO --public-run-id RUN_PUBLICO --env-file .env
+python -m pip install "pettrace-ml[tracking]==VERSION"
+export HF_TOKEN=...
+export MLFLOW_TRACKING_URI=https://ml.pettrace.app
+export MLFLOW_TRACKING_USERNAME=...
+export MLFLOW_TRACKING_PASSWORD=...
 ```
 
-Sustituye los IDs por los del recibo. El comando comprueba ambos runs, sube el notebook por partes, lo descarga para verificarlo y sincroniza los recibos. Puede reintentarse sin inferencia; rechaza reemplazar un notebook diferente ya archivado. El kernel remoto no puede guardar por sí solo el archivo abierto en VS Code.
+La condición privada predeterminada es `pettrace-reid@v5`, fijada al commit
+`1777734dbffda0df0bf43305233809ee73157d94`:
 
-Si falla la instalación, conserva la salida de pip y no continúes con una versión distinta.
-
-## Resultados y recuperación
-
-Cada corrida guarda reportes en `REPORT`, con el test público y PetTrace separados. La última celda publica ambos en `https://ml.pettrace.app`; `publication.json` debe contener `published: true`, `run_id` y `public_run_id`. Guarda el notebook para conservar sus salidas.
-
-Si aparece `413` al subir una lámina de fotografías, ejecuta solo la última celda actualizada: prepara vistas JPEG de hasta 512 KiB, conserva los PNG originales junto a `REPORT` (fuera de la carpeta subida) y reintenta la publicación. No recalcula embeddings ni métricas.
-
-Si falla únicamente la publicación, conserva los reportes y reintenta sin repetir inferencia:
-
-```python
-from pettrace.experiments.e1 import resume_publication
-resume_publication(REPORT)
+```bash
+pettrace run e1 --output reports/e1-v5
 ```
 
-Las salidas históricas no acreditan una nueva corrida. El entorno de referencia es Python 3.11.15: las versiones, datasets y modelo quedan registrados, pero la igualdad de métricas entre plataformas debe comprobarse con corridas completas. [Versiones de Colab](https://research.google.com/colaboratory/runtime-version-faq.html).
+`--private-version` y `--private-commit` permiten auditar otra release inmutable, pero deben
+proporcionarse juntos y registrarse como una condición de benchmark diferente.
 
-El lanzador opcional `tools/run_e1.py` conserva la ejecución histórica aislada; descarga el notebook de la release y produce `e1.executed.ipynb`. El notebook interactivo no lo utiliza.
+El runner comprueba que la etiqueta resuelva exactamente al commit solicitado y que no haya imágenes idénticas entre los dominios. Nunca mezcla galerías. La diferencia entre ambos resultados es descriptiva porque cambian identidades, tamaño de galería y condiciones de captura.
+
+## Recuperación
+
+La evidencia numérica y los recibos se guardan antes de completar la publicación. Si falla únicamente MLflow, conserva el reporte y reintenta sin descargar imágenes ni recalcular embeddings:
+
+```bash
+pettrace run e1 --resume reports/e1-v5
+```
+
+`publication.json` debe terminar con `published: true`, `run_id` y `public_run_id`. Una corrida no está completa hasta que ambos runs finalicen correctamente.

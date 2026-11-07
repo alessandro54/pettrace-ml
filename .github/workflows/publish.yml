@@ -45,7 +45,7 @@ jobs:
       - name: Check installed distribution
         run: |
           uv pip install --python .venv/bin/python --reinstall --no-deps dist/v*/*.whl
-          .venv/bin/python -I -c "import pettrace; from pettrace.data.lookup import lookup_duplicates, restore_lookup_review; from pettrace.data.workflow import TrainingPreparation; from pettrace.training.triplet import fit; from pettrace.tracking import publish_evaluation; assert 'site-packages' in pettrace.__file__"
+          .venv/bin/python -I -c "import pettrace; from pettrace.data.refined_sources import load_training; from pettrace.data.snapshots import load_training as load_snapshot; from pettrace.training.triplet import fit; from pettrace.tracking import publish_evaluation; assert 'site-packages' in pettrace.__file__"
       - uses: actions/upload-artifact@v4
         with:
           name: distributions
@@ -70,10 +70,9 @@ jobs:
         run: |
           uv venv --python '${{ matrix.python }}'
           uv pip install --python .venv/bin/python dist/*.whl
-          .venv/bin/python -I -c "from pettrace.data.lookup import lookup_duplicates, restore_lookup_review; from pettrace.data.workflow import TrainingPreparation; from pettrace.evaluation.core import evaluate; from pettrace.tracking import publish_evaluation"
+          .venv/bin/python -I -c "from pettrace.data.refined_sources import load_training; from pettrace.data.snapshots import load_training as load_snapshot; from pettrace.evaluation.core import evaluate; from pettrace.tracking import publish_evaluation"
           .venv/bin/python -I -c "import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt; fig = plt.figure(); fig.canvas.draw(); plt.close(fig)"
-          .venv/bin/pettrace-evaluate --help
-          .venv/bin/pettrace-prepare-e3 --help
+          .venv/bin/pettrace evaluate --help
 
   colab:
     needs: build

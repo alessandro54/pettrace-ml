@@ -1,5 +1,5 @@
 """The thesis evaluation protocol on a pinned `pettrace-reid` version, shared by the experiment
-notebooks (notebooks/eK_*.ipynb) and the CLI (python -m pettrace.cli).
+notebooks (notebooks/eK_*.ipynb) and the CLI (`pettrace evaluate`).
 
     model = load_model("models:/pettrace-embedder/1")        # download + identity + golden check
     ev = evaluate(data.load("v3"), model.pipeline, zero_shot=True)
@@ -14,9 +14,6 @@ Each animal scores with its best photo, as the app does. Metrics: Rank-1/2/5/10 
 photo, per species and global, always with the gallery size.
 """
 
-import copy
-import glob
-import hashlib
 import json
 import os
 import platform
@@ -28,22 +25,17 @@ from PIL import Image, ImageOps
 
 from pettrace.data import benchmark as data
 from pettrace.evaluation import metrics
-from pettrace.models.golden import compare, fingerprint, golden_images
+from pettrace.models import artifacts as model_artifacts
+from pettrace.models.artifacts import Model
 from pettrace.models.pipeline import Pipeline
 
 EXPERIMENT = "pettrace-reid-eval"
 
-
-@dataclass
-class Model:
-    uri: str
-    dir: str
-    pipeline: Pipeline
-    model_version: str  # e.g. clip-vit-b32@v1: the tag stored with every vector
-    registry_version: str  # the registry's version number (local to one MLflow server)
-    sha256: dict[str, str]  # per ONNX file: the identity that holds across registries
-    golden_ok: bool
-    golden_fingerprint: str
+# Backwards-compatible imports for published experiment code.
+file_hashes = model_artifacts.file_hashes
+load_model = model_artifacts.load_model
+model_dir = model_artifacts.model_dir
+registry_version = model_artifacts.registry_version
 
 
 @dataclass
@@ -57,81 +49,12 @@ class Evaluation:
     diff: np.ndarray  # cosine scores of different-animal pairs (same species)
 
 
-def file_hashes(mdir: str) -> dict[str, str]:
-    out = {}
-    for path in sorted(glob.glob(os.path.join(mdir, "**", "*.onnx"), recursive=True)):
-        h = hashlib.sha256()
-        with open(path, "rb") as f:
-            for chunk in iter(lambda: f.read(1 << 20), b""):
-                h.update(chunk)
-        out[os.path.basename(path)] = h.hexdigest()
-    return out
-
-
-def registry_version(uri: str) -> str:
-    """models:/name@alias or models:/name/N → the version number it points to (aliases move)."""
-    if not uri.startswith("models:/"):
-        return ""
-    from mlflow import MlflowClient
-
-    name, _, ref = uri[len("models:/") :].partition("@")
-    if ref:
-        return MlflowClient().get_model_version_by_alias(name, ref).version
-    return name.rsplit("/", 1)[1] if "/" in name else ""
-
-
-def model_dir(uri: str) -> str:
-    if os.path.isdir(uri):
-        return uri
-    import mlflow
-
-    return mlflow.artifacts.download_artifacts(uri)
-
-
-def load_model(uri: str) -> Model:
-    """Download a registered version and check it is the model it claims to be: the golden set
-    re-embedded with its own pipeline must match the stored golden embeddings."""
-    mdir = model_dir(uri)
-    pipeline = Pipeline(mdir)
-    stored = np.load(os.path.join(mdir, "golden.npy"))
-    fresh = pipeline.embed(golden_images())
-    ok, _, _ = compare(stored, fresh)
-    return Model(uri, mdir, pipeline, pipeline.spec.get("model_version", ""), registry_version(uri),
-                 file_hashes(mdir), ok, fingerprint(fresh))
-
-
 def embed(pipeline: Pipeline, photos: list[data.Photo], batch: int = 32) -> np.ndarray:
     out = []
     for i in range(0, len(photos), batch):
         images = [ImageOps.exif_transpose(Image.open(p.path)).convert("RGB") for p in photos[i : i + batch]]
         out.append(pipeline.embed(images))
     return np.concatenate(out) if out else np.zeros((0, 0))
-
-
-def horizontal_flip_tta(pipeline: Pipeline, rows: list[dict], crop, batch: int = 32) -> tuple[np.ndarray, np.ndarray]:
-    """Embed each prepared crop and its mirror, returning baseline and spherical-pooled vectors."""
-    if not rows:
-        raise ValueError("Horizontal-flip TTA requires at least one validation row")
-    inference = copy.copy(pipeline)
-    inference.detector = None  # The caller supplies the already-fixed YOLO crop.
-    original, pooled = [], []
-    for i in range(0, len(rows), batch):
-        images = [crop(row) for row in rows[i : i + batch]]
-        base = _unit_rows(inference.embed(images))
-        flipped = _unit_rows(inference.embed([ImageOps.mirror(image) for image in images]))
-        original.append(base)
-        pooled.append(_unit_rows(base + flipped))
-    return np.concatenate(original), np.concatenate(pooled)
-
-
-def _unit_rows(values: np.ndarray) -> np.ndarray:
-    values = np.asarray(values, dtype=np.float32)
-    if values.ndim != 2 or not np.isfinite(values).all():
-        raise ValueError("Embeddings must be a finite 2D array")
-    norms = np.linalg.norm(values, axis=1, keepdims=True)
-    if np.any(norms == 0):
-        raise ValueError("Cannot normalize a zero embedding")
-    return values / norms
 
 
 def evaluate(ds: data.Dataset, pipeline: Pipeline, zero_shot: bool = False) -> Evaluation:

@@ -64,14 +64,10 @@ def frozen_controls(evaluation, domain, output):
 
 def load_published(runs, model_hashes, model_version, cache_root="reports/published-e3"):
     """Load and verify a published E3 model and both evaluations without creating a run."""
-    import mlflow
     from pettrace.evaluation.core import file_hashes, load_model, report
-    from pettrace.tracking import PRODUCTION_URI
 
     if set(runs) != {"public", "private"} or not model_hashes:
         raise ValueError("Published E3 evidence must include both domains and model hashes")
-    mlflow.set_tracking_uri(PRODUCTION_URI)
-    mlflow.set_registry_uri(PRODUCTION_URI)
     client, _ = production_context()
     registered = client.get_model_version("pettrace-embedder", str(model_version))
     if registered.status != "READY" or registered.run_id != runs["private"]["run_id"]:
@@ -137,33 +133,35 @@ def load_benchmarks(manifest_rows, report, *, private_version, private_commit,
     """Load the pinned public/private E3 benchmarks and reject identity or image leakage."""
     from huggingface_hub import HfApi, configure_http_backend, snapshot_download
     from pettrace.data import benchmark
-    from pettrace.data.curation import sha256
-    from pettrace.data.versions import load_training
+    from pettrace.data.snapshots import load_training
+    from pettrace.data.verification import sha256
     from pettrace.evaluation.research import (
         PUBLIC_COMMIT, PUBLIC_FINGERPRINT, PUBLIC_REPO, PUBLIC_VERSION, public_test_dataset,
     )
     from pettrace.experiments.e1 import hub_session
+    from pettrace.ui import task
 
     started = time.monotonic()
     configure_http_backend(backend_factory=hub_session)
-    print("Benchmarks [1/5] Verifying immutable versions…", flush=True)
-    resolved = HfApi().dataset_info(benchmark.REPO, revision=private_version).sha
-    if resolved != private_commit:
-        raise ValueError("The private dataset tag changed; review the comparison protocol")
-    print("Benchmarks [2/5] Loading the private PetTrace benchmark…", flush=True)
-    private_root = snapshot_download(
-        benchmark.REPO, repo_type="dataset", revision=private_commit)
-    private = benchmark.from_dir(
-        private_root, repo=benchmark.REPO, version=private_version, commit=private_commit)
-    print(f"Benchmarks [3/5] Verifying {len(private.photos)} private photos…", flush=True)
-    private_hashes = {sha256(photo.path) for photo in private.photos}
-    print("Benchmarks [4/5] Loading the public v1 test…", flush=True)
-    public_prepared, public_source = load_training(
-        repo_id=PUBLIC_REPO, version=PUBLIC_VERSION, revision=PUBLIC_COMMIT,
-        expected_fingerprint=PUBLIC_FINGERPRINT, cache_dir=public_cache)
-    print("Benchmarks [5/5] Checking benchmark separation and leakage…", flush=True)
-    public_test_rows = _validate_benchmark_separation(
-        manifest_rows, public_prepared.rows, private_hashes)
+    with task("Loading immutable benchmarks", 5, unit="step") as progress:
+        resolved = HfApi().dataset_info(benchmark.REPO, revision=private_version).sha
+        if resolved != private_commit:
+            raise ValueError("The private dataset tag changed; review the comparison protocol")
+        progress.update()
+        private_root = snapshot_download(
+            benchmark.REPO, repo_type="dataset", revision=private_commit)
+        private = benchmark.from_dir(
+            private_root, repo=benchmark.REPO, version=private_version, commit=private_commit)
+        progress.update()
+        private_hashes = {sha256(photo.path) for photo in private.photos}
+        progress.update()
+        public_prepared, public_source = load_training(
+            repo_id=PUBLIC_REPO, version=PUBLIC_VERSION, revision=PUBLIC_COMMIT,
+            expected_fingerprint=PUBLIC_FINGERPRINT, cache_dir=public_cache)
+        progress.update()
+        public_test_rows = _validate_benchmark_separation(
+            manifest_rows, public_prepared.rows, private_hashes)
+        progress.update()
     public = public_test_dataset(public_prepared, public_source)
     public_report = Path(report) / "public_test"
     public_report.mkdir(parents=True, exist_ok=True)

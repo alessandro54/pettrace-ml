@@ -1,11 +1,6 @@
-"""Dataset acquisition, preparation and versioned snapshots."""
+"""Immutable refined datasets used by PetTrace experiments."""
 
-
-def load(version, *, cache_dir="datasets/build/pettrace-training", drive_root=None):
-    """Return a verified refined dataset and provenance, reusing local or Drive data first."""
-    from pettrace.data.versions import load_dataset
-
-    return load_dataset(version, cache_dir=cache_dir, drive_root=drive_root)
+__all__ = ["dogs_of_the_world", "labeled_cats_in_the_wild", "training"]
 
 
 def dogs_of_the_world(*, version="v1", cache_dir=None, token=None):

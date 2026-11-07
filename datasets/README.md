@@ -47,4 +47,5 @@ de publicación obsoleto.
 
 Los antiguos notebooks basados en ZIP y restauración completa desde Drive se retiraron una vez
 publicadas y verificadas las releases. Su código, salidas ejecutadas y evolución permanecen en el
-historial de Git; los métodos reutilizables continúan en `pettrace.data` y tienen pruebas unitarias.
+historial de Git. `pettrace.data` conserva únicamente los loaders y verificadores necesarios para
+consumir las releases; la preparación y publicación one-shot no forman parte de la API OSS.

@@ -13,6 +13,7 @@ from torch import nn
 from torch.nn import functional as F
 
 from pettrace.training.triplet import Head, batch_hard_triplet, pk_batch, seed_all
+from pettrace.ui import EpochProgress
 
 
 @dataclass
@@ -276,45 +277,48 @@ def fit(encoder, rows, preprocessor, output, config=None, device="cuda", callbac
     optimizer_steps, examples_seen, unique_seen = 0, 0, set()
     encoder.to(device)
     val_pixels = preprocessor.pixels(val)  # Fixed validation preprocessing is reused across epochs.
-    for epoch in range(1, config.epochs + 1):
-        encoder.train()
-        losses, active = [], []
-        for step in range(config.steps_per_epoch):
-            indices = pk_batch(labels, species, config.identities_per_batch, config.images_per_identity,
-                               rng, selected[((epoch - 1) * config.steps_per_epoch + step) % len(selected)])
-            pixels = preprocessor.pixels([train[index] for index in indices])
-            index = torch.as_tensor(indices, dtype=torch.long, device=device)
-            embedding = encoder(torch.as_tensor(pixels, dtype=torch.float32, device=device))
-            loss, fraction = batch_hard_triplet(embedding, target[index], config.margin)
-            if not torch.isfinite(loss):
-                raise RuntimeError("Non-finite E4 training loss")
-            optimizer.zero_grad(set_to_none=True)
-            loss.backward()
-            torch.nn.utils.clip_grad_norm_([p for p in encoder.parameters() if p.requires_grad], 5.0)
-            optimizer.step()
-            optimizer_steps += 1
-            examples_seen += len(indices)
-            unique_seen.update(int(index) for index in indices)
-            losses.append(float(loss.detach()))
-            active.append(fraction)
-        score, _ = _validation_score(encoder, val, val_pixels, device)
-        record = {"epoch": epoch, "train.loss": float(np.mean(losses)),
-                  "train.active_triplets": float(np.mean(active)), "val.macro_species_mAP": score,
-                  "training.optimizer_steps": optimizer_steps, "training.examples_seen": examples_seen,
-                  "training.unique_photos_seen": len(unique_seen)}
-        history.append(record)
-        if score > best:
-            best, best_epoch, stale = score, epoch, 0
-            torch.save({"state_dict": _adapter_state(encoder), "config": asdict(config), "epoch": epoch,
-                        "validation_macro_mAP": score}, output / "adapter.pt")
-        else:
-            stale += 1
-        (output / "history.json").write_text(json.dumps(history, indent=2))
-        if callback:
-            callback(record)
-        print(record, flush=True)
-        if stale >= config.patience:
-            break
+    progress = None if callback else EpochProgress(config.epochs, config.seed)
+    try:
+        for epoch in range(1, config.epochs + 1):
+            encoder.train()
+            losses, active = [], []
+            for step in range(config.steps_per_epoch):
+                indices = pk_batch(labels, species, config.identities_per_batch, config.images_per_identity,
+                                   rng, selected[((epoch - 1) * config.steps_per_epoch + step) % len(selected)])
+                pixels = preprocessor.pixels([train[index] for index in indices])
+                index = torch.as_tensor(indices, dtype=torch.long, device=device)
+                embedding = encoder(torch.as_tensor(pixels, dtype=torch.float32, device=device))
+                loss, fraction = batch_hard_triplet(embedding, target[index], config.margin)
+                if not torch.isfinite(loss):
+                    raise RuntimeError("Non-finite E4 training loss")
+                optimizer.zero_grad(set_to_none=True)
+                loss.backward()
+                torch.nn.utils.clip_grad_norm_([p for p in encoder.parameters() if p.requires_grad], 5.0)
+                optimizer.step()
+                optimizer_steps += 1
+                examples_seen += len(indices)
+                unique_seen.update(int(index) for index in indices)
+                losses.append(float(loss.detach()))
+                active.append(fraction)
+            score, _ = _validation_score(encoder, val, val_pixels, device)
+            record = {"epoch": epoch, "train.loss": float(np.mean(losses)),
+                      "train.active_triplets": float(np.mean(active)), "val.macro_species_mAP": score,
+                      "training.optimizer_steps": optimizer_steps, "training.examples_seen": examples_seen,
+                      "training.unique_photos_seen": len(unique_seen)}
+            history.append(record)
+            if score > best:
+                best, best_epoch, stale = score, epoch, 0
+                torch.save({"state_dict": _adapter_state(encoder), "config": asdict(config), "epoch": epoch,
+                            "validation_macro_mAP": score}, output / "adapter.pt")
+            else:
+                stale += 1
+            (output / "history.json").write_text(json.dumps(history, indent=2))
+            (callback or progress.update)(record)
+            if stale >= config.patience:
+                break
+    finally:
+        if progress:
+            progress.close()
     load_adapter(encoder, output / "adapter.pt")
     return encoder.eval(), {"best_epoch": best_epoch, "best_val_mAP": best, "history": history,
                             "config": asdict(config), "device": device}

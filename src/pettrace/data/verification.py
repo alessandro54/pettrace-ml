@@ -1,4 +1,4 @@
-"""Reuse verified hashes within one preparation on local disk, never across kernels."""
+"""Reuse verified hashes within one local operation, never across processes."""
 
 from contextlib import contextmanager
 from contextvars import ContextVar
@@ -25,12 +25,12 @@ class _Index:
 
 @contextmanager
 def verification_session():
-    """Share a hash map across preparation stages; nested calls share the same index.
+    """Share a hash map across nested verification stages.
 
     Each path is read once per unchanged device/inode/size/mtime/ctime signature.
     This assumes ordinary local-filesystem metadata and no concurrent writers;
     silent storage corruption without a metadata change needs a fresh hash scan.
-    External archives/Drive transfers retain independent full-hash verification.
+    Remote transfers retain independent full-hash verification.
     """
     current = _ACTIVE.get()
     if current is not None:

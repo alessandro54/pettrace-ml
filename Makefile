@@ -1,4 +1,4 @@
-.PHONY: image image-export evaluate notebook register-v1 register-e2 verify-model test test-e3 lint manifest prepare-e3
+.PHONY: image image-export e1 evaluate notebook register-v1 register-e2 verify-model test test-e3 lint manifest
 
 IMAGE ?= pettrace-ml
 # Every MLflow run records the commit it came from; GIT_DIRTY=true marks uncommitted code.
@@ -13,23 +13,17 @@ image-export:
 
 # make evaluate DATASET=v3 MODEL=models:/pettrace-embedder/1 PROTOCOL=zero-shot [REPORT=reports/e1_v3]
 evaluate:
-	$(DOCKER) $(IMAGE) -m pettrace.cli --dataset $(DATASET) --model $(or $(MODEL),models:/pettrace-embedder@production) $(if $(PROTOCOL),--protocol $(PROTOCOL)) $(if $(REPORT),--report $(REPORT))
+	$(DOCKER) $(IMAGE) -m pettrace.cli evaluate --dataset $(DATASET) --model $(or $(MODEL),models:/pettrace-embedder@production) $(if $(PROTOCOL),--protocol $(PROTOCOL)) $(if $(REPORT),--report $(REPORT))
 
-# Prepare public E3 data outside notebooks, using .env through the existing Docker runner.
-# make prepare-e3 [PREPARE_ARGS="--detector-dir artifacts/e2"]
-PREPARE_ARGS ?=
-prepare-e3:
-	$(DOCKER) $(IMAGE) -m pettrace.data.preparation --allow-download $(PREPARE_ARGS)
+# Headless E1; set PRIVATE_VERSION/PRIVATE_COMMIT after publishing a new private benchmark.
+e1:
+	uv run --extra tracking pettrace run e1 $(if $(PRIVATE_VERSION),--private-version $(PRIVATE_VERSION)) $(if $(PRIVATE_COMMIT),--private-commit $(PRIVATE_COMMIT))
 
 # Execute an experiment notebook in the pinned image and save it with its outputs (the canonical
 # record of the experiment): make notebook NB=notebooks/e1_clip_zero_shot.ipynb
 notebook:
-ifeq ($(NB),notebooks/e1_clip_zero_shot.ipynb)
-	python3 tools/run_e1.py --work-dir reports/e1-$$(date -u +%Y%m%dT%H%M%SZ) --env-file .env
-else
 	$(DOCKER) --entrypoint jupyter $(IMAGE) nbconvert --to notebook --execute --inplace --ExecutePreprocessor.timeout=3600 $(NB)
 	$(DOCKER) $(IMAGE) tools/attach_notebook.py $(NB)
-endif
 
 # E1: pettrace-embedder v1 @production (static: verifies an existing version, never re-creates it)
 register-v1:
@@ -47,7 +41,7 @@ test:
 	uv run --locked --group dev --group notebooks --extra notebooks python -m pytest -q
 
 test-e3:
-	uv run --locked --group dev --extra training python -m pytest -q tests/test_e3.py
+	uv run --locked --group dev --extra training python -m pytest -q tests/integration/pettrace/experiments/test_e3_training.py
 
 lint:
 	uv run --group dev ruff check .

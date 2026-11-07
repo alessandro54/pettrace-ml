@@ -1,27 +1,56 @@
-"""Shared production tracking and provenance for independently executable notebooks."""
+"""Optional MLflow tracking and local provenance for independently executable notebooks."""
 
 import hashlib
 import json
+import os
 from pathlib import Path
 
 PRODUCTION_URI = "https://ml.pettrace.app"
 PUBLICATION_TAG = "pettrace.publication_key"
 
 
-def production_context():
-    """Read-only preflight against the existing experiment; never create an experiment."""
-    import mlflow
+def tracking_configured():
+    """Return whether this process explicitly opted into MLflow tracking."""
+    return bool(os.environ.get("MLFLOW_TRACKING_URI", "").strip())
+
+
+def tracking_context():
+    """Connect to the configured MLflow server and return its evaluation experiment."""
+    try:
+        import mlflow
+    except ModuleNotFoundError as exc:
+        raise RuntimeError("Install pettrace-ml[tracking] before publishing to MLflow") from exc
     from pettrace.evaluation.core import EXPERIMENT
 
-    if mlflow.get_tracking_uri().rstrip("/") != PRODUCTION_URI:
-        raise ValueError(f"Evaluation requires the production tracking server: {PRODUCTION_URI}")
-    if mlflow.get_registry_uri().rstrip("/") != PRODUCTION_URI:
-        raise ValueError("Evaluation requires the model registry on the production tracking server.")
+    uri = os.environ.get("MLFLOW_TRACKING_URI", "").strip().rstrip("/")
+    if not uri:
+        raise RuntimeError("Set MLFLOW_TRACKING_URI before publishing to MLflow")
+    mlflow.set_tracking_uri(uri)
+    registry_uri = (os.environ.get("MLFLOW_REGISTRY_URI") or uri).strip().rstrip("/")
+    mlflow.set_registry_uri(registry_uri)
     client = mlflow.MlflowClient()
-    experiment = client.get_experiment_by_name(EXPERIMENT)
-    if experiment is None or experiment.lifecycle_stage != "active":
-        raise ValueError(f"The existing production experiment {EXPERIMENT!r} is unavailable.")
+    name = os.environ.get("MLFLOW_EXPERIMENT_NAME", EXPERIMENT).strip()
+    if not name:
+        raise ValueError("MLFLOW_EXPERIMENT_NAME must not be empty")
+    experiment = client.get_experiment_by_name(name)
+    if experiment is None:
+        experiment = client.get_experiment(client.create_experiment(name))
+    if experiment.lifecycle_stage != "active":
+        raise ValueError(f"The configured MLflow experiment {name!r} is unavailable")
     return client, experiment
+
+
+def production_context():
+    """Compatibility name for historical experiments; new code should use tracking_context."""
+    return tracking_context()
+
+
+def tracking_run_url(experiment_id, run_id):
+    """Return the UI URL for a run on the configured server."""
+    uri = os.environ.get("MLFLOW_TRACKING_URI", "").strip().rstrip("/")
+    if not uri:
+        raise RuntimeError("Set MLFLOW_TRACKING_URI before building an MLflow run URL")
+    return f"{uri}/#/experiments/{experiment_id}/runs/{run_id}"
 
 
 def publish_evaluation(ev, model, report, source_sha256, *, experiment,
@@ -33,11 +62,11 @@ def publish_evaluation(ev, model, report, source_sha256, *, experiment,
     again at publication. Concurrent publication of the same result is unsupported because MLflow
     does not enforce uniqueness of run tags.
     """
-    import mlflow
     from pettrace import __version__
     from pettrace.evaluation.core import log_run
 
-    client, tracking_experiment = production_context()
+    client, tracking_experiment = tracking_context()
+    import mlflow
     if mlflow.active_run() is not None:
         raise RuntimeError("Finish the active MLflow run before publishing an evaluation.")
     if not model.golden_ok or (expected_model_uri and model.uri != expected_model_uri):
@@ -72,7 +101,8 @@ def publish_evaluation(ev, model, report, source_sha256, *, experiment,
     )
     run_id = run.info.run_id
     manifest = {
-        "run_id": run_id, "experiment": experiment, "tracking_uri": PRODUCTION_URI,
+        "run_id": run_id, "experiment": experiment,
+        "tracking_uri": os.environ["MLFLOW_TRACKING_URI"].strip().rstrip("/"),
         "tracking_experiment_id": tracking_experiment.experiment_id, "publication_key": key,
         "dataset": ev.dataset.name, "dataset_commit": ev.dataset.commit,
         "dataset_fingerprint": ev.dataset.fingerprint, "model": model.uri,
@@ -88,72 +118,6 @@ def publish_evaluation(ev, model, report, source_sha256, *, experiment,
         params={"code.source_sha256": source_sha256, "code.package_version": __version__},
         tracking_experiment_id=tracking_experiment.experiment_id, run_id=run_id,
     )
-
-
-def publish_validation_diagnostic(diagnostic, model, prepared, report, source_sha256, *, experiment,
-                                  expected_model_uri=None):
-    """Publish one validation-only inference ablation; retries resume the same MLflow run."""
-    import mlflow
-    from pettrace import __version__
-
-    client, tracking_experiment = production_context()
-    if mlflow.active_run() is not None:
-        raise RuntimeError("Finish the active MLflow run before publishing a diagnostic.")
-    if not model.golden_ok or (expected_model_uri and model.uri != expected_model_uri):
-        raise ValueError("Publication requires the verified expected model.")
-    if diagnostic.get("scope") != "validation_only" or len(diagnostic.get("records", ())) != 6:
-        raise ValueError("Publication requires the complete validation-only inference diagnostic.")
-    if prepared.version != "v2" or not prepared.fingerprint:
-        raise ValueError("Publication requires the pinned public v2 training corpus.")
-    report = Path(report)
-    result_path, runtime_path = report / "validation-inference-diagnostic.json", report / "runtime.json"
-    if not result_path.is_file() or not runtime_path.is_file():
-        raise ValueError("Save the diagnostic and runtime provenance before publishing.")
-
-    identity = {
-        "experiment": experiment, "dataset_version": prepared.version,
-        "dataset_fingerprint": prepared.fingerprint, "model_sha256": model.sha256,
-        "source_sha256": source_sha256, "diagnostic": diagnostic,
-    }
-    execution_id = json.loads(runtime_path.read_text()).get("execution_id")
-    if execution_id:
-        identity["execution_id"] = execution_id
-    key = hashlib.sha256(json.dumps(identity, sort_keys=True, default=float).encode()).hexdigest()
-    matches = client.search_runs(
-        [tracking_experiment.experiment_id], filter_string=f"tags.`{PUBLICATION_TAG}` = '{key}'", max_results=2,
-    )
-    if len(matches) > 1:
-        raise RuntimeError("Multiple diagnostic runs have this publication key; inspect them before publishing.")
-    run = matches[0] if matches else client.create_run(
-        tracking_experiment.experiment_id,
-        tags={PUBLICATION_TAG: key, "experiment": experiment, "purpose": "validation_inference_diagnostic",
-              "mlflow.runName": f"{experiment} · {model.model_version} · validation inference ablation"},
-    )
-    run_id = run.info.run_id
-    receipt_path = report / "publication.json"
-    receipt_path.write_text(json.dumps({"published": False, "run_id": run_id}, indent=2) + "\n")
-    if run.info.status != "FINISHED":
-        params = {
-            "code.source_sha256": source_sha256, "code.package_version": __version__,
-            "dataset.version": prepared.version, "dataset.fingerprint": prepared.fingerprint,
-            "model.uri": model.uri, "model.registry_version": model.registry_version,
-            "scope": diagnostic["scope"], "selection_metric": diagnostic["selection_metric"],
-        }
-        metrics = {}
-        for record in diagnostic["records"]:
-            prefix = f"{record['representation']}.{record['identity_aggregation']}"
-            for name, value in record.items():
-                if name.startswith("validation."):
-                    metrics[f"{prefix}.{name}"] = float(value)
-        with mlflow.start_run(run_id=run_id, experiment_id=tracking_experiment.experiment_id):
-            mlflow.log_params(params)
-            mlflow.log_metrics(metrics)
-            mlflow.log_artifacts(str(report), artifact_path="report")
-    if client.get_run(run_id).info.status != "FINISHED":
-        raise RuntimeError(f"Diagnostic publication is incomplete: {run_id}")
-    receipt_path.write_text(json.dumps({"published": True, "run_id": run_id}, indent=2) + "\n")
-    client.log_artifact(run_id, str(receipt_path), artifact_path="report")
-    return run_id
 
 
 def source_identity():
@@ -195,7 +159,7 @@ def save_provenance(report, model):
     import os
     import platform
 
-    packages = ("numpy", "pillow", "pyyaml", "onnxruntime", "mlflow-skinny", "huggingface-hub", "requests", "matplotlib")
+    packages = ("numpy", "pillow", "pyyaml", "onnxruntime", "huggingface-hub", "requests", "matplotlib")
     runtime = {
         **source_identity(), "python": platform.python_version(), "platform": platform.platform(),
         "packages": {name: importlib.metadata.version(name) for name in packages},
@@ -203,7 +167,7 @@ def save_provenance(report, model):
     }
     if os.environ.get("PETTRACE_EXECUTION_ID"):
         runtime["execution_id"] = os.environ["PETTRACE_EXECUTION_ID"]
-    for name in ("torch", "onnx", "pandas", "transformers"):
+    for name in ("torch", "onnx", "pandas", "transformers", "mlflow-skinny"):
         try:
             runtime["packages"][name] = importlib.metadata.version(name)
         except importlib.metadata.PackageNotFoundError:

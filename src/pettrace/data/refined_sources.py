@@ -4,6 +4,8 @@ import csv
 import gzip
 import json
 import re
+import shutil
+import tarfile
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -26,6 +28,7 @@ RELEASES = {
         "species": "dog",
     },
 }
+IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png"}
 
 
 def _safe(root, relative):
@@ -33,6 +36,57 @@ def _safe(root, relative):
     if relative.is_absolute() or ".." in relative.parts:
         raise ValueError(f"Unsafe dataset path: {relative}")
     return root / relative
+
+
+def _extract_rows(root, evidence, destination):
+    """Materialize and verify the images recorded by one immutable v1 release."""
+    root, destination = Path(root), Path(destination)
+    destination.mkdir(parents=True, exist_ok=True)
+    with (root / "versions/v1/metadata.csv").open(newline="") as stream:
+        metadata = list(csv.DictReader(stream))
+    if len(metadata) != evidence["photos"] or len({row["sha256"] for row in metadata}) != len(metadata):
+        raise ValueError("The v1 metadata inventory is incomplete or has duplicate photo keys")
+    by_shard = {}
+    for row in metadata:
+        if row["source"] != evidence["source"] or row["key"] != row["sha256"]:
+            raise ValueError("The v1 metadata source or content key changed")
+        by_shard.setdefault(row["shard"], {})[row["key"]] = row
+    receipts = {row["path"]: row for row in evidence["shards"]}
+    if set(by_shard) != set(receipts):
+        raise ValueError("The v1 metadata and shard inventory differ")
+    photos = {}
+    for shard_name, expected in sorted(by_shard.items()):
+        archive_path = _safe(root, shard_name)
+        receipt = receipts[shard_name]
+        if sha256(archive_path) != receipt["sha256"] or len(expected) != receipt["samples"]:
+            raise ValueError(f"The v1 shard changed: {shard_name}")
+        seen = set()
+        with tarfile.open(archive_path) as archive:
+            for member in archive:
+                name = Path(member.name)
+                if not member.isfile() or name.name != member.name:
+                    raise ValueError(f"Unsafe v1 TAR member: {member.name}")
+                if name.suffix == ".json":
+                    continue
+                if name.suffix.lower() not in IMAGE_EXTENSIONS or name.stem not in expected or name.stem in seen:
+                    raise ValueError(f"Unexpected v1 TAR member: {member.name}")
+                target = destination / member.name
+                if not target.is_file() or sha256(target) != name.stem:
+                    partial = target.with_suffix(target.suffix + ".partial")
+                    with archive.extractfile(member) as incoming, partial.open("wb") as outgoing:
+                        shutil.copyfileobj(incoming, outgoing)
+                    if sha256(partial) != name.stem:
+                        partial.unlink(missing_ok=True)
+                        raise ValueError(f"Photo bytes do not match their v1 key: {member.name}")
+                    partial.replace(target)
+                photos[name.stem] = target
+                seen.add(name.stem)
+        if seen != set(expected):
+            raise ValueError(f"Missing images in v1 shard: {shard_name}")
+    rows = [{"path": str(photos[row["sha256"]]), "source": row["source"],
+             "species": row["species"], "animal": row["identity_id"], "sha256": row["sha256"],
+             "split": row["split"]} for row in metadata]
+    return rows, {row["sha256"]: row for row in metadata}
 
 
 @dataclass(frozen=True)
@@ -168,9 +222,6 @@ def load_training(*, version="v2", cache_dir=None, token=None):
     detector_sha256 = next(iter(detector_hashes)) if len(detector_hashes) == 1 else None
     if not detector_sha256:
         raise ValueError("The public sources do not share one pinned YOLO detector")
-
-    # Reuse the release extractor used to create v2 so byte and TAR validation stay identical.
-    from pettrace.data.yolo_overlay import _extract_rows
 
     rows = []
     for source in sources:

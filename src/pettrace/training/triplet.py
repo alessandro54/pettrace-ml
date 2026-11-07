@@ -16,6 +16,8 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 
+from pettrace.ui import EpochProgress
+
 
 @dataclass
 class Config:
@@ -149,45 +151,47 @@ def fit(features, rows, output, config=None, device=None, callback=None):
     selected = sorted(set(species))
     output = Path(output)
     output.mkdir(parents=True, exist_ok=True)
-    for epoch in range(1, config.epochs + 1):
-        head.train()
-        losses, active = [], []
-        for step in range(config.steps_per_epoch):
-            idx = pk_batch(labels, species, config.identities_per_batch, config.images_per_identity,
-                           rng, selected[(epoch * config.steps_per_epoch + step) % len(selected)])
-            index = torch.as_tensor(idx, dtype=torch.long, device=device)
-            loss, fraction = batch_hard_triplet(head(x[index]), y[index], config.margin)
-            if not torch.isfinite(loss):
-                raise RuntimeError("Non-finite training loss")
-            optimizer.zero_grad(set_to_none=True)
-            loss.backward()
-            torch.nn.utils.clip_grad_norm_(head.parameters(), 5.0)
-            optimizer.step()
-            optimizer_steps += 1
-            examples_seen += len(idx)
-            unique_seen.update(int(i) for i in idx)
-            losses.append(float(loss.detach()))
-            active.append(fraction)
-        score, _ = validation_score(head, features[val], vr, device)
-        record = {"epoch": epoch, "train.loss": float(np.mean(losses)),
-                  "train.active_triplets": float(np.mean(active)), "val.macro_species_mAP": score,
-                  "training.optimizer_steps": optimizer_steps, "training.examples_seen": examples_seen,
-                  "training.unique_photos_seen": len(unique_seen)}
-        history.append(record)
-        if score > best:
-            best, best_epoch, stale = score, epoch, 0
-            torch.save({"state_dict": copy.deepcopy(head.cpu().state_dict()), "config": asdict(config),
-                        "epoch": epoch, "validation_macro_mAP": score}, output / "head.pt")
-            head.to(device)
-        else:
-            stale += 1
-        (output / "history.json").write_text(json.dumps(history, indent=2))
-        if callback:
-            callback(record)
-        else:
-            print(record, flush=True)
-        if stale >= config.patience:
-            break
+    progress = None if callback else EpochProgress(config.epochs, config.seed)
+    try:
+        for epoch in range(1, config.epochs + 1):
+            head.train()
+            losses, active = [], []
+            for step in range(config.steps_per_epoch):
+                idx = pk_batch(labels, species, config.identities_per_batch, config.images_per_identity,
+                               rng, selected[(epoch * config.steps_per_epoch + step) % len(selected)])
+                index = torch.as_tensor(idx, dtype=torch.long, device=device)
+                loss, fraction = batch_hard_triplet(head(x[index]), y[index], config.margin)
+                if not torch.isfinite(loss):
+                    raise RuntimeError("Non-finite training loss")
+                optimizer.zero_grad(set_to_none=True)
+                loss.backward()
+                torch.nn.utils.clip_grad_norm_(head.parameters(), 5.0)
+                optimizer.step()
+                optimizer_steps += 1
+                examples_seen += len(idx)
+                unique_seen.update(int(i) for i in idx)
+                losses.append(float(loss.detach()))
+                active.append(fraction)
+            score, _ = validation_score(head, features[val], vr, device)
+            record = {"epoch": epoch, "train.loss": float(np.mean(losses)),
+                      "train.active_triplets": float(np.mean(active)), "val.macro_species_mAP": score,
+                      "training.optimizer_steps": optimizer_steps, "training.examples_seen": examples_seen,
+                      "training.unique_photos_seen": len(unique_seen)}
+            history.append(record)
+            if score > best:
+                best, best_epoch, stale = score, epoch, 0
+                torch.save({"state_dict": copy.deepcopy(head.cpu().state_dict()), "config": asdict(config),
+                            "epoch": epoch, "validation_macro_mAP": score}, output / "head.pt")
+                head.to(device)
+            else:
+                stale += 1
+            (output / "history.json").write_text(json.dumps(history, indent=2))
+            (callback or progress.update)(record)
+            if stale >= config.patience:
+                break
+    finally:
+        if progress:
+            progress.close()
     checkpoint = torch.load(output / "head.pt", map_location="cpu", weights_only=True)
     head = Head(config.hidden)
     head.load_state_dict(checkpoint["state_dict"])

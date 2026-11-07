@@ -1,10 +1,13 @@
 # E4 audit and E5 inference optimization plan
 
-Status: **validation diagnostic implemented; no new experiment has been executed**.
+Status: **E4 winner frozen; E5 text evidence and validation protocol pending implementation**.
 
 This document records the implementation audit and the proposed experiments after freezing the
 E3-100 and E4 checkpoints. It distinguishes current evidence from prospective changes. Any new
-condition is complete only after publishing both the public and PetTrace evaluations to MLflow.
+condition must save complete, separate public and PetTrace reports locally. An official thesis run
+must also publish those reports to `https://ml.pettrace.app`; publication can be retried from the
+saved evidence without retraining. Independent users may exercise the underlying methods locally,
+but that does not constitute a completed PetTrace experiment.
 
 ## Current evidence
 
@@ -89,8 +92,9 @@ Rank-k and mAP use different aggregation units:
 - mAP ranks every gallery photo independently.
 
 Maximum aggregation is sensitive to one accidental high-scoring rival photo and may explain part
-of the observed impostor maximum. The validation-only diagnostic compares the existing maximum
-with an identity prototype and a top-two mean. This is not yet an approved protocol change.
+of the observed impostor maximum. Nevertheless, the completed validation-only diagnostic found
+that both an identity prototype and a top-two mean reduced macro-species Rank-1. The existing
+`single + max` rule therefore remains fixed for E4 and the E5 visual candidate list.
 
 The implemented benchmark is **closed-set, same-species, photo-level leave-one-out retrieval**. It
 does not yet establish open-set identification because all queries are evaluated against galleries
@@ -129,8 +133,9 @@ Use the same YOLO crop for both views:
 The augmentation must not run YOLO independently on the flipped raw image because a different box
 would confound augmentation with detection. Apply the same procedure to queries and gallery photos.
 
-This is the first recommended experiment because it is deterministic, non-transductive and
-compatible with online inference.
+This deterministic, non-transductive experiment was completed on validation. With maximum
+aggregation it changed macro-species Rank-1 by `-0.007613` and mAP by `+0.001724`; every TTA
+combination reduced Rank-1. It was therefore rejected before either test was loaded.
 
 ### 2. Gated alpha query expansion
 
@@ -147,19 +152,26 @@ The principal risk is confirmation of an incorrect first match. For that reason,
 should initially be restricted to queries whose visual Top-1/Top-2 margin is below a frozen
 threshold.
 
-### Recommended ablation order
+### Recorded decision and remaining ablation
 
-1. Frozen E4 seed-46 baseline.
-2. E4 plus horizontal-flip spherical pooling.
-3. E4 plus flip pooling and gated alpha query expansion.
+1. Retain frozen E4 seed-46 with `single + max` as the visual baseline.
+2. Do not evaluate flip TTA or alternative identity aggregation on either test.
+3. Treat gated alpha query expansion as a separate prospective study, not as a consequence of the
+   rejected flip condition.
 
 Each condition must record its configuration, validation selection evidence, public and PetTrace
-metrics, per-query ranks, runtime cost and MLflow publication receipts.
+metrics, per-query ranks and runtime cost. Its MLflow publication receipt is required before the
+official experiment is considered complete.
 
 ## E5 natural-language re-ranking
 
 E5 should be a conservative identity-level reranker over the visual Top-5. It should not retrieve
 new identities outside that candidate set.
+
+The fixed visual control is MLflow model `pettrace-embedder/19`, E4 seed 46 at epoch 9. Its public
+and private run identifiers, ONNX hashes and `single + max` inference rule are verified by
+`pettrace.experiments.e5.load_frozen_e4(model_uri, output)`. E5 must reuse this control without
+retraining it; `model_uri` may be a local directory downloaded from an immutable public release.
 
 For visual candidates `c`, define:
 
@@ -187,27 +199,18 @@ Text evidence must be identity-agnostic: coat color and pattern, distinctive mar
 shape, size and other observable attributes. Names, source paths, publisher labels or descriptions
 derived from identity identifiers would constitute leakage.
 
-## Validation-only entry point
+## Recorded validation protocol
 
-The diagnostic is intentionally unable to accept train or test rows. It embeds each fixed YOLO crop
-once in its original orientation and once mirrored, then evaluates the full 2 × 3 factorial:
-single/TTA representation against max/top-2/prototype identity scoring.
+The completed diagnostic accepted validation rows only. It embedded each fixed YOLO crop in its
+original and mirrored orientations, then evaluated the full 2 × 3 factorial: single/TTA
+representation against max/top-2/prototype identity scoring. Its one-off execution API was removed
+from the maintained package after publication; the immutable run and this protocol preserve the
+evidence without expanding the production evaluator.
 
-```python
-from pettrace.evaluation.research import validation_inference_diagnostic
-
-validation_rows = [row for row in training_rows if row["split"] == "val"]
-diagnostic = validation_inference_diagnostic(
-    e4_model.pipeline,
-    validation_rows,
-    preprocessor.image,
-)
-```
-
-The result contains six summary records. Identity aggregation cannot change the current photo-level
-mAP by definition; it changes Rank-k. Horizontal-flip TTA can change both. No test set should be
-loaded or evaluated until one representation and aggregation rule have been frozen from this
-validation evidence.
+Identity aggregation cannot change the current photo-level mAP by definition; it changes Rank-k.
+Horizontal-flip TTA can change both. The diagnostic selected `single + max`; no alternative
+qualified for test evaluation. MLflow run:
+[`8d3549cfa0114529972ea1b42b90b1e5`](https://ml.pettrace.app/#/experiments/3/runs/8d3549cfa0114529972ea1b42b90b1e5).
 
 ## Risks and limits
 

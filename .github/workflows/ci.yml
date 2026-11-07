@@ -19,4 +19,4 @@ jobs:
           uv pip install --python .venv/bin/python --reinstall --no-deps dist/*.whl
           PACKAGE_PYTHON="$PWD/.venv/bin/python"
           cd /tmp
-          "$PACKAGE_PYTHON" -c "import pettrace; from pettrace.training.triplet import Config; from pettrace.data.preparation import PrepareConfig; assert 'site-packages' in pettrace.__file__"
+          "$PACKAGE_PYTHON" -c "import pettrace; from pettrace.data.refined_sources import load_training; from pettrace.data.snapshots import load_training as load_snapshot; from pettrace.training.triplet import Config; assert 'site-packages' in pettrace.__file__"

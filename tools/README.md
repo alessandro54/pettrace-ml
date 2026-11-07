@@ -11,7 +11,6 @@ model administration and MLflow bookkeeping; Colab experiments do not call them.
 | `verify_model.py` | Verify a model against its golden embeddings. |
 | `register_v1.py` | Reproduce or administer the frozen E1 CLIP registry entry. |
 | `register_e2.py` | Reproduce or administer the frozen E2 detector-crop registry entry. |
-| `run_e1.py` | Reproduce the historical v0.2.2 E1 environment or retry its publication. |
 
 Registration and experiment publication remain separate. The E3 volume launchers were removed
 after their published historical runs; the canonical multiseed study now lives in

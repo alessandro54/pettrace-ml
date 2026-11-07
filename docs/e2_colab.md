@@ -18,15 +18,14 @@ Las salidas históricas conservadas no son resultados de una nueva ejecución.
 
 La última celda publica obligatoriamente **dos runs E2**, uno por dominio, y sus
 recibos finales. Si falla, repite únicamente esa celda en la misma sesión, sin
-recalcular embeddings. Conserva el directorio `REPORT` si debes abandonar la sesión;
-el launcher histórico `tools/run_e1.py --resume` es exclusivo de E1.
+recalcular embeddings. Conserva el directorio `REPORT` si debes abandonar la sesión.
 
 Guarda el notebook ejecutado con sus salidas. Desde este checkout actualizado,
 adjúntalo a los dos runs usando los IDs de `REPORT/publication.json`:
 
 ```bash
 uv run --locked python tools/attach_notebook.py notebooks/e2_yolo_crop_zero_shot.ipynb \
-  --experiment E2 --run-id RUN_PRIVADO --public-run-id RUN_PUBLICO --env-file .env
+  --experiment E2 --run-id RUN_PRIVADO --public-run-id RUN_PUBLICO
 ```
 
 El adjunto se divide en partes verificadas por SHA-256 para respetar el límite del

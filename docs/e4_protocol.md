@@ -1,6 +1,9 @@
 # E4 · Adaptación LoRA del encoder
 
-Estado: **E4 v2 (semilla 46) publicado en ambos dominios; candidato 19 registrado sin promoción de alias**.
+Estado: **congelado**. E4 v2 (semilla 46, época 9) fue publicado en ambos dominios y el
+candidato 19 quedó registrado sin promoción de alias. E5 debe cargar esa versión numérica y
+verificar sus hashes mediante `pettrace.experiments.e5.load_frozen_e4(model_uri, output)`; no puede seleccionar otro
+E4 usando resultados de test ni un alias mutable.
 
 ## Pregunta y diseño
 
@@ -44,6 +47,29 @@ Se mantienen las galerías separadas del test público v1 y `pettrace-reid@v4`. 
 | PetTrace v4 | 78.4 % | **83.6 %** | 0.688 | **0.722** | 12.8 % | **11.7 %** |
 
 Recibos: público `2302b302772b4349894e1d1b58d438ed`; PetTrace `5bc216d03afc4a31a15c53fc3bfbc747`.
+
+## Diagnóstico de sensibilidad en inferencia (validación)
+
+Con E4 congelado se compararon seis configuraciones de representación y agregación usando
+exclusivamente el split de validación. `single + max` fue el control; no hubo reentrenamiento ni
+acceso al test público v1 o a PetTrace v4.
+
+| Representación | Agregación por identidad | Delta Rank-1 | Delta mAP |
+|---|---|---:|---:|
+| `single` | `max` | 0.000000 | 0.000000 |
+| `horizontal_flip_tta` | `max` | -0.007613 | +0.001724 |
+| `single` | `top2_mean` | -0.019771 | 0.000000 |
+| `horizontal_flip_tta` | `prototype` | -0.021472 | +0.001724 |
+| `single` | `prototype` | -0.023062 | 0.000000 |
+| `horizontal_flip_tta` | `top2_mean` | -0.028974 | +0.001724 |
+
+El control obtuvo el mejor Rank-1 macro por especie. Por tanto, la vista única y el máximo por
+identidad quedan defendidos empíricamente frente al *pooling* esférico, `top2_mean` y el flip
+horizontal. Aunque TTA elevó el mAP macro en 0.001724, redujo Rank-1 en todas sus combinaciones; no
+cumplió el criterio de selección predefinido. Las variantes se descartaron en validación y no se
+evaluaron en ninguno de los dos tests, evitando seleccionar el protocolo con evidencia de test.
+
+Evidencia MLflow: run [`8d3549cfa0114529972ea1b42b90b1e5`](https://ml.pettrace.app/#/experiments/3/runs/8d3549cfa0114529972ea1b42b90b1e5).
 
 LoRA sigue a Hu et al. (2022). La elección de capas, hiperparámetros, control y protocolo de transferencia es una decisión de esta investigación. Las pruebas unitarias de equivalencia y merge validan implementación, no rendimiento.
 

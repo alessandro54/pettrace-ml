@@ -9,13 +9,14 @@ Los tres cuadernos documentan una secuencia de investigación de tesis sobre rec
 
 | Experimento | Intervención | Parámetros ajustados | Comparación |
 |---|---|---|---|
-| [E1](e1_clip_zero_shot.ipynb) | CLIP ViT-B/32 sin localización previa | Ninguno | Referencia descriptiva y azar uniforme entre identidades |
+| [E1 histórico](e1_clip_zero_shot.ipynb) | CLIP ViT-B/32 sin localización previa | Ninguno | Presentación congelada; las nuevas corridas usan `pettrace run e1` headless |
 | [E2](e2_yolo_crop_zero_shot.ipynb) | Recorte YOLOv8n antes del mismo CLIP | Ninguno | E1 recalculado con las mismas consultas y galerías |
 | [E3](e3_mlp_head_triplet.ipynb) | MLP 512→256→512 sobre E2 congelado; barrido 45–49 | Solo la MLP | E1/E2 congelados; ganador elegido solo con validación pública |
 | [E4](e4_clip_lora.ipynb) | LoRA en `q_proj`/`v_proj` de CLIP sobre un E3 fijado | Solo adaptadores LoRA | Control E3 declarado antes de entrenar |
-| [E4 · ablación de inferencia](e4_inference_ablation.ipynb) | Flip horizontal y agregación por identidad sobre E4 fijado | Ninguno | `single + max`, únicamente en validación |
 
-El [protocolo de E4](../docs/e4_protocol.md) fija el control y la intervención antes de entrenar. Las siguientes iteraciones de E4/E5 deberán consumir el recibo `e3-handoff.json` del ganador prospectivo; el resultado histórico de E4 no se reinterpreta retrospectivamente. E5 aún no está implementado.
+El [protocolo de E4](../docs/e4_protocol.md) congela la semilla 46, época 9 y candidato 19 como
+control visual de E5. E5 aún no está implementado: falta fijar una fuente de atributos observables
+que no revele identidad antes de crear su notebook de tres fases.
 
 ## Tres fases de la investigación
 
@@ -62,15 +63,15 @@ Los notebooks se ejecutan celda a celda en la UI de Colab e instalan una versió
 
 Cada nueva corrida crea `reports/eN_v4/<fecha-id>`. Conserva `experiment-design.json`, `summary.json`, `scores.json`, `analysis.json`, `findings.md`, figuras y procedencia. E3 añade manifiesto/auditoría, configuración, historia/checkpoint, curvas, cobertura y modelo ONNX. Las salidas históricas del notebook se preservan al editar el método: las celdas nuevas o modificadas deben ejecutarse para producir evidencia actualizada.
 
-Todos los experimentos deben publicar resultados en `https://ml.pettrace.app`; `LOG_TO_MLFLOW=True` es obligatorio. Un fallo conserva evidencia local para reintentar y no constituye una corrida completamente publicada. El registro de versión de modelo se controla por separado y no promueve aliases de servicio. La política también figura en [AGENTS.md](../AGENTS.md). La publicación de la nueva comparación requiere completar ambos dominios; el registro del modelo se basa en el run privado y conserva su configuración explícita.
+Cada experimento conserva primero su evidencia completa en `reports/` y después la publica obligatoriamente en `https://ml.pettrace.app`. La URI y credenciales se cargan desde Colab Secrets; nunca se incluyen en el notebook. Un fallo de publicación conserva el reporte y se reintenta sin volver a entrenar ni evaluar. El registro de versiones y la promoción de aliases siguen siendo decisiones separadas.
 
-`make notebook NB=notebooks/e1_clip_zero_shot.ipynb` usa el lanzador aislado; los otros notebooks siguen usando Docker. `tools/attach_notebook.py` adjunta el notebook ejecutado usando su recibo; desde VS Code debe guardarse primero en el equipo local. `make manifest` actualiza el índice `experiments.yaml` mediante lectura de MLflow, después de una publicación real. El índice puede incluir runs fallidos o incompletos y debe interpretarse junto a su estado y artefactos.
+E1 se relanza con `pettrace run e1` de forma headless; su notebook queda como evidencia histórica. `tools/attach_notebook.py` adjunta notebooks interactivos usando su recibo; desde VS Code deben guardarse primero en el equipo local. `make manifest` actualiza el índice `experiments.yaml` mediante lectura de MLflow, después de una publicación real. El índice puede incluir runs fallidos o incompletos y debe interpretarse junto a su estado y artefactos.
 
 Las fotos privadas no se incorporan a la presentación de resultados; se emplean códigos de identidad. Los reportes permanecen fuera de Git. Las ejecuciones históricas v3 describen otra muestra y no deben mezclarse con esta comparación.
 
 ## Paquete para relanzar en Colab
 
-Para E1 y E2 ejecuta la instalación de su notebook en una sesión nueva y continúa desde la verificación. Usan `pettrace-ml[notebooks]==0.2.17` desde PyPI; setup no ejecuta el experimento. Python 3.11–3.13 está admitido. La evidencia histórica conserva el runtime con el que fue producida. [La guía E1](../docs/e1_colab.md) describe resultados, límites y recuperación.
+E1 instala `pettrace-ml[tracking]` y se ejecuta con `pettrace run e1`; E2 conserva su notebook interactivo. Python 3.11–3.13 está admitido. La evidencia histórica conserva el runtime con el que fue producida. [La guía E1](../docs/e1_colab.md) describe PetTrace v5, resultados y recuperación.
 
 El notebook E3 instala **`pettrace-ml[training,notebooks]==0.2.26` desde PyPI** con un solo comando. Carga el corpus refinado v2 desde Hugging Face, calcula una vez las representaciones E2 congeladas y entrena las semillas 45–49. No requiere Drive, requirements copiados ni construir un wheel. Véase [la guía E3](../docs/e3_colab.md).
 

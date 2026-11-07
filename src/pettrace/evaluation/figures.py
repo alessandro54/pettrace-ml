@@ -1,8 +1,7 @@
-"""Thesis figures and tables from one Evaluation (needs the `figures` dependency group).
+"""Thesis figures and tables from one Evaluation.
 
-    figs = all_figures(ev, label)          # name → matplotlib Figure (shown inline in notebooks)
-    s = summary(ev, model)                 # the numbers the report tables and the thesis use
-    save(ev, model, "reports/e1_v3")       # summary.json + scores.json + PNGs
+Each public plotting method returns exactly one matplotlib Figure. ``save`` calls
+those methods explicitly to produce a complete report.
 """
 
 import json
@@ -302,12 +301,6 @@ def retrieval_examples(ev, output, dataset_commit):
     return figures, messages
 
 
-def all_figures(ev, label: str) -> dict:
-    return {"confusion": confusion(ev, label), "rank1_por_animal": rank1_per_animal(ev, label),
-            "distribucion_scores": score_distribution(ev, label), "cmc": cmc(ev, label),
-            "matriz_similitud": similarity_matrix(ev), "rank1_rank2_map": ranking_metrics(ev, label)}
-
-
 def save(ev, model, outdir: str, label: str | None = None) -> dict:
     """summary.json, scores.json (per-query rows + pair scores, no images) and the PNGs."""
     import matplotlib
@@ -322,7 +315,15 @@ def save(ev, model, outdir: str, label: str | None = None) -> dict:
                           for p in ev.photos]},
               open(os.path.join(outdir, "scores.json"), "w"), default=float)
     label = label or f"{s['model_version']} · {ev.dataset.name}"
-    for name, fig in all_figures(ev, label).items():
+    figures = (
+        ("confusion", confusion(ev, label)),
+        ("rank1-per-animal", rank1_per_animal(ev, label)),
+        ("score-distribution", score_distribution(ev, label)),
+        ("cmc", cmc(ev, label)),
+        ("similarity-matrix", similarity_matrix(ev, label)),
+        ("ranking-metrics", ranking_metrics(ev, label)),
+    )
+    for name, fig in figures:
         fig.savefig(os.path.join(outdir, f"{name}.png"), dpi=200, bbox_inches="tight")
         import matplotlib.pyplot as plt
 
@@ -393,7 +394,7 @@ def explain(name: str, s: dict) -> str:
                 "Animals are compared only within species, as in the app. "
                 f"**In this run** the model gets {per} correct. Most frequent confusions: {top}. "
                 "If they cluster within a look-alike group, the error reflects similar appearance rather than species.")
-    if name == "rank1_por_animal":
+    if name == "rank1-per-animal":
         best = [a for a in sorted(pa) if pa[a]["rank1"] == 1.0]
         worst = sorted(pa, key=lambda a: pa[a]["rank1"])[:3]
         return ("**How to read it.** Each bar is the share of that animal's queries where the correct animal "
@@ -402,7 +403,7 @@ def explain(name: str, s: dict) -> str:
                 f"**In this run** {_list([f'`{a}`' for a in best]) or 'no animal'} answers every query correctly, "
                 "and the hardest are "
                 + _list([f"`{a}` ({hits(a)}/{pa[a]['queries']})" for a in worst]) + ".")
-    if name == "distribucion_scores":
+    if name == "score-distribution":
         return ("**How to read it.** Histograms show cosine similarity for photo pairs of the same animal (green) "
                 "and different animals of the same species (red). The dashed line is the equal-error-rate threshold. "
                 "Less overlap means the model separates identities better with a fixed threshold. "
@@ -416,7 +417,7 @@ def explain(name: str, s: dict) -> str:
                 f"With {n} animals per species, k = {n} is always 100%. **In this run** the correct animal ranks "
                 f"first for {g['rank1']:.1%} of queries (chance {chance:.1%}) and in the top 5 for "
                 f"{g['rank5']:.1%} (chance {5 * chance:.1%}).")
-    if name == "matriz_similitud":
+    if name == "similarity-matrix":
         ms = s.get("mean_similarity", {})
         detail = "; ".join(f"for {SPECIES[x]} {v['same']:.3f} (same) versus {v['diff']:.3f} (different)"
                            for x, v in ms.items())

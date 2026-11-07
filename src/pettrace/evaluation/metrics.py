@@ -4,8 +4,8 @@ Retrieval, per split: every photo is a query; the gallery is the other photos of
 species** (the app filters by species), leave-one-out. A query whose animal has no other photo is
 skipped (it cannot be found), and so is a species with a single animal (nothing to confuse it
 with: Rank-1 would be 100 % by construction).
-- Rank-k (by animal): `max` remains the study baseline; validation diagnostics may instead use
-  top-2 mean or a spherical identity prototype.
+- Rank-k (by animal; study-specific max-score aggregation): each animal scores its best photo; hit if the query's animal
+  is among the top k animals.
 - mAP (by photo): average precision of the query's own photos in the ranked gallery.
 Verification: the match threshold is fixed at the EER on `val` pairs, then FAR/FRR are measured on
 `test` pairs. Every result carries its gallery size: Rank-k means little without it.
@@ -16,11 +16,8 @@ import numpy as np
 KS = (1, 2, 5, 10)
 
 
-def retrieval(E: np.ndarray, animals: list[str], species: list[str], ks=KS,
-              identity_aggregation: str = "max") -> dict:
-    """Rank-k and photo-level mAP, with a configurable identity score for Rank-k."""
-    if identity_aggregation not in {"max", "top2_mean", "prototype"}:
-        raise ValueError(f"Unknown identity aggregation: {identity_aggregation}")
+def retrieval(E: np.ndarray, animals: list[str], species: list[str], ks=KS) -> dict:
+    """Rank-k and mAP, global and per species, plus one row per query."""
     S = E @ E.T
     per_query = []
     for sp in sorted(set(species)):
@@ -33,7 +30,9 @@ def retrieval(E: np.ndarray, animals: list[str], species: list[str], ks=KS,
             own = [g for g in gallery if animals[g] == animals[q]]
             if not own:
                 continue
-            best = _identity_scores(E, S, q, gallery, animals, identity_aggregation)
+            best: dict[str, float] = {}
+            for g in gallery:
+                best[animals[g]] = max(best.get(animals[g], -np.inf), float(S[q, g]))
             ranked = sorted(best, key=best.get, reverse=True)
             rank = ranked.index(animals[q]) + 1
             order = sorted(gallery, key=lambda g: S[q, g], reverse=True)
@@ -52,27 +51,6 @@ def retrieval(E: np.ndarray, animals: list[str], species: list[str], ks=KS,
     return {"global": _summary(per_query, ks), **{
         sp: _summary([r for r in per_query if r["species"] == sp], ks) for sp in sorted({r["species"] for r in per_query})
     }, "per_query": per_query}
-
-
-def _identity_scores(E, S, query, gallery, animals, aggregation):
-    groups = {}
-    for index in gallery:
-        groups.setdefault(animals[index], []).append(index)
-    scores = {}
-    for animal, indices in groups.items():
-        if aggregation == "max":
-            scores[animal] = float(np.max(S[query, indices]))
-        elif aggregation == "top2_mean":
-            scores[animal] = float(np.mean(np.sort(S[query, indices])[-2:]))
-        else:
-            prototype = np.mean(E[indices], axis=0)
-            norm = np.linalg.norm(prototype)
-            if norm == 0:
-                raise ValueError(f"Identity {animal} has a zero spherical prototype")
-            scores[animal] = float(E[query] @ (prototype / norm))
-    return scores
-
-
 def _summary(rows: list[dict], ks) -> dict:
     if not rows:
         return {"queries": 0}

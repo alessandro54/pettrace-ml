@@ -8,7 +8,27 @@ import shutil
 from PIL import Image
 
 from pettrace.artifact_upload import compact_json_uploads
-from pettrace.tracking import PRODUCTION_URI, production_context, publish_evaluation, save_provenance
+from pettrace.tracking import production_context, publish_evaluation, save_provenance, tracking_run_url
+
+
+def save_publication_input(ev, report):
+    """Persist enough numeric evidence to retry publication without images or inference."""
+    dataset = ev.dataset
+    payload = {
+        "dataset": {key: getattr(dataset, key) for key in ("repo", "version", "commit", "fingerprint")},
+        "protocol": ev.protocol,
+        "result": ev.result,
+    }
+    (Path(report) / "evaluation-input.json").write_text(json.dumps(payload, indent=2, default=float) + "\n")
+
+
+def load_publication_input(report):
+    """Load the minimal Evaluation shape consumed by MLflow publication."""
+    from types import SimpleNamespace
+
+    payload = json.loads((Path(report) / "evaluation-input.json").read_text())
+    return SimpleNamespace(dataset=SimpleNamespace(**payload["dataset"]),
+                           protocol=payload["protocol"], result=payload["result"])
 
 
 def _prepare_photo_panels(report, public_report):
@@ -80,7 +100,6 @@ def publish_results(public_evaluation, private_evaluation, model, report, public
     save_provenance(report, model)
     save_provenance(public_report, model)
 
-    from pettrace.experiments.e1 import save_publication_input
     save_publication_input(public_evaluation, public_report)
     save_publication_input(private_evaluation, report)
     receipt = report / "publication.json"
@@ -103,4 +122,4 @@ def publish_results(public_evaluation, private_evaluation, model, report, public
             if client.get_run(published_id).info.status != "FINISHED":
                 raise RuntimeError(f"Publication is incomplete: {published_id}")
             client.log_artifact(published_id, str(folder / "publication.json"), artifact_path="report")
-    return {**result, "url": f"{PRODUCTION_URI}/#/experiments/{tracking_experiment.experiment_id}/runs/{run_id}"}
+    return {**result, "url": tracking_run_url(tracking_experiment.experiment_id, run_id)}
