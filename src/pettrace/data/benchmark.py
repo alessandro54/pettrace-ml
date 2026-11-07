@@ -63,7 +63,7 @@ def from_dir(root: str, repo: str = REPO, version: str = "local", commit: str = 
                 path=os.path.join(root, row["file_name"]),
                 animal=row["animal_id"],
                 species=row["species"],
-                split=row["split"],
+                split=row.get("split") or "test",
                 light=float(row.get("light") or 0),
             )
             for row in csv.DictReader(f)

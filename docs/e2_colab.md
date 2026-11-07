@@ -2,7 +2,7 @@
 
 Abre [`notebooks/e2_yolo_crop_zero_shot.ipynb`](../notebooks/e2_yolo_crop_zero_shot.ipynb)
 en una sesión nueva con Python 3.11–3.13. Ejecuta setup: instala
-`pettrace-ml[notebooks]==0.2.30` directamente desde PyPI y continúa desde la
+`pettrace-ml[notebooks]==0.2.31` directamente desde PyPI y continúa desde la
 verificación del wheel. Crea las credenciales en Colab Secrets, habilita el acceso
 del notebook y ejecuta la celda de credenciales. Nunca se guardan en el código.
 

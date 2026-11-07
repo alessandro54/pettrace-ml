@@ -1,5 +1,11 @@
 # Package releases
 
+## 0.2.31 — complete benchmark metadata
+
+- Loads a benchmark without a `split` column as one complete test set.
+- Preserves explicit train, validation and test assignments when they are present.
+- Enables the headless E1 runner to evaluate the immutable PetTrace v5 release.
+
 ## 0.2.30 — current Hugging Face Hub compatibility
 
 - Removes the retired `configure_http_backend` integration and relies on the current Hub client.

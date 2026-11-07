@@ -57,7 +57,7 @@ def test_current_zero_shot_notebooks_install_the_published_package_directly(name
     contents = cells(ROOT / "notebooks" / name)
     install = next("".join(c["source"]) for c in contents if c["id"].endswith("setup"))
     notebook = "\n".join("".join(c["source"]) for c in contents)
-    assert '"pettrace-ml[notebooks]==0.2.30"' in install
+    assert '"pettrace-ml[notebooks]==0.2.31"' in install
     assert "requirements-e1-runtime" not in notebook
 
 
