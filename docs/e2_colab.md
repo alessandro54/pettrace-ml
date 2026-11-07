@@ -16,7 +16,7 @@ Colab con Python 3.11–3.13, habilita los secretos `HF_TOKEN`, `MLFLOW_TRACKING
 `MLFLOW_TRACKING_PASSWORD`, y ejecuta las tres fases. El equivalente no interactivo es:
 
 ```bash
-python -m pip install "pettrace-ml[tracking]==0.2.34"
+python -m pip install "pettrace-ml[tracking]==0.2.35"
 pettrace run e2 --output reports/e2-v5
 ```
 

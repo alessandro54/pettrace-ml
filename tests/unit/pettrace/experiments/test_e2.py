@@ -16,7 +16,7 @@ def test_detector_audit_keeps_fallback_invalid_boxes_and_species_mismatches(tmp_
     detections = iter([None, (.8, 15, (20, 20, 40, 40)), (.9, 16, (30, 30, 30, 30))])
     detector = SimpleNamespace(margin=.1, box=lambda image: next(detections))
     photo = SimpleNamespace(path=path, animal="a", species="dog")
-    dataset = SimpleNamespace(root=tmp_path, photos=[photo, photo, photo])
+    dataset = SimpleNamespace(root=tmp_path / "composite", photos=[photo, photo, photo])
 
     findings = e2.audit_detector(dataset, detector)
 
@@ -25,6 +25,7 @@ def test_detector_audit_keeps_fallback_invalid_boxes_and_species_mismatches(tmp_
     assert findings[1]["box"] == [18, 18, 42, 42]
     assert findings[1]["retained_area"] == 24 * 24 / 10000
     assert findings[0]["retained_area"] == findings[2]["retained_area"] == 1
+    assert {row["photo"] for row in findings} == {"photo.png"}
 
 
 def test_condition_comparison_requires_identical_queries_and_fallback_embeddings(tmp_path, monkeypatch):

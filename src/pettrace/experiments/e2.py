@@ -44,9 +44,13 @@ def audit_detector(dataset, detector):
         with Image.open(photo.path) as raw:
             image = ImageOps.exif_transpose(raw).convert("RGB")
         found = detector.box(image)
+        try:
+            photo_name = str(Path(photo.path).relative_to(dataset.root))
+        except ValueError:
+            photo_name = Path(photo.path).name
         finding = {
             "query": query,
-            "photo": str(Path(photo.path).relative_to(dataset.root)),
+            "photo": photo_name,
             "animal": photo.animal,
             "species": photo.species,
             "status": "no_detection",

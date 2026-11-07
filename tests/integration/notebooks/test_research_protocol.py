@@ -67,7 +67,7 @@ def test_e2_notebook_installs_the_published_package_directly():
     contents = cells(ROOT / "notebooks/e2_yolo_crop_zero_shot.ipynb")
     install = next("".join(c["source"]) for c in contents if c["id"].endswith("setup"))
     notebook = "\n".join("".join(c["source"]) for c in contents)
-    assert '"pettrace-ml[notebooks,tracking]==0.2.34"' in install
+    assert '"pettrace-ml[notebooks,tracking]==0.2.35"' in install
     assert "publication = run(REPORT)" in notebook
     assert "snapshot_download" not in notebook
     assert "publish_results" not in notebook

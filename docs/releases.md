@@ -1,5 +1,10 @@
 # Package releases
 
+## 0.2.35 — composite E2 audit paths
+
+- Records stable image names when the refined public benchmark spans multiple cache roots.
+- Prevents E2 detector auditing from treating the process working directory as the dataset root.
+
 ## 0.2.34 — E2 refined paired benchmark
 
 - Replaces the duplicated E2 notebook implementation with a tested headless runner and CLI command.
