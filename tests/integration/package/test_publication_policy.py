@@ -27,6 +27,10 @@ def test_notebook_publication_is_required_before_side_effects(filename):
     assignment = next(n for n in ast.parse(config).body if isinstance(n, ast.Assign)
                       and any(isinstance(t, ast.Name) and t.id == "LOG_TO_MLFLOW" for t in n.targets))
     assert ast.literal_eval(assignment.value) is True
+    if filename == "e1_clip_zero_shot.ipynb":
+        publication = next(s for s in code if "publication = run(REPORT)" in s)
+        assert "LOG_TO_MLFLOW" in publication
+        return
     if filename.startswith(("e3_", "e4_")):
         from pettrace.experiments.e3 import publish_results
     else:

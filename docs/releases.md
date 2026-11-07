@@ -1,5 +1,13 @@
 # Package releases
 
+## 0.2.32 — E1 headless notebook
+
+- Replaces the duplicated E1 notebook implementation with the tested headless experiment runner.
+- Keeps the three thesis phases visible while loading immutable benchmarks, evaluating, rendering figures
+  and publishing both domains through the package.
+- Installs the complete notebook and MLflow extras from PyPI and reads credentials only from Colab Secrets.
+- Records the current PetTrace v5 evidence and links the executed historical v4 notebook immutably.
+
 ## 0.2.31 — complete benchmark metadata
 
 - Loads a benchmark without a `split` column as one complete test set.

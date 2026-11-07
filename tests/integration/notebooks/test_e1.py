@@ -1,18 +1,16 @@
 """E1 presentation must use the actual preprocessing and retrieval protocol."""
 import json
-from pathlib import Path
 from types import SimpleNamespace
 
 import matplotlib
 matplotlib.use("Agg")
 import numpy as np
 import pytest
-from PIL import Image, ImageOps
+from PIL import Image
 
 from pettrace.evaluation.figures import retrieval_examples
 from pettrace.evaluation.metrics import retrieval
 from pettrace.experiments.zero_shot import _prepare_photo_panels
-from pettrace.models.pipeline import Pipeline
 from tests import ROOT
 
 
@@ -23,33 +21,7 @@ def source(cell_id, experiment="e1"):
     return "".join(next(c for c in notebook["cells"] if c["id"] == cell_id)["source"])
 
 
-def test_visual_preprocessing_is_inverse_of_actual_tensor(tmp_path):
-    # Rectangular gradient reveals a wrong crop or normalization, unlike a solid image.
-    pixels = np.arange(8 * 12 * 3, dtype=np.uint8).reshape(8, 12, 3)
-    path = tmp_path / "sample.png"
-    Image.fromarray(pixels).save(path)
-    photos = [SimpleNamespace(path=str(path), animal=sp, species=sp) for sp in ("cat", "dog")]
-    pipeline = object.__new__(Pipeline)
-    pipeline.detector = None
-    pipeline.pre = {"resize_shortest_edge": 8, "center_crop": [6, 6], "resample": "bicubic",
-                    "rescale_factor": 1 / 255, "mean": [.48, .45, .40], "std": [.26, .25, .27]}
-    displayed = []
-    namespace = {"public_ds": SimpleNamespace(photos=photos, commit="pinned"),
-                 "model": SimpleNamespace(pipeline=pipeline), "PUBLIC_REPORT": tmp_path,
-                 "PILImage": Image, "ImageOps": ImageOps, "np": np, "Path": Path,
-                 "json": json, "display": displayed.append}
-    exec(source("e1-preprocess-visual"), namespace)
-    assert len(displayed) == 2
-    for fig in displayed:
-        np.testing.assert_array_equal(fig.axes[0].images[0].get_array(), pixels)
-        np.testing.assert_allclose(fig.axes[1].images[0].get_array(), pixels[1:7, 3:9] / 255, atol=1e-7)
-    manifest = json.loads((tmp_path / "preprocessing-examples.json").read_text())
-    assert manifest["dataset_commit"] == "pinned"
-    assert [r["query"] for r in manifest["examples"]] == [0, 1]
-    assert (tmp_path / "preprocessing-cat.png").is_file()
-
-
-@pytest.mark.parametrize("experiment", ["e1", "e2"])
+@pytest.mark.parametrize("experiment", ["e2"])
 def test_visual_retrieval_handles_ties_singletons_and_separate_species(tmp_path, experiment):
     import matplotlib.pyplot as plt
 

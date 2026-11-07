@@ -2,7 +2,6 @@
 import ast
 import json
 import re
-from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -52,13 +51,21 @@ def test_current_e3_notebook_installs_the_published_package_directly():
     assert "SOURCE_SAMPLE_PCT, SEEDS = 100, (45, 46, 47, 48, 49)" in notebook
 
 
-@pytest.mark.parametrize("name", ["e1_clip_zero_shot.ipynb", "e2_yolo_crop_zero_shot.ipynb"])
-def test_current_zero_shot_notebooks_install_the_published_package_directly(name):
-    contents = cells(ROOT / "notebooks" / name)
+def test_e1_notebook_installs_the_complete_headless_toolkit():
+    contents = cells(ROOT / "notebooks/e1_clip_zero_shot.ipynb")
     install = next("".join(c["source"]) for c in contents if c["id"].endswith("setup"))
     notebook = "\n".join("".join(c["source"]) for c in contents)
-    assert '"pettrace-ml[notebooks]==0.2.31"' in install
+    assert '"pettrace-ml[notebooks,tracking]==0.2.32"' in install
     assert "requirements-e1-runtime" not in notebook
+    assert "publication = run(REPORT)" in notebook
+    assert "snapshot_download" not in notebook
+    assert "publish_results" not in notebook
+
+
+def test_e2_notebook_installs_the_published_package_directly():
+    contents = cells(ROOT / "notebooks/e2_yolo_crop_zero_shot.ipynb")
+    install = next("".join(c["source"]) for c in contents if c["id"].endswith("setup"))
+    assert '"pettrace-ml[notebooks]==0.2.31"' in install
 
 
 def test_e4_installs_complete_published_training_package():
@@ -104,9 +111,15 @@ def test_shared_research_structure_and_fixed_benchmark(path):
                    for node in ast.parse("".join(c["source"])).body if isinstance(node, ast.Assign)]
     commit = next(n for n in assignments if any(isinstance(t, ast.Name) and t.id == "DATASET_COMMIT"
                                                 for t in n.targets))
-    assert ast.literal_eval(commit.value) == COMMIT
+    expected_commit = ("1777734dbffda0df0bf43305233809ee73157d94"
+                       if path.name == "e1_clip_zero_shot.ipynb" else COMMIT)
+    assert ast.literal_eval(commit.value) == expected_commit
     publication = "\n".join("".join(c["source"]) for c in contents if c["cell_type"] == "code")
-    if path.name.startswith(("e3_", "e4_")):
+    if path.name == "e1_clip_zero_shot.ipynb":
+        assert "publication = run(REPORT)" in publication
+        helper = (ROOT / "src/pettrace/experiments/e1.py").read_text()
+        assert helper.index("_dataset_selection(") < helper.index("publication = publish_results(")
+    elif path.name.startswith(("e3_", "e4_")):
         assert "publication = publish_results(" in publication
         helper = (ROOT / "src/pettrace/experiments/e3.py").read_text()
         assert helper.index('"experiment-design.json"') < helper.index("public_run_id = publish_evaluation(")
@@ -116,7 +129,7 @@ def test_shared_research_structure_and_fixed_benchmark(path):
         assert helper.index('"experiment-design.json"') < helper.index("public_run_id = publish_evaluation(")
 
 
-@pytest.mark.parametrize("name", ["e1_clip_zero_shot.ipynb", "e2_yolo_crop_zero_shot.ipynb"])
+@pytest.mark.parametrize("name", ["e2_yolo_crop_zero_shot.ipynb"])
 def test_mutated_tag_stops_before_any_download(name):
     code = next("".join(c["source"]) for c in cells(ROOT / "notebooks" / name)
                 if c["cell_type"] == "code" and "resolved_commit =" in "".join(c["source"]))
