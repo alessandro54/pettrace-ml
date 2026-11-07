@@ -14,15 +14,15 @@ def dataset(version, commit):
 
 
 def test_run_generates_both_reports_and_mandatorily_publishes(tmp_path, monkeypatch):
-    public, private = dataset("v1", "a" * 40), dataset("v5", "b" * 40)
+    public, private = dataset("v2", "a" * 40), dataset("v5", "b" * 40)
     evaluations, saved, published = [], [], []
     model = SimpleNamespace(uri=e1.MODEL, sha256={"encoder.onnx": e1.ENCODER_SHA256},
                             golden_ok=True, pipeline=SimpleNamespace(detector=None))
 
     monkeypatch.setattr(e1, "require_environment", lambda: None)
     monkeypatch.setattr(e1, "_domains", lambda version, commit, cache: (
-        public, private, {"repo": "owner/public", "version": "v1", "commit": "a" * 40,
-                          "fingerprint": "public-fingerprint"}))
+        public, private, {"repo": "composite/public", "version": "v2", "commit": "a" * 40,
+                          "fingerprint": "public-fingerprint", "sources": []}))
     monkeypatch.setattr(e1, "source_identity", lambda: {"source_sha256": "source"})
     monkeypatch.setattr("pettrace.evaluation.core.load_model", lambda uri: model)
 
@@ -46,8 +46,8 @@ def test_run_generates_both_reports_and_mandatorily_publishes(tmp_path, monkeypa
     result = e1.run(report, private_version="v5", private_commit="b" * 40,
                     cache_dir=tmp_path / "cache")
 
-    assert evaluations == [("v1", True), ("v5", True)]
-    assert {version for version, _ in saved} == {"v1", "v5"}
+    assert evaluations == [("v2", True), ("v5", True)]
+    assert {version for version, _ in saved} == {"v2", "v5"}
     assert len(published) == 1
     assert published[0][1]["private_dataset_version"] == "v5"
     assert published[0][1]["extra_design"]["private_dataset_commit"] == "b" * 40

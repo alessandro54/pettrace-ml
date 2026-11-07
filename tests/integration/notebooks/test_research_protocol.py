@@ -55,7 +55,7 @@ def test_e1_notebook_installs_the_complete_headless_toolkit():
     contents = cells(ROOT / "notebooks/e1_clip_zero_shot.ipynb")
     install = next("".join(c["source"]) for c in contents if c["id"].endswith("setup"))
     notebook = "\n".join("".join(c["source"]) for c in contents)
-    assert '"pettrace-ml[notebooks,tracking]==0.2.32"' in install
+    assert '"pettrace-ml[notebooks,tracking]==0.2.33"' in install
     assert "import mlflow" in install
     assert "requirements-e1-runtime" not in notebook
     assert "publication = run(REPORT)" in notebook

@@ -44,16 +44,13 @@ def _private_dataset(version, commit, cache_dir):
 
 
 def _domains(private_version, private_commit, cache_dir):
-    from pettrace.data.snapshots import load_training
+    from pettrace.data.refined_sources import load_training
     from pettrace.data.verification import sha256
-    from pettrace.evaluation.research import (
-        PUBLIC_COMMIT, PUBLIC_FINGERPRINT, PUBLIC_REPO, PUBLIC_VERSION, public_test_dataset,
-    )
+    from pettrace.evaluation.research import public_test_dataset, refined_public_receipt
 
-    prepared, receipt = load_training(
-        repo_id=PUBLIC_REPO, version=PUBLIC_VERSION, revision=PUBLIC_COMMIT,
-        expected_fingerprint=PUBLIC_FINGERPRINT, cache_dir=cache_dir / "public",
-    )
+    prepared = load_training(
+        version="v2", cache_dir=cache_dir / "public", token=os.environ["HF_TOKEN"])
+    receipt = refined_public_receipt(prepared)
     public = public_test_dataset(prepared, receipt)
     private = _private_dataset(private_version, private_commit, cache_dir / "private")
     public_hashes = {row["sha256"] for row in prepared.rows}

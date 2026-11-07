@@ -1,5 +1,11 @@
 # Package releases
 
+## 0.2.33 — E1 refined public benchmark
+
+- Evaluates E1 on the immutable test identities from both public refined v2 sources.
+- Records both Hugging Face commits in the composite benchmark receipt and keeps PetTrace v5 separate.
+- Preserves the pilot public v1 results as historical evidence instead of relabeling them.
+
 ## 0.2.32 — E1 headless notebook
 
 - Replaces the duplicated E1 notebook implementation with the tested headless experiment runner.

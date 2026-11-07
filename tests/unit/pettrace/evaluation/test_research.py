@@ -8,6 +8,7 @@ import pytest
 from pettrace.evaluation import metrics
 from pettrace.evaluation.research import (
     public_test_dataset,
+    refined_public_receipt,
     save_benchmark_comparison,
 )
 
@@ -51,6 +52,22 @@ def test_public_view_rejects_leakage_and_unpinned_or_changed_receipt(tmp_path):
     original.rows.append({**test, "split": "train"})
     with pytest.raises(ValueError, match="identity-disjoint"):
         public_test_dataset(original, receipt())
+
+
+def test_refined_public_receipt_pins_both_sources(tmp_path):
+    original = prepared(tmp_path)
+    original.version = "v2"
+    original.provenance = {"sources": [
+        {"source": "lcw", "repo_id": "owner/cats", "version": "v2", "commit": "b" * 40},
+        {"source": "dogs-world", "repo_id": "owner/dogs", "version": "v2", "commit": "c" * 40},
+    ]}
+    source = refined_public_receipt(original)
+    dataset = public_test_dataset(original, source)
+
+    assert source["version"] == dataset.version == "v2"
+    assert len(source["sources"]) == 2
+    assert len(source["commit"]) == 40
+    assert refined_public_receipt(original)["commit"] == source["commit"]
 
 
 def test_comparison_keeps_each_gallery_size_and_rank2(tmp_path):

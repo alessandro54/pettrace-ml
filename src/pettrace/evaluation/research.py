@@ -15,6 +15,28 @@ PUBLIC_REPO = "alessandro54/pettrace-training"
 PUBLIC_VERSION = "v1"
 PUBLIC_COMMIT = "dd7a00cb8b3638759ffa0216251e62d334b5bf10"
 PUBLIC_FINGERPRINT = "38ef098d26afa792a1712f9e37487d143f60a9a3bc647a5fdde5505f790f8c7d"
+REFINED_PUBLIC_REPO = "composite/lcw+dow-refined"
+REFINED_PUBLIC_VERSION = "v2"
+
+
+def refined_public_receipt(prepared):
+    """Describe the two pinned refined sources as one reproducible benchmark."""
+    provenance = prepared.provenance
+    sources = provenance.get("sources", [])
+    if prepared.version != REFINED_PUBLIC_VERSION or len(sources) != 2:
+        raise ValueError("Public refined evaluation requires both audited v2 sources")
+    identity = {
+        "version": prepared.version,
+        "prepared_fingerprint": prepared.fingerprint,
+        "sources": sources,
+    }
+    return {
+        "repo": REFINED_PUBLIC_REPO,
+        "version": REFINED_PUBLIC_VERSION,
+        "commit": hashlib.sha1(json.dumps(identity, sort_keys=True).encode()).hexdigest(),
+        "fingerprint": prepared.fingerprint,
+        "sources": sources,
+    }
 
 
 def public_test_dataset(prepared, receipt):
@@ -40,7 +62,8 @@ def public_test_dataset(prepared, receipt):
     identity = {"prepared_fingerprint": prepared.fingerprint, "split": "test",
                 "rows": sorted((r["animal"], r["species"], r["sha256"]) for r in rows)}
     digest = hashlib.sha256(json.dumps(identity, sort_keys=True).encode()).hexdigest()
-    return Dataset(receipt["repo"], receipt["version"], receipt["commit"], digest, str(prepared.root),
+    return Dataset(receipt["repo"], receipt["version"], receipt["commit"], digest,
+                   str(getattr(prepared, "root", "")),
                    animals, [Photo(str(r["path"]), r["animal"], r["species"], "test", 0.0) for r in rows])
 
 
