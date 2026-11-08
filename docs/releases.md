@@ -1,5 +1,10 @@
 # Package releases
 
+## 0.2.37 — Stable E3 frozen-control coverage
+
+- Compares frozen E1/E2 coverage by immutable source/image name, identity, species and gallery size.
+- Ignores runtime-specific cache roots and query indices while still rejecting changed benchmark photos.
+
 ## 0.2.36 — E3 on refined public v2 and PetTrace v5
 
 - Updates the canonical E3 study to train on the complete refined v2 corpus and evaluate Public v2

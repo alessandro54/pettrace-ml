@@ -73,7 +73,7 @@ Las fotos privadas no se incorporan a la presentación de resultados; se emplean
 
 E1 y E2 instalan `pettrace-ml[notebooks,tracking]` y ejecutan el runner oficial desde el cuaderno; las mismas operaciones están disponibles como `pettrace run e1` y `pettrace run e2`. Python 3.11–3.13 está admitido. La evidencia histórica conserva el runtime con el que fue producida. Las guías de [E1](../docs/e1_colab.md) y [E2](../docs/e2_colab.md) describen resultados y recuperación.
 
-El notebook E3 instala **`pettrace-ml[training,notebooks,tracking]==0.2.36` desde PyPI** con un solo comando. Carga el corpus refinado v2 desde Hugging Face, calcula una vez las representaciones E2 congeladas y entrena las semillas 45–49. No requiere Drive, requirements copiados ni construir un wheel. Véase [la guía E3](../docs/e3_colab.md).
+El notebook E3 instala **`pettrace-ml[training,notebooks,tracking]==0.2.37` desde PyPI** con un solo comando. Carga el corpus refinado v2 desde Hugging Face, calcula una vez las representaciones E2 congeladas y entrena las semillas 45–49. No requiere Drive, requirements copiados ni construir un wheel. Véase [la guía E3](../docs/e3_colab.md).
 
 El código está en `src/pettrace/`, organizado por datos, modelos, entrenamiento y evaluación. E1/E2 no entrenan; E3 requiere GPU y entrena su MLP en la fase 2. La migración de imports conserva las salidas históricas: no constituye otra ejecución ni publica métricas nuevas.
 

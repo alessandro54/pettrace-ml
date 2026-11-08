@@ -9,7 +9,8 @@ from pettrace.experiments.e3 import FROZEN_RUNS, frozen_controls
 
 
 def test_frozen_controls_validate_data_models_and_queries(tmp_path, monkeypatch):
-    rows = [{"query": 0, "photo": "cat/one/1.jpg", "animal": "cat:one", "species": "cat", "gallery_animals": 3}]
+    rows = [{"query": 0, "photo": "runtime/images/cat/one.jpg", "animal": "cat:one", "species": "cat", "gallery_animals": 3}]
+    frozen_rows = [{**rows[0], "query": 91, "photo": "cache/images/cat/one.jpg"}]
     evaluation = SimpleNamespace(dataset=SimpleNamespace(commit="fixed", fingerprint="data"),
                                  result={"test": {"per_query": rows}})
     bad = {"commit": False, "query": False}
@@ -26,7 +27,7 @@ def test_frozen_controls_validate_data_models_and_queries(tmp_path, monkeypatch)
         def download_artifacts(self, run_id, artifact, dest):
             calls.append((run_id, artifact))
             path = Path(dest) / Path(artifact).name
-            result = {"test": {"per_query": [] if bad["query"] else rows}} if artifact == "evaluation.json" else {"global": {"mAP": .5}}
+            result = {"test": {"per_query": [] if bad["query"] else frozen_rows}} if artifact == "evaluation.json" else {"global": {"mAP": .5}}
             path.write_text(json.dumps(result))
             return str(path)
 

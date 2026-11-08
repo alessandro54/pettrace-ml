@@ -5,7 +5,7 @@ Se ejecuta desde la UI de Colab con una GPU T4 o superior y no repite preparaci�
 
 ## Entradas fijadas
 
-- Paquete: `pettrace-ml[training,notebooks,tracking]==0.2.36` desde PyPI.
+- Paquete: `pettrace-ml[training,notebooks,tracking]==0.2.37` desde PyPI.
 - Entrenamiento: unión pública refinada `v2` de Dogs of the World y LCW, fijada por commits y fingerprint.
 - Control: E2 congelado, incluido detector YOLO y encoder CLIP.
 - Selección: validación pública por identidades, nunca los tests.

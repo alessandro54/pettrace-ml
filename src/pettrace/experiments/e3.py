@@ -3,7 +3,7 @@ from dataclasses import asdict
 import hashlib
 import json
 import math
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 import shutil
 import time
 from types import SimpleNamespace
@@ -52,7 +52,8 @@ def frozen_controls(evaluation, domain, output):
                  (("evaluation", "evaluation.json"), ("summary", "report/summary.json"))}
         result = json.loads(paths["evaluation"].read_text())
         def signature(rows):
-            return [(r["query"], r["photo"], r["animal"], r["species"], r["gallery_animals"]) for r in rows]
+            return sorted(("/".join(PurePosixPath(r["photo"]).parts[-2:]),
+                           r["animal"], r["species"], r["gallery_animals"]) for r in rows)
         if signature(result["test"]["per_query"]) != signature(evaluation.result["test"]["per_query"]):
             raise ValueError("Frozen baseline queries/gallery differ")
         summaries[label] = json.loads(paths["summary"].read_text())
