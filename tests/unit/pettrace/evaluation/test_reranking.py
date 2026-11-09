@@ -89,6 +89,15 @@ def test_attribute_score_ignores_unknown_and_penalizes_contradictions():
     assert attribute_similarity(black, white) < attribute_similarity(black, black)
 
 
+def test_unknown_fallback_cannot_create_textual_advantage():
+    unknown = attributes("unknown") | {
+        "secondary_color": "unknown", "coat_pattern": "unknown",
+        "coat_length": "unknown", "ear_shape": "not_visible",
+    }
+
+    assert attribute_similarity(unknown, unknown) == 0.0
+
+
 def test_reranker_can_rescue_visual_twin_without_changing_gallery_protocol():
     embeddings = np.array([[1.0, 0.0], [0.8, 0.6], [0.99, 0.1], [0.0, 1.0]])
     embeddings /= np.linalg.norm(embeddings, axis=1, keepdims=True)

@@ -24,7 +24,7 @@ def attribute_similarity(left, right):
         if field in {"white_markings", "distinctive_features"}:
             a, b = set(a) - {"none"}, set(b) - {"none"}
             if not a and not b:
-                value = 1.0
+                continue
             elif not a or not b:
                 value = -1.0
             else:

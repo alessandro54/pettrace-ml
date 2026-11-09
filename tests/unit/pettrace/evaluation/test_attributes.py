@@ -4,7 +4,13 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from pettrace.evaluation.attributes import extract_attribute_cache, parse_attributes, validate_attributes
+from pettrace.evaluation.attributes import (
+    QwenAttributeExtractor,
+    UNKNOWN_ATTRIBUTES,
+    extract_attribute_cache,
+    parse_attributes,
+    validate_attributes,
+)
 
 
 def record(**overrides):
@@ -26,6 +32,26 @@ def test_closed_vocabulary_output_is_canonical_and_accepts_parquet_arrays():
 
     assert validate_attributes(value)["white_markings"] == ["chest", "paws"]
     assert parse_attributes(f"```json\n{json.dumps(record())}\n```") == record()
+
+
+def test_scalar_lists_are_canonicalized_without_losing_the_second_color():
+    value = record(primary_color=["black", "white"], secondary_color=["black", "white"])
+
+    assert validate_attributes(value)["primary_color"] == "black"
+    assert validate_attributes(value)["secondary_color"] == "white"
+
+
+def test_extractor_repairs_invalid_format_then_falls_back_to_unknown():
+    extractor = QwenAttributeExtractor.__new__(QwenAttributeExtractor)
+    answers = iter(["not json", json.dumps(record())])
+    extractor._generate = lambda messages: next(answers)
+
+    assert extractor(None) == record()
+    assert extractor.last_status == "repaired"
+
+    extractor._generate = lambda messages: "still not json"
+    assert extractor(None) == UNKNOWN_ATTRIBUTES
+    assert extractor.last_status == "fallback"
 
 
 @pytest.mark.parametrize("bad", [

@@ -1,5 +1,12 @@
 # Package releases
 
+## 0.2.42 — Robust E5 attribute extraction
+
+- Canonicalizes scalar lists emitted by Qwen3-VL, including primary/secondary colors.
+- Retries malformed output once with deterministic JSON repair, then records an auditable unknown fallback instead of aborting a long extraction.
+- Records per-photo extraction status counts in the immutable cache receipt and removes ignored sampling flags.
+- Treats absent markings as no evidence, so unknown fallbacks cannot create a semantic advantage.
+
 ## 0.2.41 — Qwen3-VL runtime loader
 
 - Loads Qwen3-VL through the supported `Qwen3VLForConditionalGeneration` Transformers API.

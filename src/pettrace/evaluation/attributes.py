@@ -1,6 +1,7 @@
 """Deterministic, identity-blind morphology extraction for E5."""
 
 from hashlib import sha256
+from copy import deepcopy
 import json
 from pathlib import Path
 import re
@@ -28,12 +29,28 @@ breed, name, source, or hidden traits. Use unknown/not_visible when the crop doe
 decision. white_markings and distinctive_features are JSON arrays; use [\"none\"] when absent.
 Vocabulary: {vocabulary}""".format(vocabulary=json.dumps(VOCABULARY, separators=(",", ":")))
 PROMPT_SHA256 = sha256(PROMPT.encode()).hexdigest()
+SCHEMA_VERSION = 2
+STATUSES = {"ok", "repaired", "fallback"}
+UNKNOWN_ATTRIBUTES = {
+    "primary_color": "unknown",
+    "secondary_color": "unknown",
+    "coat_pattern": "unknown",
+    "coat_length": "unknown",
+    "ear_shape": "not_visible",
+    "white_markings": ["none"],
+    "distinctive_features": ["none"],
+}
 
 
 def validate_attributes(value):
-    """Return a canonical closed-vocabulary record or reject model drift."""
+    """Return a canonical closed-vocabulary record, normalizing common VLM list drift."""
     if not isinstance(value, dict) or set(value) != set(VOCABULARY):
         raise ValueError("Attribute output must contain exactly the fixed E5 schema")
+    primary = value["primary_color"]
+    if hasattr(primary, "tolist"):
+        primary = primary.tolist()
+    primary_candidates = list(primary) if isinstance(primary, (list, tuple)) else [primary]
+    primary_candidates = [item for item in primary_candidates if item in VOCABULARY["primary_color"]]
     result = {}
     for field, allowed in VOCABULARY.items():
         item = value[field]
@@ -48,6 +65,17 @@ def validate_attributes(value):
                 raise ValueError(f"Invalid {field} value")
             result[field] = sorted(item, key=allowed.index)
         else:
+            if hasattr(item, "tolist"):
+                item = item.tolist()
+            if isinstance(item, (list, tuple)):
+                choices = [entry for entry in item if entry in allowed]
+                if field == "secondary_color":
+                    item = next((entry for entry in choices if entry != result["primary_color"]), None)
+                else:
+                    item = choices[0] if choices else None
+            if (field == "secondary_color" and item in {"none", "unknown"}
+                    and len(primary_candidates) > 1):
+                item = next((entry for entry in primary_candidates[1:] if entry in allowed), item)
             if item not in allowed:
                 raise ValueError(f"Invalid {field} value: {item}")
             result[field] = item
@@ -56,10 +84,14 @@ def validate_attributes(value):
 
 def parse_attributes(text):
     """Parse the single JSON object emitted by the deterministic VLM."""
-    match = re.search(r"\{.*\}", text, re.DOTALL)
-    if not match:
-        raise ValueError("The VLM did not return a JSON object")
-    return validate_attributes(json.loads(match.group(0)))
+    decoder = json.JSONDecoder()
+    for match in re.finditer(r"\{", text):
+        try:
+            value, _ = decoder.raw_decode(text[match.start():])
+            return validate_attributes(value)
+        except (json.JSONDecodeError, ValueError):
+            continue
+    raise ValueError("The VLM did not return a valid E5 JSON object")
 
 
 def yolo_crop(photo, pipeline):
@@ -87,18 +119,40 @@ class QwenAttributeExtractor:
         self.model = Qwen3VLForConditionalGeneration.from_pretrained(
             self.model_id, revision=revision, token=token, dtype=self.dtype, device_map="auto")
         self.model.eval()
+        self.generation_config = deepcopy(self.model.generation_config)
+        self.generation_config.do_sample = False
+        self.generation_config.temperature = None
+        self.generation_config.top_p = None
+        self.generation_config.top_k = None
+        self.last_status = "ok"
 
-    def __call__(self, crop):
-        messages = [{"role": "user", "content": [
-            {"type": "image", "image": crop}, {"type": "text", "text": PROMPT}]}]
+    def _generate(self, messages):
         inputs = self.processor.apply_chat_template(
             messages, add_generation_prompt=True, tokenize=True, return_dict=True, return_tensors="pt")
         inputs = inputs.to(self.model.device)
         generated = self.model.generate(
-            **inputs, max_new_tokens=180, do_sample=False, temperature=0.0)
-        answer = self.processor.decode(
+            **inputs, max_new_tokens=180, generation_config=self.generation_config)
+        return self.processor.decode(
             generated[0][inputs["input_ids"].shape[-1]:], skip_special_tokens=True)
-        return parse_attributes(answer)
+
+    def __call__(self, crop):
+        messages = [{"role": "user", "content": [
+            {"type": "image", "image": crop}, {"type": "text", "text": PROMPT}]}]
+        answer = self._generate(messages)
+        try:
+            self.last_status = "ok"
+            return parse_attributes(answer)
+        except ValueError:
+            repair = [{"role": "user", "content": [{"type": "text", "text":
+                f"Convert this attempted answer to exactly the JSON schema requested below. "
+                f"Return JSON only.\n{PROMPT}\nAttempted answer:\n{answer}"}]}]
+            try:
+                result = parse_attributes(self._generate(repair))
+                self.last_status = "repaired"
+                return result
+            except ValueError:
+                self.last_status = "fallback"
+                return dict(UNKNOWN_ATTRIBUTES)
 
 
 def save_attribute_cache(records, path, *, model_id, revision, datasets):
@@ -108,21 +162,26 @@ def save_attribute_cache(records, path, *, model_id, revision, datasets):
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     frame = pd.DataFrame(records)
-    required = {"photo_sha256", "dataset", "split", *VOCABULARY}
+    required = {"photo_sha256", "dataset", "split", "attribute_status", *VOCABULARY}
     if not len(frame) or set(frame) != required or frame["photo_sha256"].duplicated().any():
         raise ValueError("Attribute cache rows are empty, duplicated, or have the wrong schema")
+    if not set(frame["attribute_status"]) <= STATUSES:
+        raise ValueError("Attribute cache contains an invalid extraction status")
     temporary = path.with_suffix(path.suffix + ".partial")
     frame.sort_values(["dataset", "photo_sha256"]).to_parquet(temporary, index=False)
     temporary.replace(path)
     digest = sha256(path.read_bytes()).hexdigest()
     receipt = {
-        "schema_version": 1,
+        "schema_version": SCHEMA_VERSION,
         "model": model_id,
         "revision": revision,
-        "decoding": {"do_sample": False, "temperature": 0.0},
+        "decoding": {"do_sample": False},
         "prompt_sha256": PROMPT_SHA256,
         "datasets": datasets,
         "rows": len(frame),
+        "status_counts": {
+            status: int((frame["attribute_status"] == status).sum()) for status in sorted(STATUSES)
+        },
         "parquet": path.name,
         "sha256": digest,
         "identity_metadata_passed_to_model": False,
@@ -138,9 +197,11 @@ def extract_attribute_cache(groups, pipeline, extractor, path, datasets):
     both the checkpoint and the VLM call.
     """
     path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
     checkpoint = path.with_suffix(".jsonl")
     checkpoint_receipt = path.with_suffix(".checkpoint.json")
     checkpoint_identity = {
+        "schema_version": SCHEMA_VERSION,
         "model": extractor.model_id,
         "revision": extractor.revision,
         "prompt_sha256": PROMPT_SHA256,
@@ -158,7 +219,6 @@ def extract_attribute_cache(groups, pipeline, extractor, path, datasets):
             completed[(record["dataset"], record["photo_sha256"])] = record
     total = sum(len(photos) for photos in groups.values())
     done = 0
-    checkpoint.parent.mkdir(parents=True, exist_ok=True)
     with checkpoint.open("a") as stream:
         for dataset, photos in groups.items():
             for photo in photos:
@@ -170,6 +230,7 @@ def extract_attribute_cache(groups, pipeline, extractor, path, datasets):
                         "dataset": dataset,
                         "split": photo.split,
                         **extractor(yolo_crop(photo, pipeline)),
+                        "attribute_status": getattr(extractor, "last_status", "ok"),
                     }
                     stream.write(json.dumps(record, sort_keys=True) + "\n")
                     stream.flush()
@@ -195,6 +256,8 @@ def load_attribute_cache(path, expected_sha256=None):
         raise ValueError("Attribute cache SHA-256 differs from the frozen receipt")
     rows = pd.read_parquet(path).to_dict("records")
     for row in rows:
+        if row.get("attribute_status") not in STATUSES:
+            raise ValueError("Attribute cache contains an invalid extraction status")
         validate_attributes({field: row[field] for field in VOCABULARY})
     return rows, digest
 
