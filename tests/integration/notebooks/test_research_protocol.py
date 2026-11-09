@@ -9,7 +9,10 @@ import pytest
 from tests import ROOT
 
 NOTEBOOKS = sorted((ROOT / "notebooks").glob("*.ipynb"))
-COMMIT = "1777734dbffda0df0bf43305233809ee73157d94"
+PRIVATE_COMMITS = {
+    "e4_clip_lora.ipynb": "52bfe26384c4230008fe4707aa0cb145988766a8",
+}
+DEFAULT_PRIVATE_COMMIT = "1777734dbffda0df0bf43305233809ee73157d94"
 
 
 def cells(path):
@@ -77,7 +80,7 @@ def test_e4_installs_complete_published_training_package():
     contents = cells(ROOT / "notebooks/e4_clip_lora.ipynb")
     install = next("".join(c["source"]) for c in contents if c["id"] == "e4-setup")
     notebook = "\n".join("".join(c["source"]) for c in contents)
-    assert '"pettrace-ml[training,notebooks,tracking]==0.2.38"' in install
+    assert '"pettrace-ml[training,notebooks,tracking]==0.2.39"' in install
     assert "requirements" not in install
     assert "LOG_TO_MLFLOW = True" in notebook
     assert "training(version=TRAINING_DATASET_VERSION" in notebook
@@ -116,7 +119,8 @@ def test_shared_research_structure_and_fixed_benchmark(path):
                    for node in ast.parse("".join(c["source"])).body if isinstance(node, ast.Assign)]
     commit = next(n for n in assignments if any(isinstance(t, ast.Name) and t.id == "DATASET_COMMIT"
                                                 for t in n.targets))
-    assert ast.literal_eval(commit.value) == COMMIT
+    expected_commit = PRIVATE_COMMITS.get(path.name, DEFAULT_PRIVATE_COMMIT)
+    assert ast.literal_eval(commit.value) == expected_commit
     publication = "\n".join("".join(c["source"]) for c in contents if c["cell_type"] == "code")
     if path.name in {"e1_clip_zero_shot.ipynb", "e2_yolo_crop_zero_shot.ipynb"}:
         assert "publication = run(REPORT)" in publication

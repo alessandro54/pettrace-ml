@@ -351,7 +351,7 @@ def metrics_table(summaries: dict[str, dict]) -> str:
         ("mAP cats / dogs", lambda s, n: f"{sp[n]['cat']['mAP']:.3f} / {sp[n]['dog']['mAP']:.3f}"),
         ("EER / threshold", lambda s, n: f"{_pct(s['eer'])} / {s['threshold']:.3f}"),
         ("Minimum similarity, same animal", lambda s, n: f"{s['same_range'][0]:.3f}"),
-        ("Maximum similarity, different animal", lambda s, n: f"{s['diff_range'][1]:.3f}"),
+        ("Maximum cosine similarity, different animal", lambda s, n: f"{s['diff_range'][1]:.6f}"),
     ]
     out = ["| Metric | " + " | ".join(names) + " |", "|---" * (len(names) + 1) + "|"]
     for title, f in rows:

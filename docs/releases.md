@@ -1,5 +1,11 @@
 # Package releases
 
+## 0.2.39 — bounded cosine diagnostics
+
+- Clips cosine matrices to their mathematical `[-1, 1]` range after floating-point operations.
+- Reports the maximum different-identity cosine with six decimals so it is not mistaken for a percentage.
+- Pins the E4 reproduction to the corrected PetTrace v6 benchmark while preserving its prior v5 outputs as historical evidence.
+
 ## 0.2.38 — E4 reproduction on current benchmarks
 
 - Pins E4 to the validation-selected E3 seed 46, registered model 20 and verified head hash.

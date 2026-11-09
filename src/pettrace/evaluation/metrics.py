@@ -16,9 +16,14 @@ import numpy as np
 KS = (1, 2, 5, 10)
 
 
+def _cosine_matrix(E: np.ndarray) -> np.ndarray:
+    """Cosine matrix without floating-point spill outside its mathematical range."""
+    return np.clip(E @ E.T, -1.0, 1.0)
+
+
 def retrieval(E: np.ndarray, animals: list[str], species: list[str], ks=KS) -> dict:
     """Rank-k and mAP, global and per species, plus one row per query."""
-    S = E @ E.T
+    S = _cosine_matrix(E)
     per_query = []
     for sp in sorted(set(species)):
         idx = [i for i, s in enumerate(species) if s == sp]
@@ -65,7 +70,7 @@ def _summary(rows: list[dict], ks) -> dict:
 def pair_scores(E: np.ndarray, animals: list[str], species: list[str]) -> tuple[np.ndarray, np.ndarray]:
     """Cosine scores of same-animal and different-animal pairs (same species only). A species with
     a single animal is skipped, as in `retrieval`: it has no different-animal pairs to compare with."""
-    S = E @ E.T
+    S = _cosine_matrix(E)
     rivals = {sp: len({a for a, s in zip(animals, species) if s == sp}) > 1 for sp in set(species)}
     same, diff = [], []
     for i in range(len(animals)):

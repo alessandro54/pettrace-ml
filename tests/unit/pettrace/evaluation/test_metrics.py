@@ -89,3 +89,15 @@ def test_pairs_skip_single_animal_species():
     E = unit([[1, 0], [0.9, 0.1], [0, 1], [0.1, 0.9], [1, 1], [0.9, 1]])
     same, diff = metrics.pair_scores(E, ["a", "a", "b", "b", "d", "d"], ["cat"] * 4 + ["dog"] * 2)
     assert len(same) == 2 and len(diff) == 4  # the lone dog contributes nothing
+
+
+def test_cosine_scores_are_clipped_after_floating_point_drift():
+    E = np.array([[1.0000001, 0], [1.0000001, 0], [-1.0000001, 0], [-1.0000001, 0]], dtype=np.float32)
+    animals = ["a", "a", "b", "b"]
+    species = ["cat"] * 4
+
+    same, different = metrics.pair_scores(E, animals, species)
+    rows = metrics.retrieval(E, animals, species)["per_query"]
+
+    assert np.max(same) == 1.0 and np.min(different) == -1.0
+    assert all(-1.0 <= row["own_best"] <= 1.0 and -1.0 <= row["rival_best"] <= 1.0 for row in rows)
