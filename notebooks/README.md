@@ -14,15 +14,15 @@ Los cuadernos documentan una secuencia de investigación de tesis sobre recupera
 | [E3](e3_mlp_head_triplet.ipynb) | MLP 512→256→512 sobre E2 congelado; barrido 45–49 | Solo la MLP | E1/E2 congelados; ganador elegido solo con validación pública |
 | [E4](e4_clip_lora.ipynb) | LoRA en `q_proj`/`v_proj` de CLIP sobre un E3 fijado | Solo adaptadores LoRA | Control E3 declarado antes de entrenar |
 
-El [protocolo de E4](../docs/e4_protocol.md) congela la semilla 46, época 9 y candidato 19 como
-control visual de E5. E5 aún no está implementado: falta fijar una fuente de atributos observables
-que no revele identidad antes de crear su notebook de tres fases.
+El [protocolo de E4](../docs/e4_protocol.md) conserva la corrida histórica v2 y prepara su
+reproducción sobre el E3 actual: semilla 46, modelo registrado 20, Public v2 y PetTrace v5.
+E5 se fijará únicamente después de publicar esa reproducción.
 
 ## Tres fases de la investigación
 
 1. **Preparación y preprocesamiento de datos.** Las releases públicas refinadas conservan la limpieza, deduplicación, splits y localización auditados; los experimentos solo cargan y verifican snapshots. PetTrace v5 procede de su flujo privado de curación/exportación.
 2. **Representación y entrenamiento.** Se verifica el modelo y se calculan representaciones. E1/E2 mantienen todos los pesos congelados. E3 entrena la MLP y selecciona su checkpoint únicamente con validación pública; muestra curvas de pérdida y validación.
-3. **Evaluación y análisis de resultados.** Cada condición se evalúa por separado en el test público refinado v2 y un snapshot PetTrace inmutable. Las reproducciones actuales de E1/E2 fijan v5; la evidencia histórica E2–E4 conserva v4. Incluye tablas por especie, Rank-1/Rank-2/mAP, CMC, matrices de confusión, diagnósticos por identidad, discusión, referencias y publicación obligatoria en MLflow.
+3. **Evaluación y análisis de resultados.** Cada condición se evalúa por separado en el test público refinado v2 y un snapshot PetTrace inmutable. Las reproducciones actuales fijan PetTrace v5; la evidencia histórica E2–E4 sobre v4 se conserva separada. Incluye tablas por especie, Rank-1/Rank-2/mAP, CMC, matrices de confusión, diagnósticos por identidad, discusión, referencias y publicación obligatoria en MLflow.
 
 Las fuentes externas se citan junto al método utilizado, además de la lista de referencias: CLIP (Radford et al., 2021), YOLOv8 (Ultralytics), batch-hard triplet (Hermans et al., 2017), contexto de CMC/mAP (Zheng et al., 2015) y errores biométricos (Fiumara/NIST, 2022). Las reglas de galería, muestreo, filtros e hiperparámetros se identifican como decisiones propias. [references.bib](../docs/references.bib) conserva las entradas para la tesis. Los resultados y gráficos calculados por el proyecto no se atribuyen a estos trabajos.
 
@@ -74,6 +74,8 @@ Las fotos privadas no se incorporan a la presentación de resultados; se emplean
 E1 y E2 instalan `pettrace-ml[notebooks,tracking]` y ejecutan el runner oficial desde el cuaderno; las mismas operaciones están disponibles como `pettrace run e1` y `pettrace run e2`. Python 3.11–3.13 está admitido. La evidencia histórica conserva el runtime con el que fue producida. Las guías de [E1](../docs/e1_colab.md) y [E2](../docs/e2_colab.md) describen resultados y recuperación.
 
 El notebook E3 instala **`pettrace-ml[training,notebooks,tracking]==0.2.37` desde PyPI** con un solo comando. Carga el corpus refinado v2 desde Hugging Face, calcula una vez las representaciones E2 congeladas y entrena las semillas 45–49. No requiere Drive, requirements copiados ni construir un wheel. Véase [la guía E3](../docs/e3_colab.md).
+
+E4 instala **`pettrace-ml[training,notebooks,tracking]==0.2.38`**, verifica la cabeza E3 seed 46 publicada y adapta solo LoRA. Usa los mismos snapshots Public v2/PetTrace v5 y publica ambos dominios antes de registrar un candidato, sin promover aliases.
 
 El código está en `src/pettrace/`, organizado por datos, modelos, entrenamiento y evaluación. E1/E2 no entrenan; E3 requiere GPU y entrena su MLP en la fase 2. La migración de imports conserva las salidas históricas: no constituye otra ejecución ni publica métricas nuevas.
 

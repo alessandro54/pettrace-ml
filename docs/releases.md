@@ -1,5 +1,11 @@
 # Package releases
 
+## 0.2.38 — E4 reproduction on current benchmarks
+
+- Pins E4 to the validation-selected E3 seed 46, registered model 20 and verified head hash.
+- Moves the E4 reproduction to Public v2 and PetTrace v5 while preserving historical notebook outputs.
+- Compares frozen controls by stable photo identity instead of runtime-specific cache paths.
+
 ## 0.2.37 — Stable E3 frozen-control coverage
 
 - Compares frozen E1/E2 coverage by immutable source/image name, identity, species and gallery size.

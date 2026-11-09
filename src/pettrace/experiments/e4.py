@@ -2,19 +2,24 @@
 
 import hashlib
 import json
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from types import SimpleNamespace
 
 from pettrace.tracking import production_context
 from pettrace.training.lora import load_frozen_e3_head
 
 CONTROL_RUNS = {
-    "public": "922c9e67d53b4c6f924d1339673e059f",
-    "private": "cf84059462574151835a7542223a00a4",
+    "public": "959ba0156b484c15ad32692df44e67f8",
+    "private": "79bdb46d24b24878a0e2f904743ea464",
 }
-CONTROL_MODEL_VERSION = "18"
-CONTROL_HEAD_SHA256 = "70aa5a8423b3f6a5c36b8c68d32b2417f1e20699f31b510de8747be7509e26aa"
+CONTROL_MODEL_VERSION = "20"
+CONTROL_HEAD_SHA256 = "4ff76c5f79bd1acaf6a8732905ee69bcaf9c93983d1e3332142965f18c2cb4ed"
 CONTROL_SEED = "46"
+
+
+def _query_signature(rows):
+    return sorted(("/".join(PurePosixPath(row["photo"]).parts[-2:]),
+                   row["animal"], row["species"], row["gallery_animals"]) for row in rows)
 
 
 def _run(client, run_id):
@@ -61,11 +66,7 @@ def frozen_control(evaluation, domain, output):
     summary_path = Path(client.download_artifacts(run.info.run_id, "report/summary.json", str(folder)))
     result = json.loads(evaluation_path.read_text())
 
-    def signature(rows):
-        return [(row["query"], row["photo"], row["animal"], row["species"], row["gallery_animals"])
-                for row in rows]
-
-    if signature(result["test"]["per_query"]) != signature(evaluation.result["test"]["per_query"]):
+    if _query_signature(result["test"]["per_query"]) != _query_signature(evaluation.result["test"]["per_query"]):
         raise ValueError("E3 control queries or galleries differ from E4")
     receipt = {"run_id": run.info.run_id,
                "evaluation_sha256": hashlib.sha256(evaluation_path.read_bytes()).hexdigest(),

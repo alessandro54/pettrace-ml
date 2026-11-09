@@ -1,9 +1,8 @@
 # E4 · Adaptación LoRA del encoder
 
-Estado: **congelado**. E4 v2 (semilla 46, época 9) fue publicado en ambos dominios y el
-candidato 19 quedó registrado sin promoción de alias. E5 debe cargar esa versión numérica y
-verificar sus hashes mediante `pettrace.experiments.e5.load_frozen_e4(model_uri, output)`; no puede seleccionar otro
-E4 usando resultados de test ni un alias mutable.
+Estado: **reproducción v3 preparada; resultados pendientes**. La evidencia E4 v2 permanece
+congelada abajo. La nueva corrida parte del E3 seed 46 seleccionado exclusivamente por validación,
+modelo registrado 20, y evalúa Public v2 y PetTrace v5 sin alterar sus galerías.
 
 ## Pregunta y diseño
 
@@ -21,10 +20,10 @@ E4 usando resultados de test ni un alias mutable.
 | Datos de entrenamiento | LCW refined `v2` commit `581e44a04fd461ef1ba248177b84aff61a2ada21` + Dogs refined `v2` commit `9fdd6e5f7eaa752f16bd4dae54cd32b88c7e09ba` |
 | Equivalencia | Mismos bytes, identidades, splits y fingerprint `d0ca5c0b1bed8844f943b9fd355ce912524797d0dc71b50c7a1624e39f49fe58` de `v4.100`; v2 añade solo cajas YOLO |
 | Encoder base | `openai/clip-vit-base-patch32` revisión `3d74acf9a28c67741b2f4f2ea7635f0aaf6f0268` |
-| Cabeza E3 | `report/head.pt` del run privado `cf84059462574151835a7542223a00a4` |
-| SHA-256 de la cabeza | `70aa5a8423b3f6a5c36b8c68d32b2417f1e20699f31b510de8747be7509e26aa` |
-| Control público E3 | run `922c9e67d53b4c6f924d1339673e059f` |
-| Modelo registrado de control | `pettrace-embedder` versión 18, sin promoción de alias |
+| Cabeza E3 | `report/head.pt` del run privado `79bdb46d24b24878a0e2f904743ea464` |
+| SHA-256 de la cabeza | `4ff76c5f79bd1acaf6a8732905ee69bcaf9c93983d1e3332142965f18c2cb4ed` |
+| Control público E3 | run `959ba0156b484c15ad32692df44e67f8` |
+| Modelo registrado de control | `pettrace-embedder` versión 20, sin promoción de alias |
 
 Antes de entrenar, el notebook verifica commits, manifests, shards y cajas, demuestra que los adaptadores iniciales no cambian la salida del control y que la cabeza descargada coincide con el hash anterior. Hugging Face es la fuente inmutable de datos y MLflow conserva los resultados, artefactos y modelos publicados; E4 no usa Google Drive.
 
@@ -39,9 +38,11 @@ Antes de entrenar, el notebook verifica commits, manifests, shards y cajas, demu
 
 ## Evaluación y cierre
 
-Se mantienen las galerías separadas del test público v1 y `pettrace-reid@v4`. Se reportan Rank-1/2/5/10, mAP, EER descriptiva, resultados por especie y comparación pareada con E3-100. Cada dominio debe publicarse en MLflow; un fallo de publicación deja la corrida incompleta, pero puede reintentarse desde el reporte local mientras el runtime siga activo. El registro de candidato es posterior y no mueve alias.
+Se mantienen las galerías separadas del test público v2 y `pettrace-reid@v5`. Se reportan Rank-1/2/5/10, mAP, EER descriptiva, resultados por especie y comparación pareada con E3-100. Cada dominio debe publicarse en MLflow; un fallo de publicación deja la corrida incompleta, pero puede reintentarse desde el reporte local mientras el runtime siga activo. El registro de candidato es posterior y no mueve alias.
 
-| Dominio | E3 Rank-1 | E4 Rank-1 | E3 mAP | E4 mAP | E3 EER | E4 EER |
+### Evidencia histórica E4 v2 (no es resultado de la reproducción v3)
+
+| Dominio histórico | E3 Rank-1 | E4 Rank-1 | E3 mAP | E4 mAP | E3 EER | E4 EER |
 |---|---:|---:|---:|---:|---:|---:|
 | Test público v1 | 80.1 % | **85.6 %** | 0.764 | **0.813** | 9.5 % | **8.4 %** |
 | PetTrace v4 | 78.4 % | **83.6 %** | 0.688 | **0.722** | 12.8 % | **11.7 %** |
