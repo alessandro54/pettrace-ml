@@ -78,7 +78,7 @@ El notebook E3 instala **`pettrace-ml[training,notebooks,tracking]==0.2.37` desd
 
 E4 instala **`pettrace-ml[training,notebooks,tracking]==0.2.39`**, verifica la cabeza E3 seed 46 publicada y adapta solo LoRA. Evalúa el modelo E3 congelado y E4 sobre los mismos snapshots Public v2/PetTrace v6, y publica ambos dominios antes de registrar un candidato, sin promover aliases.
 
-E5 instala **`pettrace-ml[vlm,notebooks,tracking]==0.2.40`**, verifica el E4 ganador y extrae una sola vez atributos cerrados con una revisión inmutable de Qwen3-VL. Selecciona `tau_v`, `lambda` y `tau_t` exclusivamente en validación, congela la decisión y recién entonces ejecuta una pasada de test separada en Public v2 y PetTrace v6. El caché, su SHA-256, la tabla E4/sin compuerta/doble compuerta y ambos recibos MLflow forman la evidencia requerida.
+E5 instala **`pettrace-ml[vlm,notebooks,tracking]==0.2.41`**, verifica el E4 ganador y extrae una sola vez atributos cerrados con una revisión inmutable de Qwen3-VL. Selecciona `tau_v`, `lambda` y `tau_t` exclusivamente en validación, congela la decisión y recién entonces ejecuta una pasada de test separada en Public v2 y PetTrace v6. El caché, su SHA-256, la tabla E4/sin compuerta/doble compuerta y ambos recibos MLflow forman la evidencia requerida.
 
 El código está en `src/pettrace/`, organizado por datos, modelos, entrenamiento y evaluación. E1/E2 no entrenan; E3 requiere GPU y entrena su MLP en la fase 2. La migración de imports conserva las salidas históricas: no constituye otra ejecución ni publica métricas nuevas.
 

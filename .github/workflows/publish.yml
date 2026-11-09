@@ -80,8 +80,24 @@ jobs:
     with:
       artifact-name: distributions
 
+  vlm:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: distributions
+          path: dist
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.11.22"
+      - run: |
+          uv venv --python 3.13
+          uv pip install --python .venv/bin/python "$(find dist -name '*.whl')[vlm]"
+          .venv/bin/python -I -c "from transformers import AutoProcessor, Qwen3VLForConditionalGeneration; from pettrace.evaluation.attributes import QwenAttributeExtractor"
+
   publish:
-    needs: [build, install, colab]
+    needs: [build, install, colab, vlm]
     runs-on: ubuntu-latest
     environment:
       name: pypi

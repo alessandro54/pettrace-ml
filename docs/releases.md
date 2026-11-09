@@ -1,5 +1,10 @@
 # Package releases
 
+## 0.2.41 — Qwen3-VL runtime loader
+
+- Loads Qwen3-VL through the supported `Qwen3VLForConditionalGeneration` Transformers API.
+- Adds a release smoke test for the independently installable `vlm` extra before PyPI publication.
+
 ## 0.2.40 — deterministic E5 morphology reranking
 
 - Freezes E4 seed 46 with `single` representation and maximum identity aggregation.

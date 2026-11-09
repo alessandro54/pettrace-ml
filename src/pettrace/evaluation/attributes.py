@@ -73,7 +73,7 @@ class QwenAttributeExtractor:
 
     def __init__(self, model_id=None, revision=None, token=None):
         import torch
-        from transformers import AutoModelForMultimodalLM, AutoProcessor
+        from transformers import AutoProcessor, Qwen3VLForConditionalGeneration
 
         if not torch.cuda.is_available():
             raise RuntimeError("E5 attribute extraction requires a CUDA runtime")
@@ -84,7 +84,7 @@ class QwenAttributeExtractor:
         self.revision = revision
         self.dtype = torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float16
         self.processor = AutoProcessor.from_pretrained(self.model_id, revision=revision, token=token)
-        self.model = AutoModelForMultimodalLM.from_pretrained(
+        self.model = Qwen3VLForConditionalGeneration.from_pretrained(
             self.model_id, revision=revision, token=token, dtype=self.dtype, device_map="auto")
         self.model.eval()
 
