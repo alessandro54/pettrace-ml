@@ -2,7 +2,7 @@
 
 Estado: **reproducción v3 preparada; resultados pendientes**. La evidencia E4 v2 permanece
 congelada abajo. La nueva corrida parte del E3 seed 46 seleccionado exclusivamente por validación,
-modelo registrado 20, y evalúa Public v2 y PetTrace v5 sin alterar sus galerías.
+modelo registrado 20, y evalúa Public v2 y PetTrace v6 sin alterar sus galerías.
 
 ## Pregunta y diseño
 
@@ -38,7 +38,7 @@ Antes de entrenar, el notebook verifica commits, manifests, shards y cajas, demu
 
 ## Evaluación y cierre
 
-Se mantienen las galerías separadas del test público v2 y `pettrace-reid@v5`. Se reportan Rank-1/2/5/10, mAP, EER descriptiva, resultados por especie y comparación pareada con E3-100. Cada dominio debe publicarse en MLflow; un fallo de publicación deja la corrida incompleta, pero puede reintentarse desde el reporte local mientras el runtime siga activo. El registro de candidato es posterior y no mueve alias.
+Se mantienen las galerías separadas del test público v2 y `pettrace-reid@v6`. El modelo E3 registrado 20 se reevalúa sobre ambos snapshots como control, sin reentrenarlo ni usar PetTrace para seleccionar checkpoints. Se reportan Rank-1/2/5/10, mAP, EER descriptiva, resultados por especie y comparación pareada con E3-100. Cada dominio debe publicarse en MLflow; un fallo de publicación deja la corrida incompleta, pero puede reintentarse desde el reporte local mientras el runtime siga activo. El registro de candidato es posterior y no mueve alias.
 
 ### Evidencia histórica E4 v2 (no es resultado de la reproducción v3)
 
