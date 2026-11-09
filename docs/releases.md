@@ -1,5 +1,14 @@
 # Package releases
 
+## 0.2.40 — deterministic E5 morphology reranking
+
+- Freezes E4 seed 46 with `single` representation and maximum identity aggregation.
+- Adds identity-blind, closed-vocabulary Qwen3-VL extraction from the frozen YOLO crops and stores
+  the result as a hashed Parquet artifact.
+- Calibrates the visual ambiguity, text weight and text-advantage gates on public validation only.
+- Evaluates E4, ungated E5 and double-gated E5 once on separate Public v2 and PetTrace v6 tests,
+  with mandatory MLflow publication and no serving-alias promotion.
+
 ## 0.2.39 — bounded cosine diagnostics
 
 - Clips cosine matrices to their mathematical `[-1, 1]` range after floating-point operations.

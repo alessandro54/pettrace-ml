@@ -7,6 +7,7 @@ import pytest
 
 from pettrace.evaluation import metrics
 from pettrace.evaluation.research import (
+    public_split_dataset,
     public_test_dataset,
     refined_public_receipt,
     save_benchmark_comparison,
@@ -41,6 +42,15 @@ def test_public_view_only_contains_identity_disjoint_test_and_keeps_version(tmp_
     moved = prepared(tmp_path / "moved")
     assert public_test_dataset(moved, receipt()).fingerprint == ds.fingerprint
     assert len(original.rows) == 24
+
+
+def test_public_validation_view_is_separate_from_test(tmp_path):
+    original = prepared(tmp_path)
+    validation = public_split_dataset(original, receipt(), "val")
+    test = public_split_dataset(original, receipt(), "test")
+
+    assert all(photo.split == "val" for photo in validation.photos)
+    assert {photo.animal for photo in validation.photos}.isdisjoint(photo.animal for photo in test.photos)
 
 
 def test_public_view_rejects_leakage_and_unpinned_or_changed_receipt(tmp_path):

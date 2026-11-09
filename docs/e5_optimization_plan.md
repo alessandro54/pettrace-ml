@@ -1,6 +1,7 @@
 # E4 audit and E5 inference optimization plan
 
-Status: **E4 winner frozen; E5 text evidence and validation protocol pending implementation**.
+Status: **E4 winner frozen; E5 deterministic attribute extraction, validation calibration and
+dual-domain publication implemented; execution pending**.
 
 This document records the implementation audit and the proposed experiments after freezing the
 E3-100 and E4 checkpoints. It distinguishes current evidence from prospective changes. Any new
@@ -13,19 +14,15 @@ but that does not constitute a completed PetTrace experiment.
 
 | Condition | Domain | Rank-1 | Rank-2 | Rank-5 | mAP |
 |---|---|---:|---:|---:|---:|
-| E3-100, seed 46 | Public v1 | 80.1% | — | — | 0.7640 |
-| E3-100, seed 46 | PetTrace v4 | 78.4% | — | — | 0.6880 |
-| E4, seed 46 | Public v1 | 85.56% | 94.95% | 99.3% | 0.8126 |
-| E4, seed 46 | PetTrace v4 | 83.61% | 92.79% | 99.7% | 0.7218 |
-| E4, exploratory seed | Public v1 | 88.81% | — | — | 0.8374 |
-| E4, exploratory seed | PetTrace v4 | 87.54% | — | — | 0.7489 |
-
-The exploratory seed is descriptive. It must not replace seed 46 merely because its test results
-were higher; candidate selection must use validation evidence only.
+| E3-100, seed 46 | Public v2 | 81.60% | — | — | 0.7670 |
+| E3-100, seed 46 | PetTrace v6 | 80.10% | — | — | 0.6840 |
+| E4, seed 46 | Public v2 | 85.56% | 96.03% | — | 0.8345 |
+| E4, seed 46 | PetTrace v6 | 86.25% | 94.22% | — | 0.7333 |
 
 The main observed error pattern is the gap between Rank-1 and Rank-2/Rank-5. The correct identity
 is usually present among the first candidates, but a visually similar rival occupies Rank-1. The
-maximum observed similarity between different animals is approximately 0.972–0.979.
+maximum observed similarity between different animals is 0.977327 on Public v2 and 0.980469 on
+PetTrace v6.
 
 ## Audit of the E3 to E4 transition
 
@@ -118,7 +115,7 @@ Relevant implementation:
 
 ## Zero-retraining experiments
 
-All hyperparameters below must be selected using validation only. Public v1 test and PetTrace v4
+All hyperparameters below must be selected using validation only. Public v2 test and PetTrace v6
 must remain separate and must be evaluated only after freezing each condition.
 
 ### 1. Horizontal-flip test-time augmentation
@@ -168,10 +165,11 @@ official experiment is considered complete.
 E5 should be a conservative identity-level reranker over the visual Top-5. It should not retrieve
 new identities outside that candidate set.
 
-The fixed visual control is MLflow model `pettrace-embedder/19`, E4 seed 46 at epoch 9. Its public
+The fixed visual control is MLflow model `pettrace-embedder/23`, E4 seed 46 at epoch 27. Its public
 and private run identifiers, ONNX hashes and `single + max` inference rule are verified by
 `pettrace.experiments.e5.load_frozen_e4(model_uri, output)`. E5 must reuse this control without
 retraining it; `model_uri` may be a local directory downloaded from an immutable public release.
+The selected public-validation macro mAP is `0.8531207848327025`.
 
 For visual candidates `c`, define:
 
@@ -195,9 +193,44 @@ Safety constraints:
 - choose `tau_v`, `lambda` and the text threshold using validation only;
 - report gate coverage, rescued errors, damaged correct matches and net Rank-1 change.
 
-Text evidence must be identity-agnostic: coat color and pattern, distinctive markings, ear and tail
-shape, size and other observable attributes. Names, source paths, publisher labels or descriptions
-derived from identity identifiers would constitute leakage.
+Text evidence is identity-agnostic: primary/secondary color, coat pattern and length, ear shape,
+white markings and a small set of distinctive visible features. Names, source paths, publisher
+labels or descriptions derived from identity identifiers would constitute leakage.
+
+`pettrace.evaluation.reranking.gated_topk_rerank` implements the two gates and guarantees that a
+candidate outside the visual Top-5 cannot be promoted. `rerank_evaluation` keeps the established
+identity-level Rank-k and photo-level mAP definitions: a permitted identity bonus is shared by that
+identity's Top-5 gallery photos while their internal visual order remains intact. Candidate text
+compatibility uses the maximum photo-to-photo attribute score across that identity's gallery,
+matching E4's frozen maximum visual aggregation and avoiding a second aggregation intervention.
+
+### Frozen attribute evidence
+
+E5 uses the second admissible evidence path: a fixed image-to-attribute model. The default is
+`Qwen/Qwen3-VL-4B-Instruct`; a T4 selects `Qwen/Qwen3-VL-2B-Instruct` because of memory pressure.
+The exact Hub commit, prompt hash, precision and deterministic decoding (`do_sample=False`,
+`temperature=0`) are recorded. The VLM receives only the already-frozen E4 YOLO crop—never a path,
+filename, identity, split metadata or gallery context.
+
+The closed JSON vocabulary is fixed before validation:
+
+- primary and secondary coat colors;
+- coat pattern and length;
+- ear shape;
+- white marking locations;
+- collar, dark facial mask, heterochromia and bobtail as distinctive visible features.
+
+Unavailable evidence is `unknown` or `not_visible` and is ignored by compatibility scoring. Direct
+known contradictions are penalized. Extraction covers public validation, Public v2 test and
+PetTrace v6 once, producing a versioned Parquet artifact and SHA-256 receipt. This identity-blind
+offline extraction does not rank candidates or tune parameters; test labels and retrieval outcomes
+remain unread until calibration is frozen.
+
+The notebook grid-searches `(tau_v, lambda, tau_t)` on public validation only. It first restricts
+selection to configurations with zero damaged correct matches when any exist, then maximizes
+Rank-1 and mAP. After writing `calibration.json`, it performs one test pass and publishes Public v2
+and PetTrace v6 separately. The required comparison includes E4 baseline, ungated E5 and
+double-gated E5 with Rank-1/2/5, mAP, gate coverage, rescued and damaged query counts.
 
 ## Recorded validation protocol
 
@@ -214,7 +247,6 @@ qualified for test evaluation. MLflow run:
 
 ## Risks and limits
 
-- The exploratory E4 seed cannot become the confirmatory winner based on observed test metrics.
 - The public and PetTrace benchmarks have already been observed; new results remain exploratory.
 - Test-time expansion and re-ranking change the inference protocol and must be reported explicitly.
 - Text generation can leak identity or dataset artifacts unless its inputs and vocabulary are fixed.

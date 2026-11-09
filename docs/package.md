@@ -27,6 +27,7 @@ Install only the capabilities a workflow needs:
 python -m pip install "pettrace-ml[training]"  # PyTorch, Transformers and ONNX export
 python -m pip install "pettrace-ml[tracking]"  # MLflow publication and registry access
 python -m pip install "pettrace-ml[notebooks]" # standalone Jupyter support
+python -m pip install "pettrace-ml[vlm]"       # deterministic E5 attribute extraction
 ```
 
 For a reproducible run, pin the exact version used by its notebook. `pip install` does not
@@ -119,6 +120,8 @@ The stable research primitives live in these modules:
 | `pettrace.training.lora` | Inject, train, merge and export E4 LoRA adapters. |
 | `pettrace.evaluation.core` | Evaluate a verified model under the shared retrieval protocol. |
 | `pettrace.evaluation.metrics` | Rank-k, mAP, pair scores, descriptive EER and thresholds. |
+| `pettrace.evaluation.attributes` | Extract and cache closed-vocabulary morphology attributes for E5. |
+| `pettrace.evaluation.reranking` | Score attribute compatibility and apply the double-gated Top-5 reranker. |
 | `pettrace.experiments` | Reusable orchestration and publication for the thesis experiments. |
 | `pettrace.tracking` | Connect to a caller-selected MLflow server and publish saved evidence. |
 

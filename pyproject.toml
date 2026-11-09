@@ -1,6 +1,6 @@
 [project]
 name = "pettrace-ml"
-version = "0.2.39"
+version = "0.2.40"
 description = "Reproducible pet re-identification: dataset audits, embeddings, metric learning and evaluation"
 readme = "docs/package.md"
 license = "MIT"
@@ -40,6 +40,7 @@ Changelog = "https://github.com/alessandro54/pettrace-ml/blob/main/docs/releases
 notebooks = ["ipython>=7.34,<10", "ipywidgets>=8.1,<9"]
 training = ["torch>=2.5,<3", "onnx>=1.17,<2", "pandas>=2.2.3,<4", "transformers==4.47.1"]
 tracking = ["mlflow-skinny==3.17.0"]
+vlm = ["torch>=2.5,<3", "transformers==4.57.1", "accelerate>=1.1,<2", "pandas>=2.2.3,<4", "pyarrow>=18,<23"]
 
 [project.scripts]
 pettrace = "pettrace.cli:main"
@@ -86,3 +87,9 @@ ignore = ["E501"]
 testpaths = ["tests/unit", "tests/integration"]
 addopts = ["--import-mode=importlib"]
 pythonpath = ["."]
+
+[tool.uv]
+conflicts = [
+    [{ extra = "training" }, { extra = "vlm" }],
+    [{ group = "export" }, { extra = "vlm" }],
+]

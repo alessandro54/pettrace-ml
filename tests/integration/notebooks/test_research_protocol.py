@@ -11,6 +11,7 @@ from tests import ROOT
 NOTEBOOKS = sorted((ROOT / "notebooks").glob("*.ipynb"))
 PRIVATE_COMMITS = {
     "e4_clip_lora.ipynb": "52bfe26384c4230008fe4707aa0cb145988766a8",
+    "e5_language_reranking.ipynb": "52bfe26384c4230008fe4707aa0cb145988766a8",
 }
 DEFAULT_PRIVATE_COMMIT = "1777734dbffda0df0bf43305233809ee73157d94"
 
@@ -88,6 +89,25 @@ def test_e4_installs_complete_published_training_package():
     assert 'TRAINING_DATASET_VERSION, SOURCE_SAMPLE_PCT, SEED = "v2", 100, 46' in notebook
 
 
+def test_e5_installs_the_vlm_profile_and_freezes_before_test():
+    contents = cells(ROOT / "notebooks/e5_language_reranking.ipynb")
+    install = next("".join(c["source"]) for c in contents if c["id"] == "e5-setup")
+    calibration_index = next(i for i, c in enumerate(contents) if c["id"] == "e5-calibrate")
+    evaluation_index = next(i for i, c in enumerate(contents) if c["id"] == "e5-evaluate")
+    calibration = "".join(contents[calibration_index]["source"])
+    evaluation = "".join(contents[evaluation_index]["source"])
+    notebook = "\n".join("".join(c["source"]) for c in contents)
+
+    assert '"pettrace-ml[vlm,notebooks,tracking]==0.2.40"' in install
+    assert calibration_index < evaluation_index
+    assert "select_calibration(" in calibration
+    assert 'public_split_dataset(prepared, public_source, "val")' in notebook
+    assert "load_benchmarks(" in notebook
+    assert "evaluate(benchmarks.public" in evaluation
+    assert "PetTrace v6" in notebook
+    assert "publication = publish_results(" in notebook
+
+
 @pytest.mark.parametrize("path", NOTEBOOKS, ids=lambda p: p.stem)
 def test_experiment_notebooks_do_not_use_google_drive(path):
     source = "\n".join("".join(cell["source"]) for cell in cells(path))
@@ -130,6 +150,10 @@ def test_shared_research_structure_and_fixed_benchmark(path):
     elif path.name.startswith(("e3_", "e4_")):
         assert "publication = publish_results(" in publication
         helper = (ROOT / "src/pettrace/experiments/e3.py").read_text()
+        assert helper.index('"experiment-design.json"') < helper.index("public_run_id = publish_evaluation(")
+    elif path.name.startswith("e5_"):
+        assert "publication = publish_results(" in publication
+        helper = (ROOT / "src/pettrace/experiments/e5.py").read_text()
         assert helper.index('"experiment-design.json"') < helper.index("public_run_id = publish_evaluation(")
     else:
         assert "publication = publish_results(" in publication
