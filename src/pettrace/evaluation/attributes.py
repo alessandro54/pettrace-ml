@@ -29,7 +29,8 @@ breed, name, source, or hidden traits. Use unknown/not_visible when the crop doe
 decision. white_markings and distinctive_features are JSON arrays; use [\"none\"] when absent.
 Vocabulary: {vocabulary}""".format(vocabulary=json.dumps(VOCABULARY, separators=(",", ":")))
 PROMPT_SHA256 = sha256(PROMPT.encode()).hexdigest()
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
+DECODING = {"do_sample": False, "padding_side": "left", "use_model_defaults": False}
 STATUSES = {"ok", "repaired", "fallback"}
 UNKNOWN_ATTRIBUTES = {
     "primary_color": "unknown",
@@ -49,6 +50,7 @@ def attribute_cache_identity(model_id, revision, datasets):
         "model": model_id,
         "revision": revision,
         "prompt_sha256": PROMPT_SHA256,
+        "decoding": DECODING,
         "datasets": datasets,
     }
 
@@ -127,6 +129,7 @@ class QwenAttributeExtractor:
         self.revision = revision
         self.dtype = torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float16
         self.processor = AutoProcessor.from_pretrained(self.model_id, revision=revision, token=token)
+        self.processor.tokenizer.padding_side = "left"
         self.model = Qwen3VLForConditionalGeneration.from_pretrained(
             self.model_id, revision=revision, token=token, dtype=self.dtype, device_map="auto")
         self.model.eval()
@@ -144,7 +147,8 @@ class QwenAttributeExtractor:
             return_dict=True, return_tensors="pt")
         inputs = inputs.to(self.model.device)
         generated = self.model.generate(
-            **inputs, max_new_tokens=180, generation_config=self.generation_config)
+            **inputs, max_new_tokens=180, generation_config=self.generation_config,
+            do_sample=False, use_model_defaults=False)
         prompt_length = inputs["input_ids"].shape[-1]
         return self.processor.batch_decode(
             generated[:, prompt_length:], skip_special_tokens=True)
@@ -209,7 +213,6 @@ def save_attribute_cache(records, path, *, model_id, revision, datasets):
     digest = sha256(path.read_bytes()).hexdigest()
     receipt = {
         **attribute_cache_identity(model_id, revision, datasets),
-        "decoding": {"do_sample": False},
         "rows": len(frame),
         "status_counts": {
             status: int((frame["attribute_status"] == status).sum()) for status in sorted(STATUSES)

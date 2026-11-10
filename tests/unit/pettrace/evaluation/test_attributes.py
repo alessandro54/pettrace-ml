@@ -1,4 +1,5 @@
 import json
+import sys
 from types import SimpleNamespace
 
 import numpy as np
@@ -64,6 +65,52 @@ def test_extractor_batches_visual_generation_and_repairs_only_invalid_rows():
     results = extractor.extract_many([object(), object()])
 
     assert results == [(record(), "ok"), (record(primary_color="brown"), "repaired")]
+
+
+def test_extractor_forces_left_padding_and_disables_model_sampling(monkeypatch):
+    processor = SimpleNamespace(tokenizer=SimpleNamespace(padding_side="right"))
+    model = SimpleNamespace(
+        generation_config=SimpleNamespace(do_sample=True, temperature=0.7, top_p=0.8, top_k=20),
+        eval=lambda: None,
+    )
+    torch = SimpleNamespace(
+        bfloat16="bfloat16", float16="float16",
+        cuda=SimpleNamespace(
+            is_available=lambda: True,
+            is_bf16_supported=lambda: False,
+            get_device_properties=lambda _: SimpleNamespace(total_memory=16 * 2**30),
+        ),
+    )
+    transformers = SimpleNamespace(
+        AutoProcessor=SimpleNamespace(from_pretrained=lambda *args, **kwargs: processor),
+        Qwen3VLForConditionalGeneration=SimpleNamespace(
+            from_pretrained=lambda *args, **kwargs: model),
+    )
+    monkeypatch.setitem(sys.modules, "torch", torch)
+    monkeypatch.setitem(sys.modules, "transformers", transformers)
+
+    extractor = QwenAttributeExtractor(model_id="Qwen/example", revision="a" * 40)
+
+    assert extractor.processor.tokenizer.padding_side == "left"
+    assert extractor.generation_config.do_sample is False
+    assert extractor.generation_config.temperature is None
+
+    class Inputs(dict):
+        def to(self, device):
+            return self
+
+    calls = {}
+    inputs = Inputs(input_ids=np.array([[1, 2]]))
+    extractor.processor = SimpleNamespace(
+        apply_chat_template=lambda *args, **kwargs: inputs,
+        batch_decode=lambda values, **kwargs: ["decoded"],
+    )
+    extractor.model = SimpleNamespace(
+        device="cuda", generate=lambda **kwargs: calls.update(kwargs) or np.array([[1, 2, 3]]))
+
+    assert extractor._generate_many([[{"role": "user"}]]) == ["decoded"]
+    assert calls["do_sample"] is False
+    assert calls["use_model_defaults"] is False
 
 
 @pytest.mark.parametrize("bad", [

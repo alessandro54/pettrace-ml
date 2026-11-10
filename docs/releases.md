@@ -1,5 +1,11 @@
 # Package releases
 
+## 0.2.46 — Deterministic batched E5 decoding
+
+- Forces left padding for batched Qwen3-VL generation.
+- Disables model generation defaults so E5 remains greedy even when the model defaults to sampling.
+- Invalidates earlier E5 attribute checkpoints before they can be resumed.
+
 ## 0.2.45 — Verified E5 resume identity
 
 - Binds partial and completed attribute caches to the exact VLM, prompt and frozen dataset commits.

@@ -98,7 +98,7 @@ def test_e5_installs_the_vlm_profile_and_freezes_before_test():
     evaluation = "".join(contents[evaluation_index]["source"])
     notebook = "\n".join("".join(c["source"]) for c in contents)
 
-    assert '"pettrace-ml[vlm,notebooks,tracking]==0.2.45"' in install
+    assert '"pettrace-ml[vlm,notebooks,tracking]==0.2.46"' in install
     assert calibration_index < evaluation_index
     assert "select_calibration(" in calibration
     assert 'public_split_dataset(prepared, public_source, "val")' in notebook
@@ -116,7 +116,7 @@ def test_e5_uses_colab_secrets_resumable_cache_and_fixed_vlm():
     assert "from google.colab import drive, userdata" in config
     assert "userdata.get(name)" in config
     assert 'MLFLOW_TRACKING_URI' in config
-    assert "/content/drive/MyDrive/PetTrace/checkpoints/e5/attributes-v2.parquet" in config
+    assert "/content/drive/MyDrive/PetTrace/checkpoints/e5/attributes-v3.parquet" in config
     assert "attribute_model = MODEL_2B" in calibration
     assert "MODEL_4B" not in calibration
     assert calibration.index("QwenAttributeExtractor(") > calibration.index("else:")
