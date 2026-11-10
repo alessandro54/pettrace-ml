@@ -54,6 +54,16 @@ def test_extractor_repairs_invalid_format_then_falls_back_to_unknown():
     assert extractor.last_status == "fallback"
 
 
+def test_extractor_batches_visual_generation_and_repairs_only_invalid_rows():
+    extractor = QwenAttributeExtractor.__new__(QwenAttributeExtractor)
+    extractor._generate_many = lambda messages: [json.dumps(record()), "not json"]
+    extractor._generate = lambda messages: json.dumps(record(primary_color="brown"))
+
+    results = extractor.extract_many([object(), object()])
+
+    assert results == [(record(), "ok"), (record(primary_color="brown"), "repaired")]
+
+
 @pytest.mark.parametrize("bad", [
     record(primary_color="purple"),
     record(white_markings=[]),

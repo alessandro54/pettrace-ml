@@ -98,7 +98,7 @@ def test_e5_installs_the_vlm_profile_and_freezes_before_test():
     evaluation = "".join(contents[evaluation_index]["source"])
     notebook = "\n".join("".join(c["source"]) for c in contents)
 
-    assert '"pettrace-ml[vlm,notebooks,tracking]==0.2.42"' in install
+    assert '"pettrace-ml[vlm,notebooks,tracking]==0.2.43"' in install
     assert calibration_index < evaluation_index
     assert "select_calibration(" in calibration
     assert 'public_split_dataset(prepared, public_source, "val")' in notebook
@@ -108,7 +108,23 @@ def test_e5_installs_the_vlm_profile_and_freezes_before_test():
     assert "publication = publish_results(" in notebook
 
 
-@pytest.mark.parametrize("path", NOTEBOOKS, ids=lambda p: p.stem)
+def test_e5_uses_colab_secrets_resumable_cache_and_fixed_vlm():
+    contents = cells(ROOT / "notebooks/e5_language_reranking.ipynb")
+    config = next("".join(c["source"]) for c in contents if c["id"] == "e5-config")
+    calibration = next("".join(c["source"]) for c in contents if c["id"] == "e5-calibrate")
+
+    assert "from google.colab import drive, userdata" in config
+    assert "userdata.get(name)" in config
+    assert 'MLFLOW_TRACKING_URI' in config
+    assert "/content/drive/MyDrive/PetTrace/checkpoints/e5/attributes-v2.parquet" in config
+    assert "attribute_model = MODEL_2B" in calibration
+    assert "MODEL_4B" not in calibration
+
+
+@pytest.mark.parametrize(
+    "path", [path for path in NOTEBOOKS if path.name != "e5_language_reranking.ipynb"],
+    ids=lambda p: p.stem,
+)
 def test_experiment_notebooks_do_not_use_google_drive(path):
     source = "\n".join("".join(cell["source"]) for cell in cells(path))
     assert "DriveBackup" not in source

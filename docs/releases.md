@@ -1,5 +1,11 @@
 # Package releases
 
+## 0.2.43 — Resumable and batched E5 extraction
+
+- Loads credentials from Colab Secrets and keeps only the long-running attribute checkpoint in Drive.
+- Resumes completed VLM inferences after a Colab runtime replacement without moving datasets or reports to Drive.
+- Fixes Qwen3-VL-2B as the experiment model across GPU types and extracts attributes in bounded micro-batches.
+
 ## 0.2.42 — Robust E5 attribute extraction
 
 - Canonicalizes scalar lists emitted by Qwen3-VL, including primary/secondary colors.

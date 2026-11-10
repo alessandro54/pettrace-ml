@@ -124,16 +124,22 @@ class QwenAttributeExtractor:
         self.generation_config.temperature = None
         self.generation_config.top_p = None
         self.generation_config.top_k = None
+        self.batch_size = 4 if self.model_id == MODEL_2B else 2
         self.last_status = "ok"
 
-    def _generate(self, messages):
+    def _generate_many(self, conversations):
         inputs = self.processor.apply_chat_template(
-            messages, add_generation_prompt=True, tokenize=True, return_dict=True, return_tensors="pt")
+            conversations, add_generation_prompt=True, tokenize=True, padding=True,
+            return_dict=True, return_tensors="pt")
         inputs = inputs.to(self.model.device)
         generated = self.model.generate(
             **inputs, max_new_tokens=180, generation_config=self.generation_config)
-        return self.processor.decode(
-            generated[0][inputs["input_ids"].shape[-1]:], skip_special_tokens=True)
+        prompt_length = inputs["input_ids"].shape[-1]
+        return self.processor.batch_decode(
+            generated[:, prompt_length:], skip_special_tokens=True)
+
+    def _generate(self, messages):
+        return self._generate_many([messages])[0]
 
     def __call__(self, crop):
         messages = [{"role": "user", "content": [
@@ -153,6 +159,25 @@ class QwenAttributeExtractor:
             except ValueError:
                 self.last_status = "fallback"
                 return dict(UNKNOWN_ATTRIBUTES)
+
+    def extract_many(self, crops):
+        """Extract a small GPU batch while preserving per-image repair semantics."""
+        messages = [[{"role": "user", "content": [
+            {"type": "image", "image": crop}, {"type": "text", "text": PROMPT}]}]
+            for crop in crops]
+        results = []
+        for answer in self._generate_many(messages):
+            try:
+                results.append((parse_attributes(answer), "ok"))
+            except ValueError:
+                repair = [{"role": "user", "content": [{"type": "text", "text":
+                    f"Convert this attempted answer to exactly the JSON schema requested below. "
+                    f"Return JSON only.\n{PROMPT}\nAttempted answer:\n{answer}"}]}]
+                try:
+                    results.append((parse_attributes(self._generate(repair)), "repaired"))
+                except ValueError:
+                    results.append((dict(UNKNOWN_ATTRIBUTES), "fallback"))
+        return results
 
 
 def save_attribute_cache(records, path, *, model_id, revision, datasets):
@@ -220,24 +245,38 @@ def extract_attribute_cache(groups, pipeline, extractor, path, datasets):
     total = sum(len(photos) for photos in groups.values())
     done = 0
     with checkpoint.open("a") as stream:
+        def write_batch(dataset, pending):
+            nonlocal done
+            crops = [yolo_crop(photo, pipeline) for photo, _, _ in pending]
+            for (photo, digest, key), (attributes, status) in zip(
+                    pending, extractor.extract_many(crops), strict=True):
+                record = {
+                    "photo_sha256": digest, "dataset": dataset, "split": photo.split,
+                    **attributes, "attribute_status": status,
+                }
+                stream.write(json.dumps(record, sort_keys=True) + "\n")
+                stream.flush()
+                completed[key] = record
+                done += 1
+
         for dataset, photos in groups.items():
+            pending = []
             for photo in photos:
                 digest = file_sha256(photo.path)
                 key = dataset, digest
-                if key not in completed:
-                    record = {
-                        "photo_sha256": digest,
-                        "dataset": dataset,
-                        "split": photo.split,
-                        **extractor(yolo_crop(photo, pipeline)),
-                        "attribute_status": getattr(extractor, "last_status", "ok"),
-                    }
-                    stream.write(json.dumps(record, sort_keys=True) + "\n")
-                    stream.flush()
-                    completed[key] = record
-                done += 1
-                if done == total or done % 100 == 0:
+                if key in completed:
+                    done += 1
+                    continue
+                pending.append((photo, digest, key))
+                if len(pending) < extractor.batch_size:
+                    continue
+                write_batch(dataset, pending)
+                pending.clear()
+                if done % 100 < extractor.batch_size:
                     print(f"VLM attributes: {done}/{total}", flush=True)
+            if pending:
+                write_batch(dataset, pending)
+            print(f"VLM attributes: {done}/{total}", flush=True)
     receipt = save_attribute_cache(
         list(completed.values()), path, model_id=extractor.model_id,
         revision=extractor.revision, datasets=datasets)
