@@ -42,6 +42,17 @@ UNKNOWN_ATTRIBUTES = {
 }
 
 
+def attribute_cache_identity(model_id, revision, datasets):
+    """Return the metadata that makes an attribute cache safe to resume or reuse."""
+    return {
+        "schema_version": SCHEMA_VERSION,
+        "model": model_id,
+        "revision": revision,
+        "prompt_sha256": PROMPT_SHA256,
+        "datasets": datasets,
+    }
+
+
 def validate_attributes(value):
     """Return a canonical closed-vocabulary record, normalizing common VLM list drift."""
     if not isinstance(value, dict) or set(value) != set(VOCABULARY):
@@ -197,12 +208,8 @@ def save_attribute_cache(records, path, *, model_id, revision, datasets):
     temporary.replace(path)
     digest = sha256(path.read_bytes()).hexdigest()
     receipt = {
-        "schema_version": SCHEMA_VERSION,
-        "model": model_id,
-        "revision": revision,
+        **attribute_cache_identity(model_id, revision, datasets),
         "decoding": {"do_sample": False},
-        "prompt_sha256": PROMPT_SHA256,
-        "datasets": datasets,
         "rows": len(frame),
         "status_counts": {
             status: int((frame["attribute_status"] == status).sum()) for status in sorted(STATUSES)
@@ -225,16 +232,12 @@ def extract_attribute_cache(groups, pipeline, extractor, path, datasets):
     path.parent.mkdir(parents=True, exist_ok=True)
     checkpoint = path.with_suffix(".jsonl")
     checkpoint_receipt = path.with_suffix(".checkpoint.json")
-    checkpoint_identity = {
-        "schema_version": SCHEMA_VERSION,
-        "model": extractor.model_id,
-        "revision": extractor.revision,
-        "prompt_sha256": PROMPT_SHA256,
-    }
+    checkpoint_identity = attribute_cache_identity(
+        extractor.model_id, extractor.revision, datasets)
     if checkpoint.is_file():
         if (not checkpoint_receipt.is_file()
                 or json.loads(checkpoint_receipt.read_text()) != checkpoint_identity):
-            raise ValueError("Attribute checkpoint belongs to a different model, revision, or prompt")
+            raise ValueError("Attribute checkpoint belongs to a different model, prompt, or dataset")
     else:
         checkpoint_receipt.write_text(json.dumps(checkpoint_identity, indent=2) + "\n")
     completed = {}
@@ -285,7 +288,7 @@ def extract_attribute_cache(groups, pipeline, extractor, path, datasets):
     return receipt
 
 
-def load_attribute_cache(path, expected_sha256=None):
+def load_attribute_cache(path, expected_sha256=None, expected_identity=None):
     """Load and validate a previously extracted E5 cache."""
     import pandas as pd
 
@@ -293,6 +296,10 @@ def load_attribute_cache(path, expected_sha256=None):
     digest = sha256(path.read_bytes()).hexdigest()
     if expected_sha256 and digest != expected_sha256:
         raise ValueError("Attribute cache SHA-256 differs from the frozen receipt")
+    if expected_identity is not None:
+        receipt = json.loads(path.with_suffix(".receipt.json").read_text())
+        if any(receipt.get(key) != value for key, value in expected_identity.items()):
+            raise ValueError("Attribute cache belongs to a different model, prompt, or dataset")
     rows = pd.read_parquet(path).to_dict("records")
     for row in rows:
         if row.get("attribute_status") not in STATUSES:

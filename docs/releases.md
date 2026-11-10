@@ -1,5 +1,11 @@
 # Package releases
 
+## 0.2.44 — Verified E5 resume identity
+
+- Binds partial and completed attribute caches to the exact VLM, prompt and frozen dataset commits.
+- Simulates an interrupted extraction and verifies that relaunching processes only unfinished photos.
+- Skips loading Qwen when a complete compatible cache is already available.
+
 ## 0.2.43 — Resumable and batched E5 extraction
 
 - Loads credentials from Colab Secrets and keeps only the long-running attribute checkpoint in Drive.
