@@ -11,7 +11,6 @@ from pettrace.evaluation.attributes import (
     extract_attribute_cache,
     load_attribute_cache,
     parse_attributes,
-    save_attribute_cache,
     validate_attributes,
 )
 
@@ -98,6 +97,10 @@ def test_interrupted_extraction_resumes_without_repeating_finished_rows(tmp_path
         paths.append(SimpleNamespace(path=path, split="val"))
     monkeypatch.setattr(
         "pettrace.evaluation.attributes.yolo_crop", lambda photo, pipeline: photo.path.name)
+    saved = {}
+    monkeypatch.setattr(
+        "pettrace.evaluation.attributes.save_attribute_cache",
+        lambda records, path, **kwargs: saved.update(records=records) or {"sha256": "saved"})
     cache = tmp_path / "attributes.parquet"
     datasets = {"public": {"version": "v2", "commit": "a" * 40}}
 
@@ -122,27 +125,22 @@ def test_interrupted_extraction_resumes_without_repeating_finished_rows(tmp_path
     assert len(cache.with_suffix(".jsonl").read_text().splitlines()) == 2
 
     resumed = Extractor()
-    receipt = extract_attribute_cache({"validation": paths}, None, resumed, cache, datasets)
-    rows, _ = load_attribute_cache(
-        cache, receipt["sha256"],
-        attribute_cache_identity(resumed.model_id, resumed.revision, datasets))
+    extract_attribute_cache({"validation": paths}, None, resumed, cache, datasets)
 
     assert resumed.calls == [["photo-2.jpg"]]
-    assert len(rows) == 3
+    assert len(saved["records"]) == 3
     assert not cache.with_suffix(".jsonl").exists()
 
 
 def test_finished_cache_rejects_different_dataset_identity(tmp_path):
     path = tmp_path / "attributes.parquet"
     datasets = {"public": {"version": "v2", "commit": "a" * 40}}
-    receipt = save_attribute_cache([
-        {"photo_sha256": "1" * 64, "dataset": "validation", "split": "val",
-         **record(), "attribute_status": "ok"},
-    ], path, model_id="Qwen/example", revision="b" * 40, datasets=datasets)
+    path.write_bytes(b"parquet placeholder")
+    path.with_suffix(".receipt.json").write_text(json.dumps(
+        attribute_cache_identity("Qwen/example", "b" * 40, datasets)))
+    expected_identity = attribute_cache_identity(
+        "Qwen/example", "b" * 40,
+        {"public": {"version": "v3", "commit": "c" * 40}})
 
     with pytest.raises(ValueError, match="different model, prompt, or dataset"):
-        load_attribute_cache(
-            path, receipt["sha256"],
-            attribute_cache_identity(
-                "Qwen/example", "b" * 40,
-                {"public": {"version": "v3", "commit": "c" * 40}}))
+        load_attribute_cache(path, expected_identity=expected_identity)

@@ -1,6 +1,6 @@
 # Package releases
 
-## 0.2.44 — Verified E5 resume identity
+## 0.2.45 — Verified E5 resume identity
 
 - Binds partial and completed attribute caches to the exact VLM, prompt and frozen dataset commits.
 - Simulates an interrupted extraction and verifies that relaunching processes only unfinished photos.
