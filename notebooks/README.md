@@ -14,10 +14,12 @@ Los cuadernos documentan una secuencia de investigación de tesis sobre recupera
 | [E3](e3_mlp_head_triplet.ipynb) | MLP 512→256→512 sobre E2 congelado; barrido 45–49 | Solo la MLP | E1/E2 congelados; ganador elegido solo con validación pública |
 | [E4](e4_clip_lora.ipynb) | LoRA en `q_proj`/`v_proj` de CLIP sobre un E3 fijado | Solo adaptadores LoRA | Control E3 declarado antes de entrenar |
 | [E5](e5_language_reranking.ipynb) | Atributos morfológicos cerrados sobre el Top-5 visual de E4 | Ninguno en E4; umbrales elegidos solo en validación | E4 congelado frente a re-ranking sin compuerta y con doble compuerta |
+| [E5 · caso Luna](e5_luna_hard_case.ipynb) | Inspección posterior de Luna, Sunset y Cat-8 | Ninguno; solo lee la corrida E5 congelada | Estudio explicativo separado, sin selección ni ajuste |
 
 El [protocolo de E4](../docs/e4_protocol.md) conserva la corrida histórica y su reproducción.
 E5 fija como control el E4 semilla 46, modelo registrado 23, `single + max`, Public v2 y
-PetTrace v6; su resultado seguirá siendo prospectivo hasta completar y publicar la corrida.
+PetTrace v6. Su corrida oficial está publicada; el caso Luna es un análisis posterior que no
+modifica la selección, los umbrales ni las métricas agregadas.
 
 ## Tres fases de la investigación
 
