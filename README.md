@@ -4,6 +4,10 @@ Visual re-identification research for **individual dogs and cats**, developed as
 
 This repository documents the research questions, experimental methods, reusable implementation, and evidence behind PetTrace. The application and its serving infrastructure live in a separate repository. The [research notebooks](notebooks/README.md) are written in Spanish; this README provides an English overview.
 
+## Current short paper evidence
+
+The [short paper evidence index](docs/short-paper-evidence.md) records the current DINOv2 sequential study (six training runs and 16 evaluations), validation-selected checkpoints, and the separate [LoRA-only production bundle](https://huggingface.co/alessandro54/pettrace-production). MLflow records require authorized read access; the index explicitly describes the remaining source-release and private-data limits. The version-specific results below retain their historical scope.
+
 ## Python package
 
 The distribution is `pettrace-ml`, imported as `pettrace`. See the [public methods and examples](docs/package.md)
