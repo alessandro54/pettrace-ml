@@ -34,9 +34,9 @@ class Config:
 
 
 class Head(nn.Module):
-    def __init__(self, hidden=256):
+    def __init__(self, hidden=256, dimension=512):
         super().__init__()
-        self.layers = nn.Sequential(nn.Linear(512, hidden), nn.ReLU(), nn.Linear(hidden, 512))
+        self.layers = nn.Sequential(nn.Linear(dimension, hidden), nn.ReLU(), nn.Linear(hidden, dimension))
 
     def forward(self, embedding):
         return F.normalize(self.layers(embedding), p=2, dim=-1)
@@ -118,12 +118,12 @@ def fast_eer(same, diff):
     return eer(same, diff)
 
 
-def fit(features, rows, output, config=None, device=None, callback=None):
+def fit(features, rows, output, config=None, device=None, callback=None, *, dimension=512):
     config = config or Config()
     seed_all(config.seed)
     device = device or ("cuda" if torch.cuda.is_available() else "cpu")
-    if features.shape != (len(rows), 512) or not np.isfinite(features).all():
-        raise ValueError("Expected finite frozen E2 features shaped N x 512")
+    if features.shape != (len(rows), dimension) or not np.isfinite(features).all():
+        raise ValueError(f"Expected finite frozen features shaped N x {dimension}")
     if not np.allclose(np.linalg.norm(features, axis=1), 1, atol=1e-3):
         raise ValueError("Frozen E2 features must be L2-normalized")
     if any(r["split"] not in {"train", "val"} for r in rows):
@@ -143,7 +143,7 @@ def fit(features, rows, output, config=None, device=None, callback=None):
     species = [r["species"] for r in tr]
     x = torch.as_tensor(features[train], dtype=torch.float32, device=device)
     y = torch.as_tensor(labels, dtype=torch.long, device=device)
-    head = Head(config.hidden).to(device)
+    head = Head(config.hidden, dimension).to(device)
     optimizer = torch.optim.AdamW(head.parameters(), lr=config.learning_rate, weight_decay=config.weight_decay)
     rng = np.random.default_rng(config.seed)
     history, best, best_epoch, stale = [], -1.0, 0, 0
@@ -181,7 +181,7 @@ def fit(features, rows, output, config=None, device=None, callback=None):
             if score > best:
                 best, best_epoch, stale = score, epoch, 0
                 torch.save({"state_dict": copy.deepcopy(head.cpu().state_dict()), "config": asdict(config),
-                            "epoch": epoch, "validation_macro_mAP": score}, output / "head.pt")
+                            "epoch": epoch, "dimension": dimension, "validation_macro_mAP": score}, output / "head.pt")
                 head.to(device)
             else:
                 stale += 1
@@ -193,7 +193,7 @@ def fit(features, rows, output, config=None, device=None, callback=None):
         if progress:
             progress.close()
     checkpoint = torch.load(output / "head.pt", map_location="cpu", weights_only=True)
-    head = Head(config.hidden)
+    head = Head(config.hidden, dimension)
     head.load_state_dict(checkpoint["state_dict"])
     return head.eval(), {"best_epoch": best_epoch, "best_val_mAP": best, "history": history,
                          "config": asdict(config), "device": device}

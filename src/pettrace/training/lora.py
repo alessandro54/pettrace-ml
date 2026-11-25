@@ -183,10 +183,11 @@ def trainable_parameters(model):
 
 
 def build_encoder(head, revision, device="cuda", config=None):
-    """Load pinned CLIP, freeze it and add only the planned E4 adapters."""
+    """Adapt attention and visual projection, preserving the historical E4 trainable set."""
     from transformers import CLIPModel
 
     config = config or Config()
+    seed_all(config.seed)  # Adapter initialization must not depend on earlier notebook cells.
     clip = CLIPModel.from_pretrained("openai/clip-vit-base-patch32", revision=revision)
     encoder = Encoder(clip.vision_model, clip.visual_projection, head).to(device).eval()
     replaced = inject_lora(encoder.vision_model, config.rank, config.alpha)
@@ -249,7 +250,7 @@ def load_adapter(encoder, checkpoint):
 
 
 def fit(encoder, rows, preprocessor, output, config=None, device="cuda", callback=None):
-    """Train only LoRA on prepared photos; public validation selects the checkpoint."""
+    """Train the declared parameters; public validation selects the checkpoint."""
     config = config or Config()
     seed_all(config.seed)
     if device == "cuda" and not torch.cuda.is_available():
@@ -354,8 +355,9 @@ def export_encoder(base_model_dir, encoder, output_dir, model_version, verificat
         if step["op"] == "detect_crop" and step.get("enabled"):
             shutil.copy2(base_dir / step["file"], output / step["file"])
     spec.update(experiment="E4", model_version=model_version,
-                adaptation={"method": "LoRA", "targets": ["q_proj", "v_proj"],
-                            "base": "frozen E2 CLIP and frozen E3-100 head"})
+                adaptation={"method": "LoRA and visual projection", "targets": ["q_proj", "v_proj"],
+                            "visual_projection_trainable": encoder.visual_projection.weight.requires_grad,
+                            "base": "frozen CLIP vision base and frozen E3-100 head"})
     (output / "pipeline.yaml").write_text(yaml.safe_dump(spec, sort_keys=False))
     images = golden_images()
     base_pipeline = Pipeline(str(base_dir))

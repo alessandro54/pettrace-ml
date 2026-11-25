@@ -11,6 +11,7 @@ from pettrace.training.lora import (
     Config,
     LoRALinear,
     PreparedPreprocessor,
+    build_encoder,
     fit,
     inject_lora,
     load_frozen_e3_head,
@@ -80,6 +81,26 @@ def test_e4_protocol_defaults_are_fixed():
     assert Config().learning_rate == 1e-4
     assert (Config().rank, Config().alpha) == (8, 16)
     assert (Config().identities_per_batch, Config().images_per_identity) == (8, 4)
+
+
+def test_encoder_seed_covers_initialization_and_preserves_historical_trainables(monkeypatch):
+    import copy
+    from transformers import CLIPModel
+
+    clip = SimpleNamespace(vision_model=Attention(), visual_projection=nn.Linear(4, 4, bias=False))
+    monkeypatch.setattr(CLIPModel, "from_pretrained", lambda *args, **kwargs: copy.deepcopy(clip))
+    head = nn.Linear(4, 4).requires_grad_(False)
+    torch.manual_seed(1)
+    first, _ = build_encoder(head, "fixed", device="cpu", config=Config(seed=46))
+    torch.manual_seed(999)
+    second, _ = build_encoder(head, "fixed", device="cpu", config=Config(seed=46))
+    third, _ = build_encoder(head, "fixed", device="cpu", config=Config(seed=47))
+    torch.testing.assert_close(first.vision_model.q_proj.a, second.vision_model.q_proj.a)
+    assert not torch.equal(first.vision_model.q_proj.a, third.vision_model.q_proj.a)
+    assert {name for name, p in first.named_parameters() if p.requires_grad} == {
+        "vision_model.q_proj.a", "vision_model.q_proj.b",
+        "vision_model.v_proj.a", "vision_model.v_proj.b", "visual_projection.weight",
+    }
 
 
 def test_fit_rejects_test_photos_before_training():
