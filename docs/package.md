@@ -182,3 +182,33 @@ Original datasets and upstream weights retain their own licenses; the package co
 Operational release and registry scripts live under `tools/` and are not part of the public
 runtime API. Historical preparation implementations remain in Git history; current experiments
 consume verified Hugging Face artifacts only.
+
+### Configurable E3 projection
+
+The MLP width is already a public setting, not an encoder-specific constant:
+
+```python
+from pettrace.training.triplet import Config, Head, fit
+
+# CLIP: 512 -> 256 -> 512
+clip_head = Head(dimension=512, hidden=256)
+# DINOv2: 1024 -> 512 -> 1024; a candidate, not a validated new default.
+dino_head = Head(dimension=1024, hidden=512)
+config = Config(hidden=512, learning_rate=1e-3, margin=0.2,
+                weight_decay=1e-4, seed=46)
+# frozen_features and rows must contain only identity-disjoint train/val data.
+# head, result = fit(frozen_features, rows, output, config, dimension=1024)
+```
+
+`dimension` matches the frozen encoder output and the final projection output; `hidden`
+controls the intermediate width. ReLU, two linear layers and final L2 normalization define
+this particular head. Width is configurable; arbitrary depth/activation is not claimed.
+`fit` records `dimension` and all `Config` settings in its checkpoint. Restore with those
+recorded values, not a hardcoded 256. The CLIP ONNX export helper remains CLIP-specific;
+DINO research bundles use their own encoder path.
+
+A shared framework does not imply shared optimal hyperparameters. The historical DINO
+1024–256–1024 model remains unchanged. The [width ablation](../notebooks/dino_mlp_width_ablation.ipynb)
+is prospective: it compares hidden widths 256 and 512 with other settings fixed. Training
+and evaluation results must be published to production MLflow; `fit` is a numerical
+primitive, and official notebooks perform mandatory publication separately.

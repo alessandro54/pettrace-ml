@@ -1,0 +1,15 @@
+# External gallery expansion — protocol frozen 2026-11-20
+
+Objective/question: measure how CLIP and DINOv2 E1–E4 retain retrieval accuracy when an existing gallery gains unrelated same-species photographs. Hypothesis: more distractors reduce Rank-1 and photo-level mAP; adaptation may alter that degradation. No direction is assumed on PetTrace.
+
+Source: Oxford-IIIT Pet, Parkhi et al., *Cats and Dogs*, CVPR 2012, https://www.robots.ox.ac.uk/~vgg/data/pets/ (CC BY-SA 4.0; original image copyright retained). Download mirror: timm/oxford-iiit-pet, immutable commit 089695c834a7deb60505b7cc506672db1c31a6aa, train partition only. Its split name does not denote training in this study: every Oxford photograph is evaluation-only.
+
+Preparation: decode images, preserve original bytes, reject byte/pixel duplicates and perceptual near-duplicates (64-bit difference hash distance <= 4) against the 779 existing benchmark photographs and previously retained Oxford candidates. Compare byte hashes with locally available immutable public metadata where available. Deterministically order candidates per species by SHA256('pettrace-oxford-42:' + image SHA256), retain the first 500 eligible photos per species. Record exclusions, hashes, source row, and labels. These checks cannot certify different biological identities or eliminate all near-duplicates. No model score informs exclusion or sampling.
+
+Controls: fixed selected historical CLIP checkpoints and DINO sequential MLP seed 46 / MLP+LoRA seed 47, with their frozen E1/E2 controls. No tuning or training. Public v1's 277 queries and PetTrace v6's 502 queries remain separate. All original positive and negative gallery photographs remain, with photo-level leave-one-out and same-species restriction. Append nested sets of 0, 100, 250, and 500 Oxford photographs of the same species. Use the identical ordered sets for every model and both domains.
+
+Metrics: query-weighted Rank-1, photo-level mAP, and fraction of queries whose top photograph is external; report global and by species, per-query results, paired identity-bootstrap 95% intervals for E4 versus E2 at 500 distractors. External photos have no reliable identity labels; do not report a count of confirmed new animals or identity Rank-5. Stable original-gallery-first tie handling. Assert zero-distractor reproduction of existing metrics before accepting external results. MPS/CPU numerical tolerances and any deviations must be reported.
+
+Analysis is retrospective exploratory robustness evidence, not a new untouched confirmatory test. This remains closed-set retrieval with a true gallery match; it does not test rejecting unknown animals. Oxford overlap with model pretraining is unknown. Context/session separation remains a separate question.
+
+Evidence: cache embeddings with hashes; save source/checkpoint/protocol hashes, elapsed inference time, per-query results and summaries. Publish unconditionally to https://ml.pettrace.app, preserving local evidence and allowing publication retry without inference. No model registration or alias promotion. An experiment is complete only after verified publication.

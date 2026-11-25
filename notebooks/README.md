@@ -9,10 +9,17 @@ Los cuadernos documentan una secuencia de investigación de tesis sobre recupera
 
 | Experimento | Intervención | Parámetros ajustados | Comparación |
 |---|---|---|---|
+| [DINO · secuencia E1–E4](dino_sequential_pipeline.ipynb) | Imagen completa → YOLO → MLP → MLP congelada + LoRA | Mismo entrenador MLP de CLIP; tres semillas por etapa | Seis entrenamientos y 16 evaluaciones publicados; [protocolo de dos encoders](../docs/two_encoder_framework.md) |
+| [C1 · referencia DINOv2](c1_dinov2_reference.ipynb) | Backbone independiente DINOv2-L/14 con recorte E2 | Ninguno; CLS normalizado, procesador y pesos fijados | Mismas 277 consultas públicas y 502 privadas; ejecución local MPS, publicación obligatoria sin registro de modelo |
+| [D1 · piloto DINOv2](d1_dinov2_pilot.ipynb) | Proyección identidad 1024→1024 sobre C1 congelado | Solo matriz lineal, semillas 45–47 | Piloto reducido: 1.040 train verificados y 273 val; control época cero; sin test. Publicación obligatoria |
+| [D1 · test de proyecciones completas](dino_projection_test.ipynb) | Tres checkpoints recuperados de Colab | Sin reentrenamiento; semilla 46 fijada por validación | Evaluación intermedia público/PetTrace separada, comparación pareada con C1 y publicación obligatoria; LoRA y selección entre familias pendientes |
+| [DINO · pipeline completo](dino_pipeline.ipynb) | Proyección, LoRA y combinación conjunta sobre DINO-L | Tres familias × tres semillas; C1 elegible | Preparado; estudio completo pendiente. [Comprobación técnica ejecutada](dino_pipeline_smoke.ipynb) y [guía](../docs/dino_pipeline.md) |
 | [E1](e1_clip_zero_shot.ipynb) | CLIP ViT-B/32 sin localización previa | Ninguno | El cuaderno invoca el mismo runner headless que `pettrace run e1` |
 | [E2](e2_yolo_crop_zero_shot.ipynb) | Recorte YOLOv8n antes del mismo CLIP | Ninguno | E1 recalculado con las mismas consultas y galerías |
 | [E3](e3_mlp_head_triplet.ipynb) | MLP 512→256→512 sobre E2 congelado; barrido 45–49 | Solo la MLP | E1/E2 congelados; ganador elegido solo con validación pública |
-| [E4](e4_clip_lora.ipynb) | LoRA en `q_proj`/`v_proj` de CLIP sobre un E3 fijado | Solo adaptadores LoRA | Control E3 declarado antes de entrenar |
+| [E4](e4_clip_lora.ipynb) | LoRA en `q_proj`/`v_proj` de CLIP sobre un E3 fijado | Adaptadores LoRA y proyección visual, según auditoría del código | Control E3 declarado antes de entrenar |
+| [E4 · muestreo multisemilla](e4_sampling_multiseed.ipynb) | P8×K4 frente a P16×K2, semillas 45–47 | Mismo conjunto histórico; inicialización sembrada antes de construir | Familia elegida por media de validación, después candidato por validación; publicación obligatoria de los seis candidatos |
+| [E4 · ablación de componentes](e4_component_ablation.ipynb) | Solo LoRA frente a solo proyección, semillas 45–47, P8×K4 | Cada componente aislado; control combinado en el estudio de muestreo | Mismos datos y presupuesto; selección por validación y publicación de todos los resultados |
 | [E5](e5_language_reranking.ipynb) | Atributos morfológicos cerrados sobre el Top-5 visual de E4 | Ninguno en E4; umbrales elegidos solo en validación | E4 congelado frente a re-ranking sin compuerta y con doble compuerta |
 | [E5 · caso Luna](e5_luna_hard_case.ipynb) | Inspección posterior de Luna, Sunset y Cat-8 | Ninguno; solo lee la corrida E5 congelada | Estudio explicativo separado, sin selección ni ajuste |
 
@@ -78,7 +85,7 @@ E1 y E2 instalan `pettrace-ml[notebooks,tracking]` y ejecutan el runner oficial 
 
 El notebook E3 instala **`pettrace-ml[training,notebooks,tracking]==0.2.37` desde PyPI** con un solo comando. Carga el corpus refinado v2 desde Hugging Face, calcula una vez las representaciones E2 congeladas y entrena las semillas 45–49. No requiere Drive, requirements copiados ni construir un wheel. Véase [la guía E3](../docs/e3_colab.md).
 
-E4 instala **`pettrace-ml[training,notebooks,tracking]==0.2.39`**, verifica la cabeza E3 seed 46 publicada y adapta solo LoRA. Evalúa el modelo E3 congelado y E4 sobre los mismos snapshots Public v2/PetTrace v6, y publica ambos dominios antes de registrar un candidato, sin promover aliases.
+E4 instala **`pettrace-ml[training,notebooks,tracking]==0.2.39`**, verifica la cabeza E3 seed 46 publicada y adapta LoRA más la proyección visual. Evalúa el modelo E3 congelado y E4 sobre los mismos snapshots Public v2/PetTrace v6, y publica ambos dominios antes de registrar un candidato, sin promover aliases. La descripción histórica de «solo LoRA» queda corregida por la auditoría del código. El estudio nuevo instala 0.2.46 y fija explícitamente la semilla antes de construir el encoder, sin modificar las salidas del notebook histórico.
 
 E5 instala **`pettrace-ml[vlm,notebooks,tracking]==0.2.46`**, verifica el E4 ganador y extrae una sola vez atributos cerrados con una revisión inmutable de Qwen3-VL-2B. El modelo no cambia según la GPU y la extracción usa microlotes. Las respuestas fuera del esquema reciben una reparación determinista; si ésta falla se registran como `fallback` desconocido, de modo que el lote conserva evidencia auditable sin inventar atributos. Selecciona `tau_v`, `lambda` y `tau_t` exclusivamente en validación, congela la decisión y recién entonces ejecuta una pasada de test separada en Public v2 y PetTrace v6. El caché, su SHA-256, los conteos de estado, la tabla E4/sin compuerta/doble compuerta y ambos recibos MLflow forman la evidencia requerida.
 
@@ -92,3 +99,19 @@ por esa misma métrica, con desempate por la semilla menor. Recién entonces se 
 Public v2 y PetTrace v5. Todas las semillas publican ambos dominios en MLflow,
 pero solo la ganadora se registra y produce el handoff para E4/E5. Las semillas 42–44 y
 los estudios 20/50/100 son evidencia histórica publicada, no candidatos de esta selección.
+
+## Sensibilidad al tamaño de galería
+
+[`distractor_sensitivity.ipynb`](distractor_sensitivity.ipynb): análisis ejecutado de CLIP/DINOv2 E1–E4 en público/v6, sin entrenamiento; Rank-1 esperado exacto con subconjuntos uniformes de rivales. [Resultados y límites](../docs/distractor_sensitivity_20261120.md). No incorpora identidades externas ni acredita separación entre sesiones.
+
+## Distractores externos
+
+[`external_distractors.ipynb`](external_distractors.ipynb) evalúa los checkpoints fijos de CLIP y DINOv2 E1–E4 con 0/100/250/500 fotografías externas de la misma especie. La preparación separada está en `datasets/prepare_oxford_distractors.py`; [protocolo fijado antes de medir](../docs/external_distractors_protocol.md) y [resultados ejecutados/publicados](../docs/external_distractors_results_20261120.md). Publicación MLflow obligatoria, caché verificable y resultados separados por dominio. Oxford no aporta etiquetas de identidad individual: no se presenta como una prueba de nuevas identidades certificadas ni de rechazo open-set.
+
+## Ancho configurable de la MLP DINO E3
+
+[`dino_mlp_width_ablation.ipynb`](dino_mlp_width_ablation.ipynb) — **prospectivo, no ejecutado**. Compara 1024→256→1024 con 1024→512→1024, semillas 45/46/47, solo la MLP entrenable. Misma configuración restante y máximo de pasos; selección por validación, E2 elegible, resultados públicos/v6 separados y publicación obligatoria de seis entrenamientos y catorce evaluaciones. [Protocolo y límites](../docs/dino_mlp_width_protocol.md), [API configurable](../docs/package.md#configurable-e3-projection). No altera checkpoints históricos ni registra/promueve modelos. La preparación de entorno sigue en el script operativo existente; si no hay caché verificado, requiere extraer las features del corpus completo antes de ajustar las cabezas.
+
+## DINO con LoRA sin MLP
+
+[`dino_lora_test.ipynb`](dino_lora_test.ipynb) — ejecutado: tres checkpoints ya entrenados (semillas 45–47), seis evaluaciones públicas/v6 publicadas en MLflow, sin reentrenamiento. Semilla 45 seleccionada por validación antes del test. Reutiliza los splits inmutables, verifica procedencia y paridad CPU/MPS, y compara contra DINO+YOLO congelado. Evidencia en `reports/dino-lora-test/20261120-v1/`; análisis retrospectivo, sin sesiones acreditadas, registro y promoción separados.

@@ -8,6 +8,16 @@ This repository documents the research questions, experimental methods, reusable
 
 The [short paper evidence index](docs/short-paper-evidence.md) records the current DINOv2 sequential study (six training runs and 16 evaluations), validation-selected checkpoints, and the separate [LoRA-only production bundle](https://huggingface.co/alessandro54/pettrace-production). MLflow records require authorized read access; the index explicitly describes the remaining source-release and private-data limits. The version-specific results below retain their historical scope.
 
+## Current research evidence — 20 November 2026
+
+The current paper compares CLIP ViT-B/32 and DINOv2-L/14 through E1–E4 on the immutable public test (277 photographs, 60 identities) and separately on PetTrace v6 (502 photographs, 50 identities). DINOv2 sequential adaptation completed six training runs and 16 evaluations; see the [verified results](docs/dino_sequential_results_20261119.md) and [two-encoder protocol](docs/two_encoder_framework.md). The historical version-specific tables below remain historical evidence.
+
+CLIP E1/E2 v6 controls were completed and published on 19 November: [public](https://ml.pettrace.app/#/experiments/3/runs/b26c5d8494054beab283f0bf985cb756) and [PetTrace v6](https://ml.pettrace.app/#/experiments/3/runs/bea86db8772042b0a69714a14534dbc0), including paired E1 artifacts. PetTrace E1/E2 Rank-1 is 65.34%/69.92%, and mAP is 38.85%/40.27%. No serving alias was promoted.
+
+An [external Oxford-IIIT Pet gallery expansion](docs/external_distractors_results_20261120.md) is now executed and [published](https://ml.pettrace.app/#/experiments/3/runs/daba7785305f4da08200005788e9bc5e) for all eight fixed E1–E4 checkpoints, with 0/100/250/500 same-species photographs. At 500, DINOv2 E4 retains 89.18% public mAP and 81.93% PetTrace mAP; the latter is only +0.51 points over E2 with an identity-cluster interval spanning zero. These are external photo distractors, not verified new individual identities or an open-set rejection test.
+
+This is retrospective, same-species closed-set retrieval. It does not establish capture-session-separated or open-set performance. Optimization variability and identity-cluster uncertainty are reported separately. E5 has executed evidence but remains exploratory and is excluded from the current E1–E4 contribution; see the [E5 audit](docs/e5_evidence_audit_20261118.md). Data access, provenance and permissions are distinct requirements; restricted access alone is not evidence of participant authorization.
+
 ## Python package
 
 The distribution is `pettrace-ml`, imported as `pettrace`. See the [public methods and examples](docs/package.md)
@@ -27,7 +37,7 @@ The experiments investigate incremental changes to a shared visual retrieval pip
 | [E2 — Animal localization](notebooks/e2_yolo_crop_zero_shot.ipynb) | How does localizing the animal affect retrieval with the same encoder? | YOLOv8n → highest-confidence cat/dog box with a 10% margin → the same frozen CLIP encoder. The image is retained when no valid box is available. | Headless runner uses the same v2/v5 benchmarks and recalculates a paired E1 control. |
 | [E3 — Projection learning](notebooks/e3_mlp_head_triplet.ipynb) | Does a projection trained on public identities transfer to private PetTrace identities, and how variable is training across seeds? | Frozen E2 → MLP 512→256→512 → L2 normalization. Only the MLP is trained with batch-hard triplet loss. Seeds 45–49 are selected by public validation only. | Every seed publishes both evaluation domains; only the validation winner is registered for E4/E5. Historical seeds 42–44 and volume runs remain in MLflow. |
 | [E4 — Encoder adaptation](notebooks/e4_clip_lora.ipynb) | What additional benefit does adapting the visual encoder provide? | CLIP q/v LoRA (`r=8`, `alpha=16`) over the fixed seed-46 E3 control. | Frozen winner published on both domains; E5 consumes its verified model hashes without using test metrics for selection. |
-| [E5 — Morphology-assisted reranking](notebooks/e5_language_reranking.ipynb) | Can identity-blind observable morphology resolve an ambiguous visual Top-5 without damaging confident E4 matches? | Frozen E4 v3 control → deterministic closed-vocabulary Qwen3-VL attributes → weighted compatibility → double-gated Top-5 reranking. | Validation-only calibration and mandatory dual-domain publication are implemented. No E5 result is claimed until the notebook is executed and both MLflow receipts exist. |
+| [E5 — Morphology-assisted reranking](notebooks/e5_language_reranking.ipynb) | Can identity-blind observable morphology resolve an ambiguous visual Top-5 without damaging confident E4 matches? | Frozen E4 v3 control → deterministic closed-vocabulary Qwen3-VL attributes → weighted compatibility → double-gated Top-5 reranking. | Validation-only calibration and mandatory dual-domain publication are implemented. Executed results are audited in `docs/e5_evidence_audit_20261118.md`; effects are modest and exploratory, outside the current paper scope. |
 
 CLIP is based on [Radford et al. (2021)](https://arxiv.org/abs/2103.00020), localization uses [Ultralytics YOLOv8](https://docs.ultralytics.com/models/yolov8/), and E3's batch-hard objective follows [Hermans, Beyer, and Leibe (2017)](https://arxiv.org/abs/1703.07737). These references motivate components; their published results are not evidence of performance on PetTrace.
 
@@ -161,7 +171,7 @@ CMC and AP/mAP have established use in re-identification, including [Zheng et al
 
 The evaluator's `zero-shot` label selects leave-one-out evaluation over all supplied photographs. It does not mean text-prompt classification. E3 is trained on public identities; its private evaluation identities remain excluded from fitting and checkpoint selection.
 
-These experiments do not establish open-set performance, cross-session generalization, statistical significance, or deployment accuracy. PetTrace v4 is small and was already observed in E1/E2. Photographs of the same animal are dependent observations; E3 currently has one training seed. The next research steps include more identities and capture sessions, repeated seeds, uncertainty estimates by identity, and an additional independent benchmark for future model selection.
+These experiments do not establish open-set performance, cross-session generalization, statistical significance, or deployment accuracy. PetTrace v4 is small and was already observed in E1/E2. Photographs of the same animal are dependent observations; the historical v4 result below does not represent the later multiseed studies. The next research steps include more identities and capture sessions, repeated seeds, uncertainty estimates by identity, and an additional independent benchmark for future model selection.
 
 ## Recorded results
 

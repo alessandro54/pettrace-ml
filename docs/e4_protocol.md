@@ -1,5 +1,16 @@
 # E4 · Adaptación LoRA del encoder
 
+> **Auditoría de implementación (2026-11-18).** El código histórico entrena tanto los
+> adaptadores q/v como `visual_projection.weight`; por ello, las menciones siguientes
+> a proyección congelada describen la intención original, no la ejecución real.
+> Además, la semilla se fijaba en `fit`, después de inicializar los adaptadores.
+> Se conservan las métricas y los artefactos históricos, pero deben atribuirse a
+> LoRA más proyección. `build_encoder` ahora fija la semilla antes de inicializar.
+> El [estudio de muestreo](../notebooks/e4_sampling_multiseed.ipynb) reproduce ese
+> conjunto de parámetros explícitamente y compara P8×K4 frente a P16×K2 con semillas
+> 45–47. Sus resultados están pendientes de ejecución y publicación; no sustituyen
+> retrospectivamente ninguna corrida.
+
 Estado: **reproducción v3 preparada; resultados pendientes**. La evidencia E4 v2 permanece
 congelada abajo. La nueva corrida parte del E3 seed 46 seleccionado exclusivamente por validación,
 modelo registrado 20, y evalúa Public v2 y PetTrace v6 sin alterar sus galerías.

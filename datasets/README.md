@@ -49,3 +49,7 @@ Los antiguos notebooks basados en ZIP y restauración completa desde Drive se re
 publicadas y verificadas las releases. Su código, salidas ejecutadas y evolución permanecen en el
 historial de Git. `pettrace.data` conserva únicamente los loaders y verificadores necesarios para
 consumir las releases; la preparación y publicación one-shot no forman parte de la API OSS.
+
+## Oxford-IIIT Pet: distractores de evaluación
+
+`prepare_oxford_distractors.py` prepara 500 fotografías de gato y 500 de perro a partir de la partición `train` del mirror `timm/oxford-iiit-pet@089695c834a7deb60505b7cc506672db1c31a6aa`. En este estudio son exclusivamente datos de evaluación, nunca de entrenamiento. Verifica bytes contra los metadatos públicos inmutables y v6, y píxeles/dHash contra las 779 fotos de evaluación y distractores previamente retenidos. Guarda selección determinista y exclusiones en `build/oxford-distractors-20261120/manifest.json`. No certifica separación de identidades biológicas. Fuente y licencia: [Oxford, CC BY-SA 4.0](https://www.robots.ox.ac.uk/~vgg/data/pets/).
