@@ -1,0 +1,268 @@
+{
+  "selected_lora_seed": 45,
+  "training_runs": [
+    {
+      "seed": 45,
+      "run_id": "209b96e9182c45d3a69e5671a5201e3c",
+      "recovered": "/Users/alessandro/Develop/personal/pettrace-ml/reports/dino-lora-test/20261120-v1/seed-45",
+      "checkpoint_sha256": "ad8939b999056fe2b048a17d89426c25ca4f49986735dcb4eeac484bcb1b65c8",
+      "metrics": {
+        "val.rank1": 0.9480758505298382,
+        "val.mAP": 0.8966672805866107
+      },
+      "design": {
+        "study": {
+          "source": {
+            "source_sha256": "198131953c86dabbe67d558d2f36f2f348ca39d357eafd7059e892fd99008545",
+            "package_version": "0.2.46",
+            "git_sha": "unknown",
+            "git_dirty": "unknown",
+            "build": {}
+          },
+          "model_revision": "47b73eefe95e8d44ec3623f8890bd894b6ea2d6c",
+          "prepared": {
+            "version": "v2",
+            "prepared_version": "v4.100",
+            "prepared_fingerprint": "d0ca5c0b1bed8844f943b9fd355ce912524797d0dc71b50c7a1624e39f49fe58",
+            "detector_sha256": "da8f9b9ebea5157cdcefa7bea9fd782249ebdf119f917c07d64e5b41942b9c9d",
+            "photos": 193826,
+            "identities": 42113,
+            "sources": [
+              {
+                "source": "lcw",
+                "repo_id": "alessandro54/labeled-cats-in-the-wild-refined",
+                "version": "v2",
+                "commit": "581e44a04fd461ef1ba248177b84aff61a2ada21",
+                "base_commit": "089518b5cffcf71a7f55dbc7d47d0f2269f98a2b"
+              },
+              {
+                "source": "dogs-world",
+                "repo_id": "alessandro54/dogs-of-the-world-refined",
+                "version": "v2",
+                "commit": "9fdd6e5f7eaa752f16bd4dae54cd32b88c7e09ba",
+                "base_commit": "26a361971d5a77976fadd4aeae5e8294d40333c7"
+              }
+            ],
+            "equivalence": "Exact v4.100 photo bytes, identities and splits; v2 adds only pinned YOLO boxes."
+          },
+          "seeds": [
+            45,
+            46,
+            47
+          ],
+          "modes": [
+            "projection",
+            "lora",
+            "combined"
+          ],
+          "private_commit": "52bfe26384c4230008fe4707aa0cb145988766a8",
+          "register_model": true,
+          "selection": "family mean val mAP with macro Rank1 guard; frozen eligible; then seed by val mAP",
+          "training_budget": "30 epochs x 100 steps maximum; patience 7; P8K4; different actual steps and GPU time",
+          "projection_lr": 0.0001,
+          "lora_lr": 1e-05,
+          "combined_lr": 1e-05
+        },
+        "mode": "lora",
+        "seed": 45,
+        "config": {
+          "seed": 45,
+          "epochs": 30,
+          "steps_per_epoch": 100,
+          "identities_per_batch": 8,
+          "images_per_identity": 4,
+          "margin": 0.2,
+          "learning_rate": 1e-05,
+          "weight_decay": 0.0001,
+          "patience": 7,
+          "rank": 8,
+          "alpha": 16
+        },
+        "checkpoint_sha256": "ad8939b999056fe2b048a17d89426c25ca4f49986735dcb4eeac484bcb1b65c8",
+        "trainable_parameters": 786432,
+        "base_hashes": {
+          "model.safetensors": "399fba97a95f22c36834418bc69373364a99af3a1153da1c0fb31db567c92e23",
+          "config.json": "12df51c069a2dc1305e34ba71ef58bc2407ea553b75f4722a1715c1bce3bbed0",
+          "preprocessor_config.json": "14e780d86fa1861f8751f868d7f45425b5feb55c38ca26f152ca5097ab30f828",
+          "detector.detector.onnx": "da8f9b9ebea5157cdcefa7bea9fd782249ebdf119f917c07d64e5b41942b9c9d"
+        }
+      }
+    },
+    {
+      "seed": 46,
+      "run_id": "5e1909f4e9ae47f0a9551df350072c7c",
+      "recovered": "/Users/alessandro/Develop/personal/pettrace-ml/reports/dino-lora-test/20261120-v1/seed-46",
+      "checkpoint_sha256": "da53224c7e1742506fd2c9a28b75d130e2a7907af8cde48f03039b5d70ddd810",
+      "metrics": {
+        "val.rank1": 0.940462911321807,
+        "val.mAP": 0.8955617212366453
+      },
+      "design": {
+        "study": {
+          "source": {
+            "source_sha256": "198131953c86dabbe67d558d2f36f2f348ca39d357eafd7059e892fd99008545",
+            "package_version": "0.2.46",
+            "git_sha": "unknown",
+            "git_dirty": "unknown",
+            "build": {}
+          },
+          "model_revision": "47b73eefe95e8d44ec3623f8890bd894b6ea2d6c",
+          "prepared": {
+            "version": "v2",
+            "prepared_version": "v4.100",
+            "prepared_fingerprint": "d0ca5c0b1bed8844f943b9fd355ce912524797d0dc71b50c7a1624e39f49fe58",
+            "detector_sha256": "da8f9b9ebea5157cdcefa7bea9fd782249ebdf119f917c07d64e5b41942b9c9d",
+            "photos": 193826,
+            "identities": 42113,
+            "sources": [
+              {
+                "source": "lcw",
+                "repo_id": "alessandro54/labeled-cats-in-the-wild-refined",
+                "version": "v2",
+                "commit": "581e44a04fd461ef1ba248177b84aff61a2ada21",
+                "base_commit": "089518b5cffcf71a7f55dbc7d47d0f2269f98a2b"
+              },
+              {
+                "source": "dogs-world",
+                "repo_id": "alessandro54/dogs-of-the-world-refined",
+                "version": "v2",
+                "commit": "9fdd6e5f7eaa752f16bd4dae54cd32b88c7e09ba",
+                "base_commit": "26a361971d5a77976fadd4aeae5e8294d40333c7"
+              }
+            ],
+            "equivalence": "Exact v4.100 photo bytes, identities and splits; v2 adds only pinned YOLO boxes."
+          },
+          "seeds": [
+            45,
+            46,
+            47
+          ],
+          "modes": [
+            "projection",
+            "lora",
+            "combined"
+          ],
+          "private_commit": "52bfe26384c4230008fe4707aa0cb145988766a8",
+          "register_model": true,
+          "selection": "family mean val mAP with macro Rank1 guard; frozen eligible; then seed by val mAP",
+          "training_budget": "30 epochs x 100 steps maximum; patience 7; P8K4; different actual steps and GPU time",
+          "projection_lr": 0.0001,
+          "lora_lr": 1e-05,
+          "combined_lr": 1e-05
+        },
+        "mode": "lora",
+        "seed": 46,
+        "config": {
+          "seed": 46,
+          "epochs": 30,
+          "steps_per_epoch": 100,
+          "identities_per_batch": 8,
+          "images_per_identity": 4,
+          "margin": 0.2,
+          "learning_rate": 1e-05,
+          "weight_decay": 0.0001,
+          "patience": 7,
+          "rank": 8,
+          "alpha": 16
+        },
+        "checkpoint_sha256": "da53224c7e1742506fd2c9a28b75d130e2a7907af8cde48f03039b5d70ddd810",
+        "trainable_parameters": 786432,
+        "base_hashes": {
+          "model.safetensors": "399fba97a95f22c36834418bc69373364a99af3a1153da1c0fb31db567c92e23",
+          "config.json": "12df51c069a2dc1305e34ba71ef58bc2407ea553b75f4722a1715c1bce3bbed0",
+          "preprocessor_config.json": "14e780d86fa1861f8751f868d7f45425b5feb55c38ca26f152ca5097ab30f828",
+          "detector.detector.onnx": "da8f9b9ebea5157cdcefa7bea9fd782249ebdf119f917c07d64e5b41942b9c9d"
+        }
+      }
+    },
+    {
+      "seed": 47,
+      "run_id": "eaade411fa2141dc97137e421d405d2d",
+      "recovered": "/Users/alessandro/Develop/personal/pettrace-ml/reports/dino-lora-test/20261120-v1/seed-47",
+      "checkpoint_sha256": "2770069e4c3429cf1d599715fe2c8377d8096b3d2b729917dd9d47140da60025",
+      "metrics": {
+        "val.rank1": 0.9343279419966537,
+        "val.mAP": 0.893044975652643
+      },
+      "design": {
+        "study": {
+          "source": {
+            "source_sha256": "198131953c86dabbe67d558d2f36f2f348ca39d357eafd7059e892fd99008545",
+            "package_version": "0.2.46",
+            "git_sha": "unknown",
+            "git_dirty": "unknown",
+            "build": {}
+          },
+          "model_revision": "47b73eefe95e8d44ec3623f8890bd894b6ea2d6c",
+          "prepared": {
+            "version": "v2",
+            "prepared_version": "v4.100",
+            "prepared_fingerprint": "d0ca5c0b1bed8844f943b9fd355ce912524797d0dc71b50c7a1624e39f49fe58",
+            "detector_sha256": "da8f9b9ebea5157cdcefa7bea9fd782249ebdf119f917c07d64e5b41942b9c9d",
+            "photos": 193826,
+            "identities": 42113,
+            "sources": [
+              {
+                "source": "lcw",
+                "repo_id": "alessandro54/labeled-cats-in-the-wild-refined",
+                "version": "v2",
+                "commit": "581e44a04fd461ef1ba248177b84aff61a2ada21",
+                "base_commit": "089518b5cffcf71a7f55dbc7d47d0f2269f98a2b"
+              },
+              {
+                "source": "dogs-world",
+                "repo_id": "alessandro54/dogs-of-the-world-refined",
+                "version": "v2",
+                "commit": "9fdd6e5f7eaa752f16bd4dae54cd32b88c7e09ba",
+                "base_commit": "26a361971d5a77976fadd4aeae5e8294d40333c7"
+              }
+            ],
+            "equivalence": "Exact v4.100 photo bytes, identities and splits; v2 adds only pinned YOLO boxes."
+          },
+          "seeds": [
+            45,
+            46,
+            47
+          ],
+          "modes": [
+            "projection",
+            "lora",
+            "combined"
+          ],
+          "private_commit": "52bfe26384c4230008fe4707aa0cb145988766a8",
+          "register_model": true,
+          "selection": "family mean val mAP with macro Rank1 guard; frozen eligible; then seed by val mAP",
+          "training_budget": "30 epochs x 100 steps maximum; patience 7; P8K4; different actual steps and GPU time",
+          "projection_lr": 0.0001,
+          "lora_lr": 1e-05,
+          "combined_lr": 1e-05
+        },
+        "mode": "lora",
+        "seed": 47,
+        "config": {
+          "seed": 47,
+          "epochs": 30,
+          "steps_per_epoch": 100,
+          "identities_per_batch": 8,
+          "images_per_identity": 4,
+          "margin": 0.2,
+          "learning_rate": 1e-05,
+          "weight_decay": 0.0001,
+          "patience": 7,
+          "rank": 8,
+          "alpha": 16
+        },
+        "checkpoint_sha256": "2770069e4c3429cf1d599715fe2c8377d8096b3d2b729917dd9d47140da60025",
+        "trainable_parameters": 786432,
+        "base_hashes": {
+          "model.safetensors": "399fba97a95f22c36834418bc69373364a99af3a1153da1c0fb31db567c92e23",
+          "config.json": "12df51c069a2dc1305e34ba71ef58bc2407ea553b75f4722a1715c1bce3bbed0",
+          "preprocessor_config.json": "14e780d86fa1861f8751f868d7f45425b5feb55c38ca26f152ca5097ab30f828",
+          "detector.detector.onnx": "da8f9b9ebea5157cdcefa7bea9fd782249ebdf119f917c07d64e5b41942b9c9d"
+        }
+      }
+    }
+  ],
+  "scope": "Retrospective LoRA-only test; all seeds fixed before this test; no test tuning.",
+  "registration": "No registration or alias promotion; original full-study setting unchanged"
+}

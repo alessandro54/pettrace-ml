@@ -1,0 +1,8 @@
+{
+  "registered": true,
+  "name": "pettrace-dinov2-research",
+  "version": "1",
+  "run_id": "59643220608b4add946ae14d0276932d",
+  "source": "mlflow-artifacts:/3/59643220608b4add946ae14d0276932d/artifacts/research-model",
+  "alias_promoted": false
+}

@@ -1,0 +1,720 @@
+{
+  "public": {
+    "selected_seed": 45,
+    "selected_metrics": {
+      "queries": 277,
+      "gallery_animals": 34,
+      "rank1": 0.9602888086642599,
+      "rank2": 0.9963898916967509,
+      "rank5": 1.0,
+      "rank10": 1.0,
+      "mAP": 0.913996008188436
+    },
+    "mean_sd_three_seeds": {
+      "rank1": {
+        "mean": 0.9578820697954272,
+        "sd": 0.004168594001369134
+      },
+      "mAP": {
+        "mean": 0.9157389655557205,
+        "sd": 0.0016992808877587795
+      }
+    },
+    "lora_minus_frozen": {
+      "queries": 277,
+      "identities": 60,
+      "rescues": 15,
+      "damages": 4,
+      "net_hits": 11,
+      "delta_rank1": 0.039711191335740074,
+      "delta_mAP": 0.07565762768719576,
+      "descriptive_cluster_interval_95": {
+        "rank1": [
+          0.0072992700729927005,
+          0.07608695652173914
+        ],
+        "mAP": [
+          0.04770835048826974,
+          0.10733424687879049
+        ]
+      },
+      "resamples": 10000,
+      "bootstrap_seed": 20261118,
+      "changed_queries": [
+        {
+          "species": "cat",
+          "animal": "lcw:cat:16561",
+          "photo": "lcw/4b2482e06b89c6ba7224bf7ed3d31723c4742bf8d119c686f8c5377c7eafefaa.jpg",
+          "before_rank": 5,
+          "after_rank": 1,
+          "change": "rescue"
+        },
+        {
+          "species": "cat",
+          "animal": "lcw:cat:16561",
+          "photo": "lcw/842f97cc64daba652356c6e414950f29188f9698e5288181f35069e5b734ed5c.jpg",
+          "before_rank": 2,
+          "after_rank": 1,
+          "change": "rescue"
+        },
+        {
+          "species": "cat",
+          "animal": "lcw:cat:16561",
+          "photo": "lcw/f817c75251f2d95c69c9731133e11f17bafbe9475270af02fd346731ed28a607.jpg",
+          "before_rank": 4,
+          "after_rank": 1,
+          "change": "rescue"
+        },
+        {
+          "species": "cat",
+          "animal": "lcw:cat:21440",
+          "photo": "lcw/672e4385f9536750c006f43e248c8291ce622d98833b2a2baa1e3552ad1bd640.jpg",
+          "before_rank": 3,
+          "after_rank": 1,
+          "change": "rescue"
+        },
+        {
+          "species": "cat",
+          "animal": "lcw:cat:21440",
+          "photo": "lcw/ce6c5cd7c53cafb31944ddb5034f0ac48cbc1a0b2f8fbf3997139eadcf7f96fa.jpg",
+          "before_rank": 1,
+          "after_rank": 2,
+          "change": "damage"
+        },
+        {
+          "species": "cat",
+          "animal": "lcw:cat:24148",
+          "photo": "lcw/2d5b38e980d29a2ed0d699f2a8c8f8c30d35058ff4cb744d18940c378c506309.jpg",
+          "before_rank": 4,
+          "after_rank": 1,
+          "change": "rescue"
+        },
+        {
+          "species": "cat",
+          "animal": "lcw:cat:45088",
+          "photo": "lcw/cbae043b2ddf43dc4363870fa971107444c2ff09e1e0d1b27f22cfe3c354e7aa.jpg",
+          "before_rank": 2,
+          "after_rank": 1,
+          "change": "rescue"
+        },
+        {
+          "species": "cat",
+          "animal": "lcw:cat:63283",
+          "photo": "lcw/1d82bbacc2d9ee73b169fab9dd8c6a4d187001bd7f5acf7fc896bd8802e335e4.jpg",
+          "before_rank": 1,
+          "after_rank": 2,
+          "change": "damage"
+        },
+        {
+          "species": "cat",
+          "animal": "lcw:cat:64886",
+          "photo": "lcw/7c513a8302fc5c9064c08ae6c79a687e0ce5b703d06c47855d2727304eef6f46.jpg",
+          "before_rank": 3,
+          "after_rank": 1,
+          "change": "rescue"
+        },
+        {
+          "species": "cat",
+          "animal": "lcw:cat:64886",
+          "photo": "lcw/c2b24cf93e2847be9f853f11f4e0a026f05d29f10a559f2588c0a09c17a3f259.jpg",
+          "before_rank": 2,
+          "after_rank": 1,
+          "change": "rescue"
+        },
+        {
+          "species": "cat",
+          "animal": "lcw:cat:65024",
+          "photo": "lcw/bcaf55cd09f1974907c0ea37ebb9ae48f4e041a41401a2e7aa8c01145c959aa8.jpg",
+          "before_rank": 1,
+          "after_rank": 2,
+          "change": "damage"
+        },
+        {
+          "species": "cat",
+          "animal": "lcw:cat:79289",
+          "photo": "lcw/46aad4622cabe25a456c3816c67fe22ce15e951f094dda246b1b21d3f5edcae1.jpg",
+          "before_rank": 5,
+          "after_rank": 1,
+          "change": "rescue"
+        },
+        {
+          "species": "cat",
+          "animal": "lcw:cat:79968",
+          "photo": "lcw/ec95faf39fea9d87c978f904ba01e91471c98f0a7f6e6476199ffa3f8ca9a6eb.jpg",
+          "before_rank": 2,
+          "after_rank": 1,
+          "change": "rescue"
+        },
+        {
+          "species": "cat",
+          "animal": "lcw:cat:82521",
+          "photo": "lcw/19cbd934bde33a7ae037876603c658db733cceac41157006486a005e4db1ce7a.jpg",
+          "before_rank": 2,
+          "after_rank": 1,
+          "change": "rescue"
+        },
+        {
+          "species": "dog",
+          "animal": "dogs-world:dog:23143b341436184b",
+          "photo": "dogs-world/35742b2adbb40486b9a0c134f4ea6e9a6e681e863dc8264e6a3833c3de95bb7a.jpg",
+          "before_rank": 2,
+          "after_rank": 1,
+          "change": "rescue"
+        },
+        {
+          "species": "dog",
+          "animal": "dogs-world:dog:23143b341436184b",
+          "photo": "dogs-world/3cf5216694482f2e16cf4f156e9a567097083a1a0a956d1ef71c98c0b9efb9a9.jpg",
+          "before_rank": 2,
+          "after_rank": 1,
+          "change": "rescue"
+        },
+        {
+          "species": "dog",
+          "animal": "dogs-world:dog:566adcb7841e24b8",
+          "photo": "dogs-world/d717ddb7c5161e717bd88c65c2f3dde82ca24725a103cb8a9d6f88b0506ffebf.png",
+          "before_rank": 1,
+          "after_rank": 2,
+          "change": "damage"
+        },
+        {
+          "species": "dog",
+          "animal": "dogs-world:dog:c272771d4ac659ab",
+          "photo": "dogs-world/7214970832e18daeec98400246db8599a8117df9da2d947f0b31c5689caef859.png",
+          "before_rank": 2,
+          "after_rank": 1,
+          "change": "rescue"
+        },
+        {
+          "species": "dog",
+          "animal": "dogs-world:dog:e7466bc0a569dd53",
+          "photo": "dogs-world/1b56fdcfed31b09ef89ca66f77ab2099610b9f9eec6a117cd67816fbad6e09d3.jpg",
+          "before_rank": 3,
+          "after_rank": 1,
+          "change": "rescue"
+        }
+      ],
+      "scope": "Paired animal clusters, stratified by species; fixed gallery and trained checkpoint. Does not quantify gallery resampling, optimization variance, or cross-session generalization."
+    },
+    "lora_minus_selected_mlp_lora": {
+      "queries": 277,
+      "identities": 60,
+      "rescues": 5,
+      "damages": 6,
+      "net_hits": -1,
+      "delta_rank1": -0.0036101083032490976,
+      "delta_mAP": -0.007659692527774287,
+      "descriptive_cluster_interval_95": {
+        "rank1": [
+          -0.027491408934707903,
+          0.018518518518518517
+        ],
+        "mAP": [
+          -0.021190599610079575,
+          0.006225789232394078
+        ]
+      },
+      "resamples": 10000,
+      "bootstrap_seed": 20261118,
+      "changed_queries": [
+        {
+          "species": "cat",
+          "animal": "lcw:cat:21440",
+          "photo": "lcw/672e4385f9536750c006f43e248c8291ce622d98833b2a2baa1e3552ad1bd640.jpg",
+          "before_rank": 2,
+          "after_rank": 1,
+          "change": "rescue"
+        },
+        {
+          "species": "cat",
+          "animal": "lcw:cat:41035",
+          "photo": "lcw/7644f0e8dc284601023438fc3b9bddf5248b99edfe44a464cfd910eb56ccf078.jpg",
+          "before_rank": 2,
+          "after_rank": 1,
+          "change": "rescue"
+        },
+        {
+          "species": "cat",
+          "animal": "lcw:cat:63283",
+          "photo": "lcw/1d82bbacc2d9ee73b169fab9dd8c6a4d187001bd7f5acf7fc896bd8802e335e4.jpg",
+          "before_rank": 1,
+          "after_rank": 2,
+          "change": "damage"
+        },
+        {
+          "species": "cat",
+          "animal": "lcw:cat:63283",
+          "photo": "lcw/3030480b4fea9eb91eb4bafd24731b134b36d0448a690d93c755f6d4b5a147d9.jpg",
+          "before_rank": 2,
+          "after_rank": 1,
+          "change": "rescue"
+        },
+        {
+          "species": "cat",
+          "animal": "lcw:cat:65024",
+          "photo": "lcw/bcaf55cd09f1974907c0ea37ebb9ae48f4e041a41401a2e7aa8c01145c959aa8.jpg",
+          "before_rank": 1,
+          "after_rank": 2,
+          "change": "damage"
+        },
+        {
+          "species": "cat",
+          "animal": "lcw:cat:76379",
+          "photo": "lcw/0c4eac78787965718698f5dd441c060340f531999e1ebf6eba42750c95ec5a93.jpg",
+          "before_rank": 2,
+          "after_rank": 1,
+          "change": "rescue"
+        },
+        {
+          "species": "cat",
+          "animal": "lcw:cat:96187",
+          "photo": "lcw/50b40443a9212a2e2effd5522dfab49d67db204c76c80cdf898ef5557c0cbe4a.jpg",
+          "before_rank": 1,
+          "after_rank": 2,
+          "change": "damage"
+        },
+        {
+          "species": "dog",
+          "animal": "dogs-world:dog:566adcb7841e24b8",
+          "photo": "dogs-world/d717ddb7c5161e717bd88c65c2f3dde82ca24725a103cb8a9d6f88b0506ffebf.png",
+          "before_rank": 1,
+          "after_rank": 2,
+          "change": "damage"
+        },
+        {
+          "species": "dog",
+          "animal": "dogs-world:dog:895add67fb9b56ad",
+          "photo": "dogs-world/b7abf6177e7d0a329fe30433326e2b7255dec4818b1cdd90056e19118be40c45.jpg",
+          "before_rank": 2,
+          "after_rank": 1,
+          "change": "rescue"
+        },
+        {
+          "species": "dog",
+          "animal": "dogs-world:dog:e7466bc0a569dd53",
+          "photo": "dogs-world/621366d7bdf8d61683353d3e68a94f26fe3a1b677a3aeb8696a0d6db60cdcb8e.jpg",
+          "before_rank": 1,
+          "after_rank": 2,
+          "change": "damage"
+        },
+        {
+          "species": "dog",
+          "animal": "dogs-world:dog:e7466bc0a569dd53",
+          "photo": "dogs-world/e991d571363112a12dcea3b88ad13897d8bdee4667da167089586cf7620a3b17.jpg",
+          "before_rank": 1,
+          "after_rank": 2,
+          "change": "damage"
+        }
+      ],
+      "scope": "Paired animal clusters, stratified by species; fixed gallery and trained checkpoint. Does not quantify gallery resampling, optimization variance, or cross-session generalization."
+    },
+    "caveat": "Selected checkpoints differ; this is a retrospective pipeline comparison, not a matched-seed causal estimate. No new training or selection on test."
+  },
+  "private": {
+    "selected_seed": 45,
+    "selected_metrics": {
+      "queries": 502,
+      "gallery_animals": 33,
+      "rank1": 0.9581673306772909,
+      "rank2": 0.9920318725099602,
+      "rank5": 1.0,
+      "rank10": 1.0,
+      "mAP": 0.9039823933162123
+    },
+    "mean_sd_three_seeds": {
+      "rank1": {
+        "mean": 0.9601593625498008,
+        "sd": 0.0019920318725099584
+      },
+      "mAP": {
+        "mean": 0.9036743698015982,
+        "sd": 0.00030200595547209147
+      }
+    },
+    "lora_minus_frozen": {
+      "queries": 502,
+      "identities": 50,
+      "rescues": 12,
+      "damages": 7,
+      "net_hits": 5,
+      "delta_rank1": 0.0099601593625498,
+      "delta_mAP": 0.03894846289703378,
+      "descriptive_cluster_interval_95": {
+        "rank1": [
+          -0.0058255260473725964,
+          0.02414486921529175
+        ],
+        "mAP": [
+          0.027136593301624226,
+          0.05188477700253126
+        ]
+      },
+      "resamples": 10000,
+      "bootstrap_seed": 20261118,
+      "changed_queries": [
+        {
+          "species": "cat",
+          "animal": "cat-09843e72",
+          "photo": "cat-09843e72/3f099cfb16db.jpg",
+          "before_rank": 3,
+          "after_rank": 1,
+          "change": "rescue"
+        },
+        {
+          "species": "cat",
+          "animal": "cat-09843e72",
+          "photo": "cat-09843e72/a03dc6c1eb61.jpg",
+          "before_rank": 2,
+          "after_rank": 1,
+          "change": "rescue"
+        },
+        {
+          "species": "cat",
+          "animal": "cat-1473bc3e",
+          "photo": "cat-1473bc3e/a517b8094387.jpg",
+          "before_rank": 2,
+          "after_rank": 1,
+          "change": "rescue"
+        },
+        {
+          "species": "cat",
+          "animal": "cat-4ad6fb26",
+          "photo": "cat-4ad6fb26/281bf60787c7.jpg",
+          "before_rank": 3,
+          "after_rank": 1,
+          "change": "rescue"
+        },
+        {
+          "species": "cat",
+          "animal": "cat-54af8927",
+          "photo": "cat-54af8927/00ac778bd1d2.jpg",
+          "before_rank": 1,
+          "after_rank": 2,
+          "change": "damage"
+        },
+        {
+          "species": "cat",
+          "animal": "cat-54af8927",
+          "photo": "cat-54af8927/8feb33aebc2c.jpg",
+          "before_rank": 2,
+          "after_rank": 1,
+          "change": "rescue"
+        },
+        {
+          "species": "cat",
+          "animal": "cat-54af8927",
+          "photo": "cat-54af8927/be78d62ca667.jpg",
+          "before_rank": 1,
+          "after_rank": 2,
+          "change": "damage"
+        },
+        {
+          "species": "cat",
+          "animal": "cat-54af8927",
+          "photo": "cat-54af8927/d9bdb5de94fe.jpg",
+          "before_rank": 1,
+          "after_rank": 2,
+          "change": "damage"
+        },
+        {
+          "species": "cat",
+          "animal": "cat-992fe3c4",
+          "photo": "cat-992fe3c4/149d1636346e.jpg",
+          "before_rank": 2,
+          "after_rank": 1,
+          "change": "rescue"
+        },
+        {
+          "species": "cat",
+          "animal": "cat-b8d7189e",
+          "photo": "cat-b8d7189e/c4e95c508485.jpg",
+          "before_rank": 2,
+          "after_rank": 1,
+          "change": "rescue"
+        },
+        {
+          "species": "cat",
+          "animal": "cat-d00da507",
+          "photo": "cat-d00da507/f8ecc3af8120.jpg",
+          "before_rank": 2,
+          "after_rank": 1,
+          "change": "rescue"
+        },
+        {
+          "species": "cat",
+          "animal": "cat-e589adc5",
+          "photo": "cat-e589adc5/23dbabafd66c.jpg",
+          "before_rank": 3,
+          "after_rank": 1,
+          "change": "rescue"
+        },
+        {
+          "species": "cat",
+          "animal": "cat-e589adc5",
+          "photo": "cat-e589adc5/fdf30146486a.jpg",
+          "before_rank": 1,
+          "after_rank": 2,
+          "change": "damage"
+        },
+        {
+          "species": "dog",
+          "animal": "dog-52555d00",
+          "photo": "dog-52555d00/8b3cb08a5bb0.jpg",
+          "before_rank": 1,
+          "after_rank": 2,
+          "change": "damage"
+        },
+        {
+          "species": "dog",
+          "animal": "dog-65c61d8f",
+          "photo": "dog-65c61d8f/30ccd3ffe350.jpg",
+          "before_rank": 2,
+          "after_rank": 1,
+          "change": "rescue"
+        },
+        {
+          "species": "dog",
+          "animal": "dog-fe8947a9",
+          "photo": "dog-fe8947a9/258169914691.jpg",
+          "before_rank": 1,
+          "after_rank": 2,
+          "change": "damage"
+        },
+        {
+          "species": "dog",
+          "animal": "dog-fe8947a9",
+          "photo": "dog-fe8947a9/26a01d0e95cf.jpg",
+          "before_rank": 2,
+          "after_rank": 1,
+          "change": "rescue"
+        },
+        {
+          "species": "dog",
+          "animal": "dog-fe8947a9",
+          "photo": "dog-fe8947a9/91bffcec207b.jpg",
+          "before_rank": 2,
+          "after_rank": 1,
+          "change": "rescue"
+        },
+        {
+          "species": "dog",
+          "animal": "dog-fe8947a9",
+          "photo": "dog-fe8947a9/fd243d1d0002.jpg",
+          "before_rank": 1,
+          "after_rank": 2,
+          "change": "damage"
+        }
+      ],
+      "scope": "Paired animal clusters, stratified by species; fixed gallery and trained checkpoint. Does not quantify gallery resampling, optimization variance, or cross-session generalization."
+    },
+    "lora_minus_selected_mlp_lora": {
+      "queries": 502,
+      "identities": 50,
+      "rescues": 15,
+      "damages": 8,
+      "net_hits": 7,
+      "delta_rank1": 0.013944223107569721,
+      "delta_mAP": 0.031125241628453863,
+      "descriptive_cluster_interval_95": {
+        "rank1": [
+          -0.007366822287007401,
+          0.03441295546558704
+        ],
+        "mAP": [
+          0.014317524628238402,
+          0.04976977078312219
+        ]
+      },
+      "resamples": 10000,
+      "bootstrap_seed": 20261118,
+      "changed_queries": [
+        {
+          "species": "cat",
+          "animal": "cat-0027e18d",
+          "photo": "cat-0027e18d/3394eb1f6def.jpg",
+          "before_rank": 2,
+          "after_rank": 1,
+          "change": "rescue"
+        },
+        {
+          "species": "cat",
+          "animal": "cat-09843e72",
+          "photo": "cat-09843e72/3726cb5733a5.jpg",
+          "before_rank": 2,
+          "after_rank": 1,
+          "change": "rescue"
+        },
+        {
+          "species": "cat",
+          "animal": "cat-1bc421eb",
+          "photo": "cat-1bc421eb/e72d51e64f27.jpg",
+          "before_rank": 1,
+          "after_rank": 4,
+          "change": "damage"
+        },
+        {
+          "species": "cat",
+          "animal": "cat-54af8927",
+          "photo": "cat-54af8927/00ac778bd1d2.jpg",
+          "before_rank": 1,
+          "after_rank": 2,
+          "change": "damage"
+        },
+        {
+          "species": "cat",
+          "animal": "cat-54af8927",
+          "photo": "cat-54af8927/16d89a9c0b55.jpg",
+          "before_rank": 2,
+          "after_rank": 1,
+          "change": "rescue"
+        },
+        {
+          "species": "cat",
+          "animal": "cat-54af8927",
+          "photo": "cat-54af8927/a52a4b95990a.jpg",
+          "before_rank": 1,
+          "after_rank": 2,
+          "change": "damage"
+        },
+        {
+          "species": "cat",
+          "animal": "cat-54af8927",
+          "photo": "cat-54af8927/be78d62ca667.jpg",
+          "before_rank": 1,
+          "after_rank": 2,
+          "change": "damage"
+        },
+        {
+          "species": "cat",
+          "animal": "cat-54af8927",
+          "photo": "cat-54af8927/d1344fb6fc23.jpg",
+          "before_rank": 1,
+          "after_rank": 3,
+          "change": "damage"
+        },
+        {
+          "species": "cat",
+          "animal": "cat-992fe3c4",
+          "photo": "cat-992fe3c4/88e1434c10e7.jpg",
+          "before_rank": 2,
+          "after_rank": 1,
+          "change": "rescue"
+        },
+        {
+          "species": "cat",
+          "animal": "cat-b8d7189e",
+          "photo": "cat-b8d7189e/52231a58611f.jpg",
+          "before_rank": 2,
+          "after_rank": 1,
+          "change": "rescue"
+        },
+        {
+          "species": "cat",
+          "animal": "cat-e589adc5",
+          "photo": "cat-e589adc5/23dbabafd66c.jpg",
+          "before_rank": 2,
+          "after_rank": 1,
+          "change": "rescue"
+        },
+        {
+          "species": "dog",
+          "animal": "dog-3ae70fbe",
+          "photo": "dog-3ae70fbe/4911aabdd63b.jpg",
+          "before_rank": 1,
+          "after_rank": 2,
+          "change": "damage"
+        },
+        {
+          "species": "dog",
+          "animal": "dog-3ae70fbe",
+          "photo": "dog-3ae70fbe/5494354413ed.jpg",
+          "before_rank": 2,
+          "after_rank": 1,
+          "change": "rescue"
+        },
+        {
+          "species": "dog",
+          "animal": "dog-3ae70fbe",
+          "photo": "dog-3ae70fbe/c71f492f253b.jpg",
+          "before_rank": 3,
+          "after_rank": 1,
+          "change": "rescue"
+        },
+        {
+          "species": "dog",
+          "animal": "dog-3e1006bb",
+          "photo": "dog-3e1006bb/2547d604df25.jpg",
+          "before_rank": 3,
+          "after_rank": 1,
+          "change": "rescue"
+        },
+        {
+          "species": "dog",
+          "animal": "dog-52555d00",
+          "photo": "dog-52555d00/38d398d5c678.jpg",
+          "before_rank": 1,
+          "after_rank": 2,
+          "change": "damage"
+        },
+        {
+          "species": "dog",
+          "animal": "dog-7bcaae2c",
+          "photo": "dog-7bcaae2c/bae901858ce0.jpg",
+          "before_rank": 2,
+          "after_rank": 1,
+          "change": "rescue"
+        },
+        {
+          "species": "dog",
+          "animal": "dog-7bcaae2c",
+          "photo": "dog-7bcaae2c/f32007e6ffa4.jpg",
+          "before_rank": 2,
+          "after_rank": 1,
+          "change": "rescue"
+        },
+        {
+          "species": "dog",
+          "animal": "dog-d52e3fe1",
+          "photo": "dog-d52e3fe1/5dffaba817fe.jpg",
+          "before_rank": 3,
+          "after_rank": 1,
+          "change": "rescue"
+        },
+        {
+          "species": "dog",
+          "animal": "dog-dd27afdf",
+          "photo": "dog-dd27afdf/25bc414eba3b.jpg",
+          "before_rank": 1,
+          "after_rank": 2,
+          "change": "damage"
+        },
+        {
+          "species": "dog",
+          "animal": "dog-dd3b3a66",
+          "photo": "dog-dd3b3a66/42b0b4dd54ff.jpg",
+          "before_rank": 2,
+          "after_rank": 1,
+          "change": "rescue"
+        },
+        {
+          "species": "dog",
+          "animal": "dog-fe8947a9",
+          "photo": "dog-fe8947a9/91bffcec207b.jpg",
+          "before_rank": 2,
+          "after_rank": 1,
+          "change": "rescue"
+        },
+        {
+          "species": "dog",
+          "animal": "dog-fe8947a9",
+          "photo": "dog-fe8947a9/cf35fdc03560.jpg",
+          "before_rank": 2,
+          "after_rank": 1,
+          "change": "rescue"
+        }
+      ],
+      "scope": "Paired animal clusters, stratified by species; fixed gallery and trained checkpoint. Does not quantify gallery resampling, optimization variance, or cross-session generalization."
+    },
+    "caveat": "Selected checkpoints differ; this is a retrospective pipeline comparison, not a matched-seed causal estimate. No new training or selection on test."
+  }
+}

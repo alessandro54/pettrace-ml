@@ -1,0 +1,95 @@
+[project]
+name = "pettrace-ml"
+version = "0.2.46"
+description = "Reproducible pet re-identification: dataset audits, embeddings, metric learning and evaluation"
+readme = "docs/package.md"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{name = "PetTrace contributors"}]
+keywords = ["pet-reidentification", "computer-vision", "metric-learning", "dataset-audit"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+requires-python = ">=3.11,<3.14"
+dependencies = [
+    # Compatible runtime dependencies; uv.lock pins the local/Docker environment.
+    "numpy>=1.26,<3",
+    "pillow>=10,<13",
+    "pyyaml>=6,<7",
+    "onnxruntime==1.31.0",
+    "huggingface-hub>=0.26,<3",
+    "requests>=2.32,<3",
+    "matplotlib>=3.9,<4",
+    "tqdm>=4.66,<5",
+]
+
+[project.urls]
+Homepage = "https://github.com/alessandro54/pettrace-ml"
+Documentation = "https://github.com/alessandro54/pettrace-ml/blob/main/docs/package.md"
+Repository = "https://github.com/alessandro54/pettrace-ml"
+Issues = "https://github.com/alessandro54/pettrace-ml/issues"
+Changelog = "https://github.com/alessandro54/pettrace-ml/blob/main/docs/releases.md"
+
+[project.optional-dependencies]
+notebooks = ["ipython>=7.34,<10", "ipywidgets>=8.1,<9"]
+training = ["torch>=2.5,<3", "onnx>=1.17,<2", "pandas>=2.2.3,<4", "transformers==4.47.1"]
+tracking = ["mlflow-skinny==3.17.0"]
+vlm = ["torch>=2.5,<3", "transformers==4.57.1", "accelerate>=1.1,<2", "pandas>=2.2.3,<4", "pyarrow>=18,<23"]
+
+[project.scripts]
+pettrace = "pettrace.cli:main"
+
+[dependency-groups]
+figures = ["matplotlib>=3.9,<4"]
+# Execute the experiment notebooks (make notebook).
+notebooks = ["nbconvert>=7.16,<8", "ipykernel>=6.29,<7", "nbformat>=5.10,<6"]
+# Model export / registration only (register_v1.py, pettrace.models.clip_reference). Not needed to evaluate.
+export = [
+    "torch==2.5.1",
+    "transformers==4.47.1",
+    "onnx==1.17.0",
+]
+dev = [
+    "mlflow-skinny==3.17.0",
+    "pytest==8.3.4",
+    "ruff==0.8.4",
+]
+
+[build-system]
+requires = ["hatchling==1.27.0"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build]
+artifacts = ["src/pettrace/_build.json"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/pettrace"]
+
+[tool.hatch.build.targets.sdist]
+include = ["/src/pettrace", "/pyproject.toml", "/uv.lock", "/.python-version", "/README.md", "/LICENSE", "/docs/releases.md", "/docs/package.md"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+extend-exclude = ["notebooks", "datasets/*.ipynb"]
+
+[tool.ruff.lint]
+select = ["E", "F"]
+ignore = ["E501"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests/unit", "tests/integration"]
+addopts = ["--import-mode=importlib"]
+pythonpath = ["."]
+
+[tool.uv]
+conflicts = [
+    [{ extra = "training" }, { extra = "vlm" }],
+    [{ group = "export" }, { extra = "vlm" }],
+]

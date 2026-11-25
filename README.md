@@ -6,7 +6,7 @@ This repository documents the research questions, experimental methods, reusable
 
 ## Current short paper evidence
 
-The [short paper evidence index](docs/short-paper-evidence.md) records the current DINOv2 sequential study (six training runs and 16 evaluations), validation-selected checkpoints, and the separate [LoRA-only production bundle](https://huggingface.co/alessandro54/pettrace-production). MLflow records require authorized read access; the index explicitly describes the remaining source-release and private-data limits. The version-specific results below retain their historical scope.
+The [short paper evidence index](docs/short-paper-evidence.md) records the current DINOv2 sequential study (six training runs and 16 evaluations), validation-selected checkpoints, and the separate [LoRA-only production bundle](https://huggingface.co/alessandro54/pettrace-production). MLflow records require authorized read access; the index links the archived source release and describes the private-data limits. The version-specific results below retain their historical scope.
 
 ## Python package
 

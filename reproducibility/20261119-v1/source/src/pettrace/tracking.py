@@ -1,0 +1,186 @@
+"""Optional MLflow tracking and local provenance for independently executable notebooks."""
+
+import hashlib
+import json
+import os
+from pathlib import Path
+
+PRODUCTION_URI = "https://ml.pettrace.app"
+PUBLICATION_TAG = "pettrace.publication_key"
+
+
+def tracking_configured():
+    """Return whether this process explicitly opted into MLflow tracking."""
+    return bool(os.environ.get("MLFLOW_TRACKING_URI", "").strip())
+
+
+def tracking_context():
+    """Connect to the configured MLflow server and return its evaluation experiment."""
+    try:
+        import mlflow
+    except ModuleNotFoundError as exc:
+        raise RuntimeError("Install pettrace-ml[tracking] before publishing to MLflow") from exc
+    from pettrace.evaluation.core import EXPERIMENT
+
+    uri = os.environ.get("MLFLOW_TRACKING_URI", "").strip().rstrip("/")
+    if not uri:
+        raise RuntimeError("Set MLFLOW_TRACKING_URI before publishing to MLflow")
+    mlflow.set_tracking_uri(uri)
+    registry_uri = (os.environ.get("MLFLOW_REGISTRY_URI") or uri).strip().rstrip("/")
+    mlflow.set_registry_uri(registry_uri)
+    client = mlflow.MlflowClient()
+    name = os.environ.get("MLFLOW_EXPERIMENT_NAME", EXPERIMENT).strip()
+    if not name:
+        raise ValueError("MLFLOW_EXPERIMENT_NAME must not be empty")
+    experiment = client.get_experiment_by_name(name)
+    if experiment is None:
+        experiment = client.get_experiment(client.create_experiment(name))
+    if experiment.lifecycle_stage != "active":
+        raise ValueError(f"The configured MLflow experiment {name!r} is unavailable")
+    return client, experiment
+
+
+def production_context():
+    """Compatibility name for historical experiments; new code should use tracking_context."""
+    return tracking_context()
+
+
+def tracking_run_url(experiment_id, run_id):
+    """Return the UI URL for a run on the configured server."""
+    uri = os.environ.get("MLFLOW_TRACKING_URI", "").strip().rstrip("/")
+    if not uri:
+        raise RuntimeError("Set MLFLOW_TRACKING_URI before building an MLflow run URL")
+    return f"{uri}/#/experiments/{experiment_id}/runs/{run_id}"
+
+
+def publish_evaluation(ev, model, report, source_sha256, *, experiment,
+                       expected_model_uri=None, expected_model_sha256=None,
+                       expected_dataset_version=None, expected_protocol=None):
+    """Publish only evaluation artifacts; sequential retries reuse or resume the same run.
+
+    Model and dataset choices belong to the calling notebook. Optional expectations enforce them
+    again at publication. Concurrent publication of the same result is unsupported because MLflow
+    does not enforce uniqueness of run tags.
+    """
+    from pettrace import __version__
+    from pettrace.evaluation.core import log_run
+
+    client, tracking_experiment = tracking_context()
+    import mlflow
+    if mlflow.active_run() is not None:
+        raise RuntimeError("Finish the active MLflow run before publishing an evaluation.")
+    if not model.golden_ok or (expected_model_uri and model.uri != expected_model_uri):
+        raise ValueError("Publication requires the verified expected model.")
+    if expected_model_sha256 is not None and model.sha256 != expected_model_sha256:
+        raise ValueError("Publication requires the verified expected model hashes.")
+    if (not ev.dataset.commit
+            or (expected_dataset_version and ev.dataset.version != expected_dataset_version)
+            or (expected_protocol and ev.protocol != expected_protocol)):
+        raise ValueError("Publication requires the expected pinned dataset and evaluation protocol.")
+    report = Path(report)
+    if not (report / "summary.json").is_file() or not (report / "runtime.json").is_file():
+        raise ValueError("Generate the report and runtime provenance before publishing.")
+    identity = {
+        "experiment": experiment, "dataset_repo": ev.dataset.repo, "dataset_commit": ev.dataset.commit,
+        "dataset_fingerprint": ev.dataset.fingerprint, "model_sha256": model.sha256,
+        "source_sha256": source_sha256, "result": ev.result,
+    }
+    execution_id = json.loads((report / "runtime.json").read_text()).get("execution_id")
+    if execution_id:
+        identity["execution_id"] = execution_id
+    key = hashlib.sha256(json.dumps(identity, sort_keys=True, default=float).encode()).hexdigest()
+    matches = client.search_runs(
+        [tracking_experiment.experiment_id], filter_string=f"tags.`{PUBLICATION_TAG}` = '{key}'", max_results=2,
+    )
+    if len(matches) > 1:
+        raise RuntimeError("Multiple evaluation runs have this publication key; inspect them before publishing.")
+    run = matches[0] if matches else client.create_run(
+        tracking_experiment.experiment_id,
+        tags={PUBLICATION_TAG: key, "experiment": experiment, "purpose": "evaluation",
+              "mlflow.runName": f"{experiment} · {model.model_version} on {ev.dataset.name}"},
+    )
+    run_id = run.info.run_id
+    manifest = {
+        "run_id": run_id, "experiment": experiment,
+        "tracking_uri": os.environ["MLFLOW_TRACKING_URI"].strip().rstrip("/"),
+        "tracking_experiment_id": tracking_experiment.experiment_id, "publication_key": key,
+        "dataset": ev.dataset.name, "dataset_commit": ev.dataset.commit,
+        "dataset_fingerprint": ev.dataset.fingerprint, "model": model.uri,
+        "protocol": ev.protocol, "source_sha256": source_sha256, "package_version": __version__,
+    }
+    pending = report / "run.json.tmp"
+    pending.write_text(json.dumps(manifest, indent=2) + "\n")
+    pending.replace(report / "run.json")
+    if run.info.status == "FINISHED":
+        return run_id
+    return log_run(
+        ev, model, experiment=experiment, artifacts=str(report),
+        params={"code.source_sha256": source_sha256, "code.package_version": __version__},
+        tracking_experiment_id=tracking_experiment.experiment_id, run_id=run_id,
+    )
+
+
+def source_identity():
+    """Identify installed package code; a repository root is never required by the notebook."""
+    import subprocess
+    from importlib.metadata import PackageNotFoundError, distribution
+    from pettrace import __version__
+
+    package_dir = Path(__file__).resolve().parent
+    digest = hashlib.sha256()
+    for path in sorted(package_dir.rglob("*.py")):
+        digest.update(path.relative_to(package_dir).as_posix().encode() + b"\0" + path.read_bytes())
+    commit, dirty = "unknown", "unknown"
+    build_path = package_dir / "_build.json"
+    build = json.loads(build_path.read_text()) if build_path.exists() else {}
+    repository = package_dir.parents[1]
+    if (repository / ".git").exists() and package_dir.parent.name == "src":
+        try:
+            commit = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=repository, text=True).strip()
+            dirty = bool(subprocess.check_output(["git", "status", "--porcelain"], cwd=repository, text=True).strip())
+        except (OSError, subprocess.CalledProcessError):
+            pass
+    elif build:
+        commit, dirty = build["git_sha"], build["git_dirty"]
+    else:
+        try:
+            direct_url = distribution("pettrace-ml").read_text("direct_url.json")
+            if direct_url:
+                commit = json.loads(direct_url).get("vcs_info", {}).get("commit_id", "unknown")
+        except PackageNotFoundError:
+            pass
+    return {"source_sha256": digest.hexdigest(), "package_version": __version__,
+            "git_sha": commit, "git_dirty": dirty, "build": build}
+
+
+def save_provenance(report, model):
+    """Write runtime versions and installed source identity without requiring local project files."""
+    import importlib.metadata
+    import os
+    import platform
+
+    packages = ("numpy", "pillow", "pyyaml", "onnxruntime", "huggingface-hub", "requests", "matplotlib")
+    runtime = {
+        **source_identity(), "python": platform.python_version(), "platform": platform.platform(),
+        "packages": {name: importlib.metadata.version(name) for name in packages},
+        "onnx_providers": model.pipeline.session.get_providers(), "model_sha256": model.sha256,
+    }
+    if os.environ.get("PETTRACE_EXECUTION_ID"):
+        runtime["execution_id"] = os.environ["PETTRACE_EXECUTION_ID"]
+    for name in ("torch", "onnx", "pandas", "transformers", "mlflow-skinny"):
+        try:
+            runtime["packages"][name] = importlib.metadata.version(name)
+        except importlib.metadata.PackageNotFoundError:
+            pass
+    if "torch" in runtime["packages"]:
+        import torch
+
+        runtime["training_runtime"] = {
+            "cuda": torch.version.cuda, "cudnn": torch.backends.cudnn.version(),
+            "cuda_available": torch.cuda.is_available(),
+            "devices": [torch.cuda.get_device_name(i) for i in range(torch.cuda.device_count())],
+            "deterministic_algorithms": torch.are_deterministic_algorithms_enabled(),
+        }
+    path = Path(report) / "runtime.json"
+    path.write_text(json.dumps(runtime, indent=2) + "\n")
+    return runtime

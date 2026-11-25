@@ -1,0 +1,114 @@
+[
+  {
+    "mode": "mlp_lora",
+    "seed": 47,
+    "domain": "private",
+    "run_id": "59643220608b4add946ae14d0276932d",
+    "published": true
+  },
+  {
+    "mode": "mlp_lora",
+    "seed": 47,
+    "domain": "public",
+    "run_id": "e3857cc943cb40ab8b32269aa125235c",
+    "published": true
+  },
+  {
+    "mode": "mlp_lora",
+    "seed": 46,
+    "domain": "private",
+    "run_id": "898919ebb1f54c1aa0223d800bd4c8d1",
+    "published": true
+  },
+  {
+    "mode": "mlp_lora",
+    "seed": 46,
+    "domain": "public",
+    "run_id": "1a3c34251e4348a4b1571bb16fb06bf7",
+    "published": true
+  },
+  {
+    "mode": "mlp_lora",
+    "seed": 45,
+    "domain": "private",
+    "run_id": "cda7a09b23ee426b98d5c58a8dc02f8a",
+    "published": true
+  },
+  {
+    "mode": "mlp_lora",
+    "seed": 45,
+    "domain": "public",
+    "run_id": "42d874d833164d4db4e0e13b13d2d928",
+    "published": true
+  },
+  {
+    "mode": "mlp",
+    "seed": 47,
+    "domain": "private",
+    "run_id": "affd850286b24dfcae439cc1eb82fab3",
+    "published": true
+  },
+  {
+    "mode": "mlp",
+    "seed": 47,
+    "domain": "public",
+    "run_id": "9f340cb376b84fab8bb89d79f46374c5",
+    "published": true
+  },
+  {
+    "mode": "mlp",
+    "seed": 46,
+    "domain": "private",
+    "run_id": "d16a9618c16b455aa187728c50a54c30",
+    "published": true
+  },
+  {
+    "mode": "mlp",
+    "seed": 46,
+    "domain": "public",
+    "run_id": "57cb0d512a034953a6e8ba25a383e16d",
+    "published": true
+  },
+  {
+    "mode": "mlp",
+    "seed": 45,
+    "domain": "private",
+    "run_id": "c6a81d13db364288a4c743f98a0bd3af",
+    "published": true
+  },
+  {
+    "mode": "mlp",
+    "seed": 45,
+    "domain": "public",
+    "run_id": "a0d3d3a38f18462ab7dc106f3a9c94b4",
+    "published": true
+  },
+  {
+    "mode": "frozen",
+    "seed": 45,
+    "domain": "private",
+    "run_id": "544c56ddf3584c8f8518e28c71384a24",
+    "published": true
+  },
+  {
+    "mode": "frozen",
+    "seed": 45,
+    "domain": "public",
+    "run_id": "6d0c1096eb774341877d9e735adc14b1",
+    "published": true
+  },
+  {
+    "mode": "raw",
+    "seed": 45,
+    "domain": "private",
+    "run_id": "b9d2b4c8459342b29948cd1496e683fc",
+    "published": true
+  },
+  {
+    "mode": "raw",
+    "seed": 45,
+    "domain": "public",
+    "run_id": "5f0383b06f5641859574eaa031a692e3",
+    "published": true
+  }
+]

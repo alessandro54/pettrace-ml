@@ -1,0 +1,429 @@
+"""Thesis figures and tables from one Evaluation.
+
+Each public plotting method returns exactly one matplotlib Figure. ``save`` calls
+those methods explicitly to produce a complete report.
+"""
+
+import json
+import os
+from pathlib import Path
+
+import numpy as np
+
+COLORS = {"cat": "#0F766E", "dog": "#B45309"}
+SPECIES = {"cat": "cats", "dog": "dogs"}
+
+
+def _rows(ev) -> list[dict]:
+    return ev.result["test"]["per_query"]
+
+
+def _animals(ev) -> tuple[list[str], dict[str, str]]:
+    species_of = {r["animal"]: r["species"] for r in _rows(ev)}
+    return sorted(species_of, key=lambda a: (species_of[a], a)), species_of
+
+
+def identity_labels(ev):
+    """Short plot labels with a saved reversible map; short original IDs remain unchanged."""
+    labels = {}
+    for sp in sorted({p.species for p in ev.photos}):
+        names = sorted({p.animal for p in ev.photos if p.species == sp})
+        # Use compact labels for the whole species to avoid collisions with short originals.
+        compact = any(len(name) > 18 for name in names)
+        for i, name in enumerate(names, 1):
+            labels[name] = f"{sp}-{i:03d}" if compact else name
+    return labels
+
+
+def _mean_similarity(ev) -> dict:
+    """Per species: mean cosine of photo pairs of the same animal vs of different animals."""
+    out = {}
+    sim = ev.embeddings @ ev.embeddings.T
+    animal = np.array([p.animal for p in ev.photos])
+    species = np.array([p.species for p in ev.photos])
+    off = ~np.eye(len(animal), dtype=bool)
+    for sp in ("cat", "dog"):
+        m = species == sp
+        if m.sum() < 2:
+            continue
+        pair = np.outer(m, m) & off
+        same = pair & (animal[:, None] == animal[None, :])
+        out[sp] = {"same": float(sim[same].mean()), "diff": float(sim[pair & ~same].mean())}
+    return out
+
+
+def summary(ev, model=None) -> dict:
+    rows, (animals, _) = _rows(ev), _animals(ev)
+    gallery_animals = sorted({p.animal for p in ev.photos})
+    test = ev.result["test"]
+    return {
+        "global": test["global"],
+        "per_species": {sp: test[sp] for sp in ("cat", "dog") if sp in test},
+        "per_animal": {a: {"rank1": float(np.mean([r["rank"] == 1 for r in rows if r["animal"] == a])),
+                           "queries": sum(r["animal"] == a for r in rows),
+                           "median_margin": float(np.median([r["own_best"] - r["rival_best"] for r in rows if r["animal"] == a])),
+                           "rivals": {x: sum(1 for r in rows if r["animal"] == a and r["rank"] > 1 and r["rival"] == x)
+                                      for x in gallery_animals if x != a}}
+                       for a in animals},
+        "eer": ev.result["val"]["eer"], "threshold": ev.result["val"]["threshold"],
+        "pairs_same": len(ev.same), "pairs_diff": len(ev.diff),
+        "same_range": [float(ev.same.min()), float(ev.same.max())],
+        "diff_range": [float(ev.diff.min()), float(ev.diff.max())],
+        "mean_similarity": _mean_similarity(ev),
+        "dataset": ev.dataset.name, "commit": ev.dataset.commit, "protocol": ev.protocol,
+        "model_version": model.model_version if model else "",
+        "model_sha256": model.sha256 if model else {},
+    }
+
+
+def rank1_per_animal(ev, label: str):
+    import matplotlib.pyplot as plt
+
+    rows, (animals, species_of) = _rows(ev), _animals(ev)
+    fig, ax = plt.subplots(figsize=(max(6.5, 0.5 * len(animals) + 1.5), 3.4))
+    hits = [np.mean([r["rank"] == 1 for r in rows if r["animal"] == a]) * 100 for a in animals]
+    bars = ax.bar(animals, hits, color=[COLORS[species_of[a]] for a in animals])
+    ax.bar_label(bars, fmt="%.0f%%", fontsize=8)
+    chance = [np.mean([100 / r["gallery_animals"] for r in rows if r["animal"] == a]) for a in animals]
+    ax.plot(range(len(animals)), chance, marker="_", ls="none", color="#6B7280", label="gallery chance")
+    for sp in sorted(set(species_of.values())):
+        ax.bar(0, 0, color=COLORS[sp], label=SPECIES[sp])
+    ax.set_ylim(0, 115)
+    ax.set_ylabel("Rank-1 (%)")
+    labels = identity_labels(ev)
+    ax.set_xticks(range(len(animals)), [labels[a] for a in animals], rotation=45, ha="right")
+    ax.set_title(f"Rank-1 by animal — {label}", fontsize=11)
+    ax.legend(frameon=False, fontsize=8, ncol=3, loc="upper center", bbox_to_anchor=(0.5, -0.32))
+    fig.tight_layout()
+    return fig
+
+
+def score_distribution(ev, label: str):
+    import matplotlib.pyplot as plt
+
+    same, diff, thr = ev.same, ev.diff, ev.result["val"]["threshold"]
+    fig, ax = plt.subplots(figsize=(6.5, 3.2))
+    bins = np.linspace(min(same.min(), diff.min()), max(same.max(), diff.max()), 30)
+    ax.hist(diff, bins=bins, alpha=0.6, density=True, color="#E4572E", label=f"different animal (n={len(diff)})")
+    ax.hist(same, bins=bins, alpha=0.6, density=True, color="#0F766E", label=f"same animal (n={len(same)})")
+    ax.axvline(thr, color="black", ls="--", label=f"EER threshold = {thr:.3f}")
+    ax.set_xlabel("cosine similarity")
+    ax.set_ylabel("density")
+    ax.set_title(f"Similarity distribution — {label}", fontsize=11)
+    ax.legend(frameon=False, fontsize=9)
+    fig.tight_layout()
+    return fig
+
+
+def cmc(ev, label: str):
+    import matplotlib.pyplot as plt
+
+    rows = _rows(ev)
+    max_rank = max(r["gallery_animals"] for r in rows)
+    ranks = np.array([r["rank"] for r in rows])
+    curve = [np.mean(ranks <= k) * 100 for k in range(1, max_rank + 1)]
+    fig, ax = plt.subplots(figsize=(6.5, 3.0))
+    ax.plot(range(1, max_rank + 1), curve, marker="o", color="#0F766E")
+    for k, v in enumerate(curve, 1):
+        if len(curve) > 12 and k not in {1, 2, 5, 10, max_rank}:
+            continue
+        ax.annotate(f"{v:.0f}%", (k, v), textcoords="offset points", xytext=(0, 7), ha="center", fontsize=9)
+    ax.set_xticks(range(1, max_rank + 1) if max_rank <= 12 else sorted({1, 2, 5, 10, max_rank} & set(range(1, max_rank + 1))))
+    ax.set_ylim(0, 110)
+    ax.set_xlabel("rank k")
+    ax.set_ylabel("hits ≤ k (%)")
+    ax.set_title(f"CMC curve — {label}", fontsize=11)
+    fig.tight_layout()
+    return fig
+
+
+def similarity_matrix(ev, label: str = ""):
+    """Mean similarity between animals, one panel per species (species are never compared)."""
+    import matplotlib.pyplot as plt
+
+    animals, species_of = _animals(ev)
+    sim = ev.embeddings @ ev.embeddings.T
+    groups = [sp for sp in ("cat", "dog") if sp in species_of.values()]
+    side = max(4.4, 0.32 * max(sum(species_of[a] == sp for a in animals) for sp in groups))
+    fig, axes = plt.subplots(1, len(groups), figsize=(side * len(groups), side), squeeze=False)
+    im = None
+    for ax, sp in zip(axes[0], groups):
+        names = [a for a in animals if species_of[a] == sp]
+        idx = {a: [i for i, p in enumerate(ev.photos) if p.animal == a] for a in names}
+        M = np.array([[sim[np.ix_(idx[a], idx[b])].mean() for b in names] for a in names])
+        im = ax.imshow(M, cmap="viridis", vmin=0.6, vmax=0.95)
+        labels = identity_labels(ev)
+        ax.set_xticks(range(len(names)), [labels[a] for a in names], rotation=45, ha="right", fontsize=9)
+        ax.set_yticks(range(len(names)), [labels[a] for a in names], fontsize=9)
+        for i in range(len(names)):
+            for j in range(len(names)):
+                if len(names) > 20:
+                    continue
+                ax.text(j, i, f"{M[i, j]:.2f}", ha="center", va="center", fontsize=7,
+                        color="white" if M[i, j] < 0.8 else "black")
+        ax.set_title(SPECIES[sp].capitalize(), fontsize=11)
+    fig.colorbar(im, ax=axes[0].tolist(), fraction=0.025)
+    fig.suptitle(f"Mean similarity between animals (diagonal: same animal){' — ' + label if label else ''}", fontsize=11)
+    return fig
+
+
+def confusion(ev, label: str = ""):
+    """Top-1 confusion per species: row = queried animal, column = animal ranked first (the
+    diagonal is a hit). Cells show the number of queries, colour the share of the row."""
+    import matplotlib.pyplot as plt
+
+    rows, (_, species_of) = _rows(ev), _animals(ev)
+    groups = [sp for sp in ("cat", "dog") if sp in species_of.values()]
+    side = max(4.9, 0.32 * max(len({p.animal for p in ev.photos if p.species == sp}) for sp in groups))
+    fig, axes = plt.subplots(1, len(groups), figsize=(side * len(groups), side), squeeze=False,
+                             gridspec_kw={"wspace": 0.35})
+    im = None
+    for k, (ax, sp) in enumerate(zip(axes[0], groups)):
+        # Singleton animals cannot be queries, but remain valid gallery rivals.
+        names = sorted({p.animal for p in ev.photos if p.species == sp})
+        pos = {a: i for i, a in enumerate(names)}
+        C = np.zeros((len(names), len(names)), dtype=int)
+        for r in rows:
+            if r["species"] == sp:
+                C[pos[r["animal"]], pos[r["animal"] if r["rank"] == 1 else r["rival"]]] += 1
+        share = C / np.maximum(C.sum(axis=1, keepdims=True), 1)
+        im = ax.imshow(share, cmap="Blues", vmin=0, vmax=1)
+        labels = identity_labels(ev)
+        ax.set_xticks(range(len(names)), [labels[a] for a in names], rotation=45, ha="right", fontsize=9)
+        ax.set_yticks(range(len(names)), [labels[a] for a in names], fontsize=9)
+        for i in range(len(names)):
+            for j in range(len(names)):
+                if C[i, j]:
+                    ax.text(j, i, str(C[i, j]), ha="center", va="center", fontsize=9,
+                            color="white" if share[i, j] > 0.5 else "black", fontweight="bold" if i == j else None)
+        ax.set_xlabel("top-ranked animal")
+        if k == 0:
+            ax.set_ylabel("query animal")
+        ax.set_title(f"{SPECIES[sp].capitalize()} (hits {np.trace(C)}/{C.sum()})", fontsize=11)
+    fig.colorbar(im, ax=axes[0].tolist(), fraction=0.025, label="row proportion")
+    fig.suptitle(f"Top-1 confusion by species{' — ' + label if label else ''}", fontsize=11)
+    return fig
+
+
+def comparison_figure(evaluations, label: str):
+    """Rank-1/Rank-2 and mAP, by species and domain; galleries remain separate."""
+    import matplotlib.pyplot as plt
+
+    names = list(evaluations)
+    scopes = [scope for scope in ("global", "cat", "dog")
+              if all(e.result["test"].get(scope, {}).get("queries") for e in evaluations.values())]
+    fig, axes = plt.subplots(1, 2, figsize=(11, 4.8))
+    width = 0.8 / max(1, len(names) * 2)
+    positions = np.arange(len(scopes))
+    palette = plt.rcParams["axes.prop_cycle"].by_key()["color"]
+    for i, name in enumerate(names):
+        color = palette[i % len(palette)]
+        for j, metric in enumerate(("rank1", "rank2")):
+            values = [evaluations[name].result["test"][scope][metric] * 100 for scope in scopes]
+            bars = axes[0].bar(positions - 0.4 + width / 2 + (2*i+j)*width, values,
+                               width, label=f"{name} · Rank-{j+1}", color=color,
+                               alpha=1.0 if j == 0 else 0.6, hatch="" if j == 0 else "//")
+            axes[0].bar_label(bars, fmt="%.1f", fontsize=7)
+        map_values = [evaluations[name].result["test"][scope]["mAP"] for scope in scopes]
+        bars = axes[1].bar(positions - 0.4 + (i+0.5)*0.8/len(names), map_values,
+                           0.8/len(names), label=name, color=color)
+        axes[1].bar_label(bars, fmt="%.3f", fontsize=8)
+    for ax in axes:
+        ax.set_xticks(positions, ["Global" if scope == "global" else SPECIES[scope] for scope in scopes])
+        ax.legend(frameon=False, fontsize=8, loc="upper center", bbox_to_anchor=(0.5, -0.13), ncol=2)
+    axes[0].set(ylabel="Retrieved queries (%)", ylim=(0, 115), title="Identity retrieval")
+    axes[1].set(ylabel="mAP", ylim=(0, 1.15), title="Relevant-photo ranking")
+    fig.suptitle(label, fontsize=11)
+    fig.tight_layout()
+    return fig
+
+
+def ranking_metrics(ev, label: str):
+    return comparison_figure({ev.dataset.name: ev}, label)
+
+
+def retrieval_examples(ev, output, dataset_commit):
+    """Save the first deterministic top-1 success/error panel per species."""
+    import matplotlib.pyplot as plt
+    from PIL import Image, ImageOps
+
+    output = Path(output)
+    scores = ev.embeddings @ ev.embeddings.T
+    examples, figures, messages = [], [], []
+    for species in ("cat", "dog"):
+        for success in (True, False):
+            candidates = [row for row in ev.result["test"]["per_query"]
+                          if row["species"] == species and (row["rank"] == 1) == success]
+            outcome = "success" if success else "error"
+            if not candidates:
+                messages.append(f"{species}: no {outcome} examples in this run.")
+                continue
+            row = min(candidates, key=lambda item: item["query"])
+            query_index = row["query"]
+            query = ev.photos[query_index]
+            gallery = [i for i, photo in enumerate(ev.photos)
+                       if i != query_index and photo.species == species]
+            representatives = {}
+            for index in gallery:
+                animal = ev.photos[index].animal
+                if animal not in representatives or scores[query_index, index] > scores[query_index, representatives[animal]]:
+                    representatives[animal] = index
+            ranked = sorted(representatives,
+                            key=lambda animal: scores[query_index, representatives[animal]], reverse=True)
+            if ranked.index(query.animal) + 1 != row["rank"]:
+                raise ValueError("Visual ranking differs from evaluation")
+            top = [representatives[animal] for animal in ranked[:5]]
+            fig, axes = plt.subplots(1, 1 + len(top), figsize=(3 * (1 + len(top)), 3.5), squeeze=False)
+            for position, (axis, index) in enumerate(zip(axes[0], [query_index, *top])):
+                photo = ev.photos[index]
+                with Image.open(photo.path) as raw:
+                    axis.imshow(ImageOps.exif_transpose(raw).convert("RGB"))
+                correct = photo.animal == query.animal
+                label = "Query" if position == 0 else f"#{position} · {'correct' if correct else 'different identity'}"
+                score = "" if position == 0 else f"\ncos={scores[query_index, index]:.3f}"
+                axis.set_title(f"{label}\n{photo.animal}{score}", fontsize=9)
+                axis.axis("off")
+            fig.suptitle(f"Public test · {species} · {outcome} · correct rank={row['rank']}")
+            fig.tight_layout()
+            filename = f"retrieval-{species}-{outcome}.png"
+            fig.savefig(output / filename, dpi=160, bbox_inches="tight")
+            figures.append(fig)
+            examples.append({"query": query_index, "animal": query.animal, "species": species,
+                             "rank": row["rank"], "figure": filename,
+                             "top5": [{"photo": i, "animal": ev.photos[i].animal,
+                                       "score": float(scores[query_index, i])} for i in top]})
+    (output / "retrieval-examples.json").write_text(json.dumps({
+        "dataset_commit": dataset_commit,
+        "selection": "lowest query index per species and top1 success/error, when available",
+        "gallery": "public test only; same species; query excluded; max score per identity",
+        "examples": examples,
+    }, indent=2))
+    return figures, messages
+
+
+def save(ev, model, outdir: str, label: str | None = None) -> dict:
+    """summary.json, scores.json (per-query rows + pair scores, no images) and the PNGs."""
+    import matplotlib
+
+    matplotlib.use("Agg", force=False)
+    os.makedirs(outdir, exist_ok=True)
+    s = summary(ev, model)
+    json.dump(identity_labels(ev), open(os.path.join(outdir, "identity-labels.json"), "w"), indent=2)
+    json.dump(s, open(os.path.join(outdir, "summary.json"), "w"), indent=2, default=float)
+    json.dump({"result": ev.result, "same": ev.same.round(5).tolist(), "diff": ev.diff.round(5).tolist(),
+               "photos": [{"animal": p.animal, "species": p.species, "path": os.path.relpath(p.path, ev.dataset.root)}
+                          for p in ev.photos]},
+              open(os.path.join(outdir, "scores.json"), "w"), default=float)
+    label = label or f"{s['model_version']} · {ev.dataset.name}"
+    figures = (
+        ("confusion", confusion(ev, label)),
+        ("rank1-per-animal", rank1_per_animal(ev, label)),
+        ("score-distribution", score_distribution(ev, label)),
+        ("cmc", cmc(ev, label)),
+        ("similarity-matrix", similarity_matrix(ev, label)),
+        ("ranking-metrics", ranking_metrics(ev, label)),
+    )
+    for name, fig in figures:
+        fig.savefig(os.path.join(outdir, f"{name}.png"), dpi=200, bbox_inches="tight")
+        import matplotlib.pyplot as plt
+
+        plt.close(fig)
+    return s
+
+
+# ---- Markdown tables (notebooks render them with IPython.display.Markdown)
+
+def _pct(x: float) -> str:
+    return f"{x * 100:.1f} %"
+
+
+def metrics_table(summaries: dict[str, dict]) -> str:
+    """One column per experiment: {"E1": summary, "E2": summary}."""
+    names = list(summaries)
+    sp = {n: summaries[n]["per_species"] for n in names}
+    chance = 1 / next(iter(summaries.values()))["global"]["gallery_animals"]
+    rows = [
+        ("Queries / gallery per species", lambda s, n: f"{s['global']['queries']} / {s['global']['gallery_animals']} animals"),
+        (f"Global Rank-1 (chance {_pct(chance)})", lambda s, n: f"**{_pct(s['global']['rank1'])}**"),
+        ("Rank-1 cats / dogs", lambda s, n: f"{_pct(sp[n]['cat']['rank1'])} / {_pct(sp[n]['dog']['rank1'])}"),
+        (f"Global Rank-5 (chance {_pct(5 * chance)})", lambda s, n: _pct(s["global"]["rank5"])),
+        ("Global mAP", lambda s, n: f"{s['global']['mAP']:.3f}"),
+        ("mAP cats / dogs", lambda s, n: f"{sp[n]['cat']['mAP']:.3f} / {sp[n]['dog']['mAP']:.3f}"),
+        ("EER / threshold", lambda s, n: f"{_pct(s['eer'])} / {s['threshold']:.3f}"),
+        ("Minimum similarity, same animal", lambda s, n: f"{s['same_range'][0]:.3f}"),
+        ("Maximum cosine similarity, different animal", lambda s, n: f"{s['diff_range'][1]:.6f}"),
+    ]
+    out = ["| Metric | " + " | ".join(names) + " |", "|---" * (len(names) + 1) + "|"]
+    for title, f in rows:
+        out.append(f"| {title} | " + " | ".join(f(summaries[n], n) for n in names) + " |")
+    return "\n".join(out)
+
+
+def per_animal_table(summaries: dict[str, dict]) -> str:
+    """Rank-1 hits per animal for each experiment + who the last one confuses it with."""
+    names = list(summaries)
+    last = summaries[names[-1]]["per_animal"]
+    out = ["| Animal | " + " | ".join(names) + f" | {names[-1]}: confused with |", "|---" * (len(names) + 2) + "|"]
+    for a in sorted(last):
+        hits = [f"{round(summaries[n]['per_animal'][a]['rank1'] * summaries[n]['per_animal'][a]['queries'])}"
+                f"/{summaries[n]['per_animal'][a]['queries']}" for n in names]
+        riv = ", ".join(f"{k} ({v})" for k, v in sorted(last[a]["rivals"].items(), key=lambda kv: -kv[1]) if v) or "—"
+        out.append(f"| {a} | " + " | ".join(hits) + f" | {riv} |")
+    return "\n".join(out)
+
+
+# ---- Captions: how to read each figure and what this run shows
+
+def _list(items: list[str]) -> str:
+    return items[0] if len(items) == 1 else ", ".join(items[:-1]) + " and " + items[-1] if items else ""
+
+
+def explain(name: str, s: dict) -> str:
+    pa, g, sp = s["per_animal"], s["global"], s["per_species"]
+    n = g["gallery_animals"]
+    chance = 1 / n
+    hits = lambda a: round(pa[a]["rank1"] * pa[a]["queries"])  # noqa: E731
+    if name == "confusion":
+        pairs = [(c, a, b) for a in pa for b, c in pa[a]["rivals"].items() if c]
+        pairs.sort(reverse=True)
+        top = _list([f"`{a}` → `{b}` ({c} of {pa[a]['queries']})" for c, a, b in pairs[:3]])
+        per = " and ".join(f"{round(sp[x]['rank1'] * sp[x]['queries'])}/{sp[x]['queries']} for "
+                           f"{SPECIES[x]}" for x in sp)
+        return ("**How to read it.** Each row is the query animal and each column is the animal ranked first; "
+                "the number is the query count. The diagonal contains hits and off-diagonal cells are confusions. "
+                "Animals are compared only within species, as in the app. "
+                f"**In this run** the model gets {per} correct. Most frequent confusions: {top}. "
+                "If they cluster within a look-alike group, the error reflects similar appearance rather than species.")
+    if name == "rank1-per-animal":
+        best = [a for a in sorted(pa) if pa[a]["rank1"] == 1.0]
+        worst = sorted(pa, key=lambda a: pa[a]["rank1"])[:3]
+        return ("**How to read it.** Each bar is the share of that animal's queries where the correct animal "
+                f"ranked first; the marker is chance ({chance:.1%} with {n} animals per species). "
+                "It shows whether the average hides animals that are much harder than others. "
+                f"**In this run** {_list([f'`{a}`' for a in best]) or 'no animal'} answers every query correctly, "
+                "and the hardest are "
+                + _list([f"`{a}` ({hits(a)}/{pa[a]['queries']})" for a in worst]) + ".")
+    if name == "score-distribution":
+        return ("**How to read it.** Histograms show cosine similarity for photo pairs of the same animal (green) "
+                "and different animals of the same species (red). The dashed line is the equal-error-rate threshold. "
+                "Less overlap means the model separates identities better with a fixed threshold. "
+                f"**In this run** EER is {s['eer']:.1%} at {s['threshold']:.3f}: same-animal pairs range from "
+                f"{s['same_range'][0]:.3f} to {s['same_range'][1]:.3f}, while different-animal pairs range from "
+                f"{s['diff_range'][0]:.3f} to {s['diff_range'][1]:.3f}. A fixed threshold is therefore insufficient, "
+                "so the product presents a ranking for owner confirmation.")
+    if name == "cmc":
+        return ("**How to read it.** The CMC curve shows, for each k, the share of queries where the correct animal "
+                "appears among the top-k candidates. It represents how many candidates an owner must review. "
+                f"With {n} animals per species, k = {n} is always 100%. **In this run** the correct animal ranks "
+                f"first for {g['rank1']:.1%} of queries (chance {chance:.1%}) and in the top 5 for "
+                f"{g['rank5']:.1%} (chance {5 * chance:.1%}).")
+    if name == "similarity-matrix":
+        ms = s.get("mean_similarity", {})
+        detail = "; ".join(f"for {SPECIES[x]} {v['same']:.3f} (same) versus {v['diff']:.3f} (different)"
+                           for x, v in ms.items())
+        return ("**How to read it.** Mean cosine similarity between photos for each animal pair; the diagonal is "
+                "the same animal. A bright diagonal on a dark background indicates identity clustering, while bright "
+                "off-diagonal cells mark animals the model sees as similar. "
+                f"**In this run** mean similarity is {detail}. The small gap explains why ranking works while a "
+                "fixed threshold does not.")
+    return ""

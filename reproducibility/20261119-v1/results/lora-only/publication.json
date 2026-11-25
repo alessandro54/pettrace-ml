@@ -1,0 +1,44 @@
+{
+  "45-public": {
+    "published": true,
+    "run_id": "ab0b0aaf98e24ae18737c7f41da42d03",
+    "training_run": "209b96e9182c45d3a69e5671a5201e3c",
+    "seed": 45,
+    "domain": "public"
+  },
+  "45-private": {
+    "published": true,
+    "run_id": "34150624a2d4450b9b61e2cf8dac314b",
+    "training_run": "209b96e9182c45d3a69e5671a5201e3c",
+    "seed": 45,
+    "domain": "private"
+  },
+  "46-public": {
+    "published": true,
+    "run_id": "16214e8f0e0f4740a0bd2ded59ab3626",
+    "training_run": "5e1909f4e9ae47f0a9551df350072c7c",
+    "seed": 46,
+    "domain": "public"
+  },
+  "46-private": {
+    "published": true,
+    "run_id": "83c5f44e3c05472db2934d6fce47347e",
+    "training_run": "5e1909f4e9ae47f0a9551df350072c7c",
+    "seed": 46,
+    "domain": "private"
+  },
+  "47-public": {
+    "published": true,
+    "run_id": "fa9bd58fb945454bb31a8f768dac9b46",
+    "training_run": "eaade411fa2141dc97137e421d405d2d",
+    "seed": 47,
+    "domain": "public"
+  },
+  "47-private": {
+    "published": true,
+    "run_id": "ec35e029afdb4e6aa13ffa8a703a9e10",
+    "training_run": "eaade411fa2141dc97137e421d405d2d",
+    "seed": 47,
+    "domain": "private"
+  }
+}

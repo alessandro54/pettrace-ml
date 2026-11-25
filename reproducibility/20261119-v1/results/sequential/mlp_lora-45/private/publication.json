@@ -1,0 +1,7 @@
+{
+  "mode": "mlp_lora",
+  "seed": 45,
+  "domain": "private",
+  "run_id": "cda7a09b23ee426b98d5c58a8dc02f8a",
+  "published": true
+}
